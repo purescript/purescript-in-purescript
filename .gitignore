@@ -5,4 +5,5 @@ purescript-quickcheck/
 purescript-transformers/
 purescript-parsing/
 purescript-readline/
+purescript-generics/
  
