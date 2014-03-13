@@ -24,7 +24,7 @@ js/Data/Generics.js: js/Prelude.js
 	  externs/Prelude.e.purs.hs \
 	  -o js/Data/Generics.js \
 	  -e externs/Data/Generics.e.purs.hs \
-	  --module Data.Generics --tco --magic-do --no-prelude
+	  --module Data.Generics --codegen Data.Generics --tco --magic-do --no-prelude
 
 js/Language/PureScript/Names.js: js/Prelude.js js/Data/Generics.js
 	mkdir -p js/Language/PureScript
@@ -34,7 +34,7 @@ js/Language/PureScript/Names.js: js/Prelude.js js/Data/Generics.js
 	  externs/Data/Generics.e.purs.hs \
 	  -o js/Language/PureScript/Names.js \
 	  -e externs/Language/PureScript/Names.e.purs.hs \
-	  --magic-do --tco --module Language.PureScript.Names --no-prelude
+	  --magic-do --tco --module Language.PureScript.Names --codegen Language.PureScript.Names --no-prelude
 
 js/Language/PureScript/Values.js: js/Prelude.js js/Language/PureScript/Names.js
 	mkdir -p js/Language/PureScript
@@ -44,7 +44,7 @@ js/Language/PureScript/Values.js: js/Prelude.js js/Language/PureScript/Names.js
 	  externs/Language/PureScript/Names.e.purs.hs \
 	  -o js/Language/PureScript/Values.js \
 	  -e externs/Language/PureScript/Values.e.purs.hs \
-	  --magic-do --tco --module Language.PureScript.Values --no-prelude
+	  --magic-do --tco --module Language.PureScript.Values --codegen Language.PureScript.Values --no-prelude
 
 test:
 
