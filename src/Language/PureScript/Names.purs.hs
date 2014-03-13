@@ -1,6 +1,10 @@
 module Language.PureScript.Names where
 
+import Prelude
+import Data.Maybe
 import Data.Array
+import Data.Tuple
+import Data.String
 import Data.Generics
   
 -- |
@@ -42,8 +46,8 @@ instance eqIdent :: Eq Ident where
   (==) _             _            = false
   (/=) i1            i2           = not (i1 == i2)
 
-instance ordIdent :: Ord Ident where
-  compare i1 i2 = compare (show i1) (show i2)
+--instance ordIdent :: Ord Ident where
+--  compare i1 i2 = compare (show i1) (show i2)
 
 -- |
 -- Proper names, i.e. capitalized names for e.g. module names, type//data constructors.
@@ -54,7 +58,7 @@ runProperName :: ProperName -> String
 runProperName (ProperName s) = s
 
 instance genericProperName :: Generic ProperName where
-  typeOf _ = TyCon { tyCon = "Language.PureScript.Names.ProperName", args = [] }
+  typeOf _ = TyCon { tyCon: "Language.PureScript.Names.ProperName", args: [] }
   term (ProperName s) = TmCon { con: "Language.PureScript.Names.ProperName", values : [term s] }
   unTerm (TmCon { con = "Language.PureScript.Names.ProperName", values = [t] }) = ProperName <$> unTerm t
   unTerm _ = Nothing
@@ -66,8 +70,8 @@ instance eqProperName :: Eq ProperName where
   (==) (ProperName s1) (ProperName s2) = s1 == s2
   (/=) (ProperName s1) (ProperName s2) = s1 /= s2
 
-instance ordProperName :: Ord ProperName where
-  compare (ProperName s1) (ProperName s2) = compare s1 s2
+--instance ordProperName :: Ord ProperName where
+--  compare (ProperName s1) (ProperName s2) = compare s1 s2
 
 -- |
 -- Module names
@@ -75,7 +79,7 @@ instance ordProperName :: Ord ProperName where
 data ModuleName = ModuleName [ProperName] 
 
 instance genericModuleName :: Generic ModuleName where
-  typeOf _ = TyCon { tyCon = "Language.PureScript.Names.ModuleName", args = [] }
+  typeOf _ = TyCon { tyCon: "Language.PureScript.Names.ModuleName", args: [] }
   term (ModuleName pns) = TmCon { con: "Language.PureScript.Names.ModuleName", values : [term pns] }
   unTerm (TmCon { con = "Language.PureScript.Names.ModuleName", values = [t] }) = ModuleName <$> unTerm t
   unTerm _ = Nothing
@@ -87,11 +91,11 @@ instance eqModuleName :: Eq ModuleName where
   (==) (ModuleName s1) (ModuleName s2) = s1 == s2
   (/=) (ModuleName s1) (ModuleName s2) = s1 /= s2
 
-instance ordModuleName :: Ord ModuleName where
-  compare (ModuleName s1) (ModuleName s2) = compare s1 s2
+--instance ordModuleName :: Ord ModuleName where
+--  compare (ModuleName s1) (ModuleName s2) = compare s1 s2
 
 runModuleName :: ModuleName -> String
-runModuleName (ModuleName pns) = intercalate "." (runProperName `map` pns)
+runModuleName (ModuleName pns) = joinWith (runProperName `map` pns) "."
 
 moduleNameFromString :: String -> ModuleName
 moduleNameFromString = ModuleName <<< map ProperName <<< split "."
@@ -102,7 +106,7 @@ moduleNameFromString = ModuleName <<< map ProperName <<< split "."
 data Qualified a = Qualified (Maybe ModuleName) a
 
 instance eqQualified :: (Eq a) => Eq (Qualified a) where
-  (==) (Qualified m1 a1) (Qualified m2 a1) = m1 == m2 && a1 == a2
+  (==) (Qualified m1 a1) (Qualified m2 a2) = m1 == m2 && a1 == a2
   (/=) q1 q2 = not (q1 == q2)
 
 instance showQualified :: (Show a) => Show (Qualified a) where
@@ -112,6 +116,6 @@ instance showQualified :: (Show a) => Show (Qualified a) where
 -- |
 -- Provide a default module name, if a name is unqualified
 --
-qualify :: ModuleName -> Qualified a -> Tuple ModuleName a
+qualify :: forall a. ModuleName -> Qualified a -> Tuple ModuleName a
 qualify m (Qualified Nothing a) = Tuple m a
 qualify _ (Qualified (Just m) a) = Tuple m a
