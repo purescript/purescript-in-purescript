@@ -125,7 +125,56 @@ data BinaryOperator
   -- |
   -- Bitwise right shift with zero-fill
   --
-  | ZeroFillShiftRight --deriving (Show, Eq, Data, Typeable)
+  | ZeroFillShiftRight
+
+instance showBinaryOperator :: Show BinaryOperator where
+  show = gshow
+
+instance eqBinaryOperator :: Eq BinaryOperator where
+  (==) = geq
+  (/=) x y = not (geq x y)
+  
+instance genericBinaryOperator :: Generic BinaryOperator where
+  typeOf _ = TyCon { tyCon: "Language.PureScript.CodeGen.JS.AST.BinaryOperator", args: [] }
+  term Add                  = TmCon { con: "Language.PureScript.Names.Add"                  , values: [] }
+  term Subtract             = TmCon { con: "Language.PureScript.Names.Subtract"             , values: [] }
+  term Multiply             = TmCon { con: "Language.PureScript.Names.Multiply"             , values: [] }
+  term Divide               = TmCon { con: "Language.PureScript.Names.Divide"               , values: [] }
+  term Modulus              = TmCon { con: "Language.PureScript.Names.Modulus"              , values: [] }
+  term EqualTo              = TmCon { con: "Language.PureScript.Names.EqualTo"              , values: [] }
+  term NotEqualTo           = TmCon { con: "Language.PureScript.Names.NotEqualTo"           , values: [] }
+  term LessThan             = TmCon { con: "Language.PureScript.Names.LessThan"             , values: [] }
+  term LessThanOrEqualTo    = TmCon { con: "Language.PureScript.Names.LessThanOrEqualTo"    , values: [] }
+  term GreaterThan          = TmCon { con: "Language.PureScript.Names.GreaterThan"          , values: [] }
+  term GreaterThanOrEqualTo = TmCon { con: "Language.PureScript.Names.GreaterThanOrEqualTo" , values: [] }
+  term And                  = TmCon { con: "Language.PureScript.Names.And"                  , values: [] }
+  term Or                   = TmCon { con: "Language.PureScript.Names.Or"                   , values: [] }
+  term BitwiseAnd           = TmCon { con: "Language.PureScript.Names.BitwiseAnd"           , values: [] }
+  term BitwiseOr            = TmCon { con: "Language.PureScript.Names.BitwiseOr"            , values: [] }
+  term BitwiseXor           = TmCon { con: "Language.PureScript.Names.BitwiseXor"           , values: [] }
+  term ShiftLeft            = TmCon { con: "Language.PureScript.Names.ShiftLeft"            , values: [] }
+  term ShiftRight           = TmCon { con: "Language.PureScript.Names.ShiftRight"           , values: [] }
+  term ZeroFillShiftRight   = TmCon { con: "Language.PureScript.Names.ZeroFillShiftRight"   , values: [] }
+  unTerm (TmCon { con = "Language.PureScript.Names.Add"                  }) = Just Add
+  unTerm (TmCon { con = "Language.PureScript.Names.Subtract"             }) = Just Subtract
+  unTerm (TmCon { con = "Language.PureScript.Names.Multiply"             }) = Just Multiply
+  unTerm (TmCon { con = "Language.PureScript.Names.Divide"               }) = Just Divide
+  unTerm (TmCon { con = "Language.PureScript.Names.Modulus"              }) = Just Modulus
+  unTerm (TmCon { con = "Language.PureScript.Names.EqualTo"              }) = Just EqualTo
+  unTerm (TmCon { con = "Language.PureScript.Names.NotEqualTo"           }) = Just NotEqualTo
+  unTerm (TmCon { con = "Language.PureScript.Names.LessThan"             }) = Just LessThan
+  unTerm (TmCon { con = "Language.PureScript.Names.LessThanOrEqualTo"    }) = Just LessThanOrEqualTo
+  unTerm (TmCon { con = "Language.PureScript.Names.GreaterThan"          }) = Just GreaterThan
+  unTerm (TmCon { con = "Language.PureScript.Names.GreaterThanOrEqualTo" }) = Just GreaterThanOrEqualTo
+  unTerm (TmCon { con = "Language.PureScript.Names.And"                  }) = Just And
+  unTerm (TmCon { con = "Language.PureScript.Names.Or"                   }) = Just Or
+  unTerm (TmCon { con = "Language.PureScript.Names.BitwiseAnd"           }) = Just BitwiseAnd
+  unTerm (TmCon { con = "Language.PureScript.Names.BitwiseOr"            }) = Just BitwiseOr
+  unTerm (TmCon { con = "Language.PureScript.Names.BitwiseXor"           }) = Just BitwiseXor
+  unTerm (TmCon { con = "Language.PureScript.Names.ShiftLeft"            }) = Just ShiftLeft
+  unTerm (TmCon { con = "Language.PureScript.Names.ShiftRight"           }) = Just ShiftRight
+  unTerm (TmCon { con = "Language.PureScript.Names.ZeroFillShiftRight"   }) = Just ZeroFillShiftRight
+  unTerm _ = Nothing
 
 -- |
 -- Data type for simplified Javascript expressions
