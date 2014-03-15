@@ -11,5 +11,6 @@ all: lib
 lib:
 	psc --make \
 	  purescript-generics/src/Data/Generics.purs.hs \
-	  src/Language/PureScript/Names.purs.hs
+	  src/Language/PureScript/Names.purs.hs \
+	  src/Language/PureScript/CodeGen/JS/AST.purs.hs
 
