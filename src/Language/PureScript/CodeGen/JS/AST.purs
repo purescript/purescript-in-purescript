@@ -26,20 +26,16 @@ data UnaryOperator
   -- Numeric unary \'plus\'
   --
   | Positive
-  
+
 instance showUnaryOperator :: Show UnaryOperator where
   show = gshow
 
 instance eqUnaryOperator :: Eq UnaryOperator where
-  (==) Negate     Negate     = true
-  (==) Not        Not        = true
-  (==) BitwiseNot BitwiseNot = true
-  (==) Positive   Positive   = true
-  (==) _ _ = false
-  (/=) x y = not (x == y)
-  
+  (==) = geq
+  (/=) x y = not (geq x y)
+
 instance genericUnaryOperator :: Generic UnaryOperator where
-  typeOf _ = TyCon { tyCon: "Language.PureScript.CodeGen.JS.AST.UnaryOperator", args: [] }  
+  typeOf _ = TyCon { tyCon: "Language.PureScript.CodeGen.JS.AST.UnaryOperator", args: [] }
   term Negate     = TmCon { con: "Language.PureScript.Names.Negate"     , values: [] }
   term Not        = TmCon { con: "Language.PureScript.Names.Not"        , values: [] }
   term BitwiseNot = TmCon { con: "Language.PureScript.Names.BitwiseNot" , values: [] }
