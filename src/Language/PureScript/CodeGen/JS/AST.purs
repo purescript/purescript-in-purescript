@@ -1,8 +1,10 @@
 module Language.PureScript.CodeGen.JS.AST where
 
+import Prelude
 import Data.Either
 import Data.Maybe
 import Data.Tuple
+import Data.Generics
 
 -- |
 -- Built-in unary operators
@@ -23,7 +25,30 @@ data UnaryOperator
   -- |
   -- Numeric unary \'plus\'
   --
-  | Positive --deriving (Show, Eq, Data, Typeable)
+  | Positive
+  
+instance showUnaryOperator :: Show UnaryOperator where
+  show = gshow
+
+instance eqUnaryOperator :: Eq UnaryOperator where
+  (==) Negate     Negate     = true
+  (==) Not        Not        = true
+  (==) BitwiseNot BitwiseNot = true
+  (==) Positive   Positive   = true
+  (==) _ _ = false
+  (/=) x y = not (x == y)
+  
+instance genericUnaryOperator :: Generic UnaryOperator where
+  typeOf _ = TyCon { tyCon: "Language.PureScript.CodeGen.JS.AST.UnaryOperator", args: [] }  
+  term Negate     = TmCon { con: "Language.PureScript.Names.Negate"     , values: [] }
+  term Not        = TmCon { con: "Language.PureScript.Names.Not"        , values: [] }
+  term BitwiseNot = TmCon { con: "Language.PureScript.Names.BitwiseNot" , values: [] }
+  term Positive   = TmCon { con: "Language.PureScript.Names.Positive"   , values: [] }
+  unTerm (TmCon { con = "Language.PureScript.Names.Negate"     }) = Just Negate
+  unTerm (TmCon { con = "Language.PureScript.Names.Not"        }) = Just Not
+  unTerm (TmCon { con = "Language.PureScript.Names.BitwiseNot" }) = Just BitwiseNot
+  unTerm (TmCon { con = "Language.PureScript.Names.Positive"   }) = Just Positive
+  unTerm _ = Nothing
 
 -- |
 -- Built-in binary operators
