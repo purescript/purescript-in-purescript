@@ -133,7 +133,7 @@ instance showBinaryOperator :: Show BinaryOperator where
 instance eqBinaryOperator :: Eq BinaryOperator where
   (==) = geq
   (/=) x y = not (geq x y)
-  
+
 instance genericBinaryOperator :: Generic BinaryOperator where
   typeOf _ = TyCon { tyCon: "Language.PureScript.CodeGen.JS.AST.BinaryOperator", args: [] }
   term Add                  = TmCon { con: "Language.PureScript.Names.Add"                  , values: [] }
@@ -287,4 +287,69 @@ data JS
   -- |
   -- Raw Javascript (for an inline foreign import declarations)
   --
-  | JSRaw String --deriving (Show, Eq, Data, Typeable)
+  | JSRaw String
+
+instance showJS :: Show JS where
+  show = gshow
+
+instance eqJS :: Eq JS where
+  (==) = geq
+  (/=) x y = not (geq x y)
+
+instance genericJS :: Generic JS where
+  typeOf _ = TyCon { tyCon: "Language.PureScript.CodeGen.JS.AST.BinaryOperator", args: [] }
+  term (JSNumericLiteral n)              = TmCon { con: "Language.PureScript.Names.JSNumericLiteral"       , values: [term n] }
+  term (JSStringLiteral s)               = TmCon { con: "Language.PureScript.Names.JSStringLiteral"        , values: [term s] }
+  term (JSBooleanLiteral b)              = TmCon { con: "Language.PureScript.Names.JSBooleanLiteral"       , values: [term b] }
+  term (JSUnary op x)                    = TmCon { con: "Language.PureScript.Names.JSUnary"                , values: [term op, term x] }
+  term (JSBinary op x y)                 = TmCon { con: "Language.PureScript.Names.JSBinary"               , values: [term op, term x, term y] }
+  term (JSArrayLiteral es)               = TmCon { con: "Language.PureScript.Names.JSArrayLiteral"         , values: [term es] }
+  term (JSIndexer prop val)              = TmCon { con: "Language.PureScript.Names.JSIndexer"              , values: [term prop, term val] }
+  term (JSObjectLiteral props)           = TmCon { con: "Language.PureScript.Names.JSObjectLiteral"        , values: [term props] }
+  term (JSAccessor prop val)             = TmCon { con: "Language.PureScript.Names.JSAccessor"             , values: [term prop, term val] }
+  term (JSFunction name args body)       = TmCon { con: "Language.PureScript.Names.JSFunction"             , values: [term name, term args, term body] }
+  term (JSApp fn args)                   = TmCon { con: "Language.PureScript.Names.JSApp"                  , values: [term fn, term args] }
+  term (JSVar name)                      = TmCon { con: "Language.PureScript.Names.JSVar"                  , values: [term name] }
+  term (JSConditional cond th el)        = TmCon { con: "Language.PureScript.Names.JSConditional"          , values: [term cond, term th, term el] }
+  term (JSBlock sts)                     = TmCon { con: "Language.PureScript.Names.JSBlock"                , values: [term sts] }
+  term (JSVariableIntroduction name val) = TmCon { con: "Language.PureScript.Names.JSVariableIntroduction" , values: [term name, term val] }
+  term (JSAssignment targ val)           = TmCon { con: "Language.PureScript.Names.JSAssignment"           , values: [term targ, term val] }
+  term (JSWhile cond sts)                = TmCon { con: "Language.PureScript.Names.JSWhile"                , values: [term cond, term sts] }
+  term (JSFor name start end sts)        = TmCon { con: "Language.PureScript.Names.JSFor"                  , values: [term name, term start, term end, term sts] }
+  term (JSForIn name obj sts)            = TmCon { con: "Language.PureScript.Names.JSForIn"                , values: [term name, term obj, term sts] }
+  term (JSIfElse cond ths els)           = TmCon { con: "Language.PureScript.Names.JSIfElse"               , values: [term cond, term ths, term els] }
+  term (JSReturn val)                    = TmCon { con: "Language.PureScript.Names.JSReturn"               , values: [term val] }
+  term (JSThrow val)                     = TmCon { con: "Language.PureScript.Names.JSThrow"                , values: [term val] }
+  term (JSTypeOf val)                    = TmCon { con: "Language.PureScript.Names.JSTypeOf"               , values: [term val] }
+  term (JSLabel name st)                 = TmCon { con: "Language.PureScript.Names.JSLabel"                , values: [term name, term st] }
+  term (JSBreak name)                    = TmCon { con: "Language.PureScript.Names.JSBreak"                , values: [term name] }
+  term (JSContinue name)                 = TmCon { con: "Language.PureScript.Names.JSContinue"             , values: [term name] }
+  term (JSRaw js)                        = TmCon { con: "Language.PureScript.Names.JSRaw"                  , values: [term js] }
+  unTerm (TmCon { con = "Language.PureScript.Names.JSNumericLiteral"       , values = [n]                      }) = JSNumericLiteral        <$> unTerm n
+  unTerm (TmCon { con = "Language.PureScript.Names.JSStringLiteral"        , values = [s]                      }) = JSStringLiteral         <$> unTerm s
+  unTerm (TmCon { con = "Language.PureScript.Names.JSBooleanLiteral"       , values = [b]                      }) = JSBooleanLiteral        <$> unTerm b
+  unTerm (TmCon { con = "Language.PureScript.Names.JSUnary"                , values = [op, x]                  }) = JSUnary                 <$> unTerm op <*> unTerm x
+  unTerm (TmCon { con = "Language.PureScript.Names.JSBinary"               , values = [op, x, y]               }) = JSBinary                <$> unTerm op <*> unTerm x <*> unTerm y
+  unTerm (TmCon { con = "Language.PureScript.Names.JSArrayLiteral"         , values = [es]                     }) = JSArrayLiteral          <$> unTerm es
+  unTerm (TmCon { con = "Language.PureScript.Names.JSIndexer"              , values = [prop, val]              }) = JSIndexer               <$> unTerm prop <*> unTerm val
+  unTerm (TmCon { con = "Language.PureScript.Names.JSObjectLiteral"        , values = [props]                  }) = JSObjectLiteral         <$> unTerm props
+  unTerm (TmCon { con = "Language.PureScript.Names.JSAccessor"             , values = [prop, val]              }) = JSAccessor              <$> unTerm prop <*> unTerm val
+  unTerm (TmCon { con = "Language.PureScript.Names.JSFunction"             , values = [name, args, body]       }) = JSFunction              <$> unTerm name <*> unTerm args <*> unTerm body
+  unTerm (TmCon { con = "Language.PureScript.Names.JSApp"                  , values = [fn, args]               }) = JSApp                   <$> unTerm fn <*> unTerm args
+  unTerm (TmCon { con = "Language.PureScript.Names.JSVar"                  , values = [name]                   }) = JSVar                   <$> unTerm name
+  unTerm (TmCon { con = "Language.PureScript.Names.JSConditional"          , values = [cond, th, el]           }) = JSConditional           <$> unTerm cond <*> unTerm th <*> unTerm el
+  unTerm (TmCon { con = "Language.PureScript.Names.JSBlock"                , values = [sts]                    }) = JSBlock                 <$> unTerm sts
+  unTerm (TmCon { con = "Language.PureScript.Names.JSVariableIntroduction" , values = [name, val]              }) = JSVariableIntroduction  <$> unTerm name <*> unTerm val
+  unTerm (TmCon { con = "Language.PureScript.Names.JSAssignment"           , values = [targ, val]              }) = JSAssignment            <$> unTerm targ <*> unTerm val
+  unTerm (TmCon { con = "Language.PureScript.Names.JSWhile"                , values = [cond, sts]              }) = JSWhile                 <$> unTerm cond <*> unTerm sts
+  unTerm (TmCon { con = "Language.PureScript.Names.JSFor"                  , values = [name, start, end, sts]  }) = JSFor                   <$> unTerm name <*> unTerm start <*> unTerm end <*> unTerm sts
+  unTerm (TmCon { con = "Language.PureScript.Names.JSForIn"                , values = [name, obj, sts]         }) = JSForIn                 <$> unTerm name <*> unTerm obj <*> unTerm sts
+  unTerm (TmCon { con = "Language.PureScript.Names.JSIfElse"               , values = [cond, ths, els]         }) = JSIfElse                <$> unTerm cond <*> unTerm ths <*> unTerm els
+  unTerm (TmCon { con = "Language.PureScript.Names.JSReturn"               , values = [val]                    }) = JSReturn                <$> unTerm val
+  unTerm (TmCon { con = "Language.PureScript.Names.JSThrow"                , values = [val]                    }) = JSThrow                 <$> unTerm val
+  unTerm (TmCon { con = "Language.PureScript.Names.JSTypeOf"               , values = [val]                    }) = JSTypeOf                <$> unTerm val
+  unTerm (TmCon { con = "Language.PureScript.Names.JSLabel"                , values = [name, st]               }) = JSLabel                 <$> unTerm name <*> unTerm st
+  unTerm (TmCon { con = "Language.PureScript.Names.JSBreak"                , values = [name]                   }) = JSBreak                 <$> unTerm name
+  unTerm (TmCon { con = "Language.PureScript.Names.JSContinue"             , values = [name]                   }) = JSContinue              <$> unTerm name
+  unTerm (TmCon { con = "Language.PureScript.Names.JSRaw"                  , values = [js]                     }) = JSRaw                   <$> unTerm js
+  unTerm _ = Nothing
