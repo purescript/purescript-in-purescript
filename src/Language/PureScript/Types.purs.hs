@@ -114,11 +114,36 @@ data Type
   --
   | PrettyPrintForAll [String] Type
 
--- TODO: complete this
 instance genericType :: Generic Type where
   typeOf _ = TyCon { tyCon: "Language.PureScript.Types.Type", args: [] }  
-  term (TUnknown u) = TmCon { con: "Language.PureScript.Types.TUnknown", values: [term u] }
-  unTerm (TmCon { con = "Language.PureScript.Types.TUnknown", values = [t] }) = TUnknown <$> unTerm t
+  term (TUnknown u)                         = TmCon { con: "Language.PureScript.Types.TUnknown",             values: [term u] }
+  term (Object t)                           = TmCon { con: "Language.PureScript.Types.Object",               values: [term t] }
+  term (TypeVar v)                          = TmCon { con: "Language.PureScript.Types.TypeVar",              values: [term v] }
+  term (TypeConstructor pn)                 = TmCon { con: "Language.PureScript.Types.TypeConstructor",      values: [term pn] }
+  term (TypeApp t1 t2)                      = TmCon { con: "Language.PureScript.Types.TypeApp",              values: [term t1, term t2] }
+  term (SaturatedTypeSynonym pn args)       = TmCon { con: "Language.PureScript.Types.SaturatedTypeSynonym", values: [term pn, term args] }
+  term (ForAll v t sco)                     = TmCon { con: "Language.PureScript.Types.ForAll",               values: [term v, term t, term sco] }
+  term (ConstrainedType cons t)             = TmCon { con: "Language.PureScript.Types.ConstrainedType",      values: [term cons, term t] }
+  term (Skolem u sco)                       = TmCon { con: "Language.PureScript.Types.Skolem",               values: [term u, term sco] }
+  term REmpty                               = TmCon { con: "Language.PureScript.Types.REmpty",               values: [] }
+  term (RCons p t r)                        = TmCon { con: "Language.PureScript.Types.RCons",                values: [term p, term t, term r] }
+  term (PrettyPrintFunction t1 t2)          = TmCon { con: "Language.PureScript.Types.PrettyPrintFunction",  values: [term t1, term t2] }
+  term (PrettyPrintArray t)                 = TmCon { con: "Language.PureScript.Types.PrettyPrintArray",     values: [term t] }
+  term (PrettyPrintForAll vs t)             = TmCon { con: "Language.PureScript.Types.PrettyPrintForAll",    values: [term vs, term t] }
+  unTerm (TmCon { con = "Language.PureScript.Types.TUnknown",             values = [u] })              = TUnknown <$> unTerm u
+  unTerm (TmCon { con = "Language.PureScript.Types.Object",               values = [t] })              = Object <$> unTerm t
+  unTerm (TmCon { con = "Language.PureScript.Types.TypeVar",              values = [v] })              = TypeVar <$> unTerm v
+  unTerm (TmCon { con = "Language.PureScript.Types.TypeConstructor",      values = [pn] })             = TypeConstructor <$> unTerm pn
+  unTerm (TmCon { con = "Language.PureScript.Types.TypeApp",              values = [t1, t2] })         = TypeApp <$> unTerm t1 <*> unTerm t2
+  unTerm (TmCon { con = "Language.PureScript.Types.SaturatedTypeSynonym", values = [pn, args] })       = SaturatedTypeSynonym <$> unTerm pn <*> unTerm args
+  unTerm (TmCon { con = "Language.PureScript.Types.ForAll",               values = [v, t, sco] })      = ForAll <$> unTerm v <*> unTerm t <*> unTerm sco
+  unTerm (TmCon { con = "Language.PureScript.Types.ConstrainedType",      values = [cons, t] })        = ConstrainedType <$> unTerm cons <*> unTerm t
+  unTerm (TmCon { con = "Language.PureScript.Types.Skolem",               values = [u, sco] })         = Skolem <$> unTerm u <*> unTerm sco
+  unTerm (TmCon { con = "Language.PureScript.Types.REmpty",               values = [] })               = pure REmpty
+  unTerm (TmCon { con = "Language.PureScript.Types.RCons",                values = [p, t, r] })        = RCons <$> unTerm p <*> unTerm t <*> unTerm r
+  unTerm (TmCon { con = "Language.PureScript.Types.PrettyPrintFunction",  values = [t1, t2] })         = PrettyPrintFunction <$> unTerm t1 <*> unTerm t2
+  unTerm (TmCon { con = "Language.PureScript.Types.PrettyPrintArray",     values = [t] })              = PrettyPrintArray <$> unTerm t
+  unTerm (TmCon { con = "Language.PureScript.Types.PrettyPrintForAll",    values = [vs, t] })          = PrettyPrintForAll <$> unTerm vs <*> unTerm t
   unTerm _ = Nothing
 
 instance showType :: Show Type where
