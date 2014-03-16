@@ -105,6 +105,15 @@ moduleNameFromString = ModuleName <<< map ProperName <<< split "."
 --
 data Qualified a = Qualified (Maybe ModuleName) a
 
+qualifiedProxy :: forall a. Proxy (Qualified a) -> Proxy a
+qualifiedProxy _ = Proxy
+
+instance genericQualified :: (Generic a) => Generic (Qualified a) where
+  typeOf p = TyCon { tyCon: "Language.PureScript.Names.Qualified", args: [typeOf (qualifiedProxy p)]}
+  term (Qualified mn a) = TmCon { con: "Language.PureScript.Names.Qualified", values : [term mn, term a] }
+  unTerm (TmCon { con = "Language.PureScript.Names.Qualified", values = [mn, a] }) = Qualified <$> unTerm mn <*> unTerm a
+  unTerm _ = Nothing
+
 instance eqQualified :: (Eq a) => Eq (Qualified a) where
   (==) (Qualified m1 a1) (Qualified m2 a2) = m1 == m2 && a1 == a2
   (/=) q1 q2 = not (q1 == q2)
