@@ -11,6 +11,7 @@ all: lib
 
 lib:
 	psc --make \
+	  purescript-arrows/src/Control/Arrow.purs.hs \
 	  purescript-generics/src/Data/Generics.purs.hs \
 	  src/Language/PureScript/Names.purs.hs \
 	  src/Language/PureScript/Values.purs.hs \
