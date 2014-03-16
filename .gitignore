@@ -1,10 +1,4 @@
-js/
-externs/
-purescript-arrows/
-purescript-maps/
-purescript-quickcheck/
-purescript-transformers/
-purescript-parsing/
-purescript-readline/
-purescript-generics/
- 
+/js/
+/externs/
+/node_modules/
+/bower_components/
