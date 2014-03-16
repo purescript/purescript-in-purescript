@@ -1,10 +1,4 @@
-js/
-externs/
-purescript-arrows/
-purescript-maps/
-purescript-quickcheck/
-purescript-transformers/
-purescript-parsing/
-purescript-readline/
-purescript-generics/
- 
+/js/
+/externs/
+/src-lib/
+/node_modules/
