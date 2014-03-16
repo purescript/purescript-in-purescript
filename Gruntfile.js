@@ -13,7 +13,12 @@ module.exports = function(grunt) {
             },
             all: {
                 options: { make: true },
-                files: { _: ["src/**/*.purs.hs", "src-lib/**/src/**/*.purs", "src-lib/**/src/**/*.purs.hs"] }
+                files: {
+                    _: [ "src/**/*.purs.hs"
+                       , "bower_components/purescript-*/src/**/*.purs"
+                       , "bower_components/purescript-*/src/**/*.purs.hs"
+                       ]
+                }
             }
         }
         
