@@ -171,11 +171,13 @@ instance genericCaseAlternative :: Generic CaseAlternative where
   typeOf _ = TyCon { tyCon: "Language.PureScript.Values.CaseAlternative", args: [] }
   term (CaseAlternative ca) =
     TmCon { con: "Language.PureScript.Values.CaseAlternative"
-          , values: [ term ca.caseAlternativeBinders
-                    , term ca.caseAlternativeGuard
-                    , term ca.caseAlternativeResult
-                    ] }
-  unTerm (TmCon { con = "Language.PureScript.Values.CaseAlternative" , values = [cab, cag, car] }) =
+          , values: [ TmObj [ { key: "caseAlternativeBinders", value: term ca.caseAlternativeBinders }
+                            , { key: "caseAlternativeGuard"  , value: term ca.caseAlternativeGuard   }
+                            , { key: "caseAlternativeResult" , value: term ca.caseAlternativeResult  } ] ] }
+  unTerm (TmCon { con = "Language.PureScript.Values.CaseAlternative"
+                , values = [ TmObj [ { key = "caseAlternativeBinders", value = cab }
+                                   , { key = "caseAlternativeGuard"  , value = cag }
+                                   , { key = "caseAlternativeResult" , value = car } ] ] }) =
     do
       caseAlternativeBinders <- unTerm cab
       caseAlternativeGuard   <- unTerm cag
@@ -220,14 +222,17 @@ instance genericTypeClassDictionaryInScope :: Generic TypeClassDictionaryInScope
   typeOf _ = TyCon { tyCon: "Language.PureScript.Values.TypeClassDictionaryInScope", args: [] }
   term (TypeClassDictionaryInScope d) =
     TmCon { con: "Language.PureScript.Values.TypeClassDictionaryInScope"
-          , values: [ term d.tcdName
-                    , term d.tcdClassName
-                    , term d.tcdInstanceTypes
-                    , term d.tcdDependencies
-                    , term d.tcdType
-                    ] }
+          , values: [ TmObj [ { key: "tcdName"          , value: term d.tcdName          }
+                            , { key: "tcdClassName"     , value: term d.tcdClassName     }
+                            , { key: "tcdInstanceTypes" , value: term d.tcdInstanceTypes }
+                            , { key: "tcdDependencies"  , value: term d.tcdDependencies  }
+                            , { key: "tcdType"          , value: term d.tcdType          } ] ] }
   unTerm (TmCon { con = "Language.PureScript.Values.TypeClassDictionaryInScope"
-                , values = [tcdName, tcdClassName, tcdInstanceTypes, tcdDependencies, tcdType] }) =
+                , values = [ TmObj [ { key = "tcdName"          , value = tcdName          }
+                                   , { key = "tcdClassName"     , value = tcdClassName     }
+                                   , { key = "tcdInstanceTypes" , value = tcdInstanceTypes }
+                                   , { key = "tcdDependencies"  , value = tcdDependencies  }
+                                   , { key = "tcdType"          , value = tcdType          } ] ] }) =
     do
       tcdNameVal          <- unTerm tcdName
       tcdClassNameVal     <- unTerm tcdClassName
