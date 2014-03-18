@@ -19,8 +19,7 @@ instance monadGen :: Monad Gen where
   return = Gen <<< return
   (>>=) (Gen x) f = Gen (x >>= unGen <<< f)
 
--- TODO: this should be `MonadState [String] Gen`
-instance monadStateGen :: MonadState [a] Gen where
+instance monadStateGen :: MonadState [String] Gen where
   state = Gen <<< state
 
 -- |

@@ -137,7 +137,7 @@ instance monadErrorUnify :: (Monad m) => MonadError String (UnifyT t m) where
   catchError (UnifyT a) f = UnifyT (a `catchError` (unUnifyT <<< f))
 
 instance monadStateUnify :: (Monad m, MonadState s m) => MonadState s (UnifyT t m) where
-  state = UnifyT <<< state
+  state f = UnifyT (lift (lift (state f)))
 
 instance monadStateUnifyState :: (Monad m) => MonadState (UnifyState t) (UnifyT t m) where
   state = UnifyT <<< state
@@ -192,7 +192,10 @@ occursCheck u t =
 fresh' :: forall m t. (Monad m) => UnifyT t m Unknown
 fresh' = do
   UnifyState st <- get
-  put $ UnifyState { unifyNextVar: st.unifyNextVar + 1, unifyCurrentSubstitution: st.unifyCurrentSubstitution }
+  put $ UnifyState 
+    { unifyNextVar: st.unifyNextVar + 1
+    , unifyCurrentSubstitution: st.unifyCurrentSubstitution 
+    }
   return $ Unknown st.unifyNextVar
 
 -- |
@@ -202,5 +205,3 @@ fresh :: forall m t. (Monad m, Partial t) => UnifyT t m t
 fresh = do
   u <- fresh'
   return $ unknown u
-
-

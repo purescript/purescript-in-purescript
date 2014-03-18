@@ -23,7 +23,7 @@ import Data.Tuple
 import Data.Generics
 import Data.Foldable
 
--- import Control.Monad.Unify
+import Control.Monad.Unify
 
 import Control.Arrow (second)
 
@@ -49,9 +49,6 @@ instance showSkolemScope :: Show SkolemScope where
 instance eqSkolemScope :: Eq SkolemScope where
   (==) = geq
   (/=) s1 s2 = not (s1 == s2)
-
--- TODO: replace when monad-unify is ported
-type Unknown = Number
 
 -- |
 -- The type of types
