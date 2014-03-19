@@ -2,14 +2,14 @@
   "name": "purescript-in-purescript",
   "version": "0.0.0",
   "dependencies": {
-    "purescript-arrows"      : "https://github.com/purescript/purescript-arrows.git",
-    "purescript-readline"    : "https://github.com/purescript/purescript-readline.git",
-    "purescript-generics"    : "https://github.com/purescript/purescript-generics.git",
-    "purescript-maps"        : "https://github.com/purescript/purescript-maps.git",
-    "purescript-parsing"     : "https://github.com/purescript/purescript-parsing.git",
-    "purescript-transformers": "https://github.com/purescript/purescript-transformers.git"
+    "purescript-arrows": "*",
+    "purescript-node-readline": "*",
+    "purescript-generics": "*",
+    "purescript-maps": "*",
+    "purescript-parsing": "*",
+    "purescript-transformers": "*"
   },
   "devDependencies": {
-    "purescript-quickcheck": "https://github.com/purescript/purescript-quickcheck.git"
+    "purescript-quickcheck": "*"
   }
 }
