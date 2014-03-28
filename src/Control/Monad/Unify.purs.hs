@@ -90,15 +90,14 @@ instance monoidSubstitution :: (Generic t, Partial t) => Monoid (Substitution t)
 -- Apply a substitution to a value
 --
 ($?) :: forall t. (Generic t, Partial t) => Substitution t -> t -> t
-($?) sub = 
-  let go t =
-    case isUnknown t of
-      Nothing -> t
-      Just (Unknown u) -> 
-        case Data.Map.lookup u (runSubstitution sub) of
-          Nothing -> t
-          Just t' -> t'
-  in everywhere (mkT go)
+($?) sub = everywhere (mkT go)
+  where
+  go t = case isUnknown t of
+    Nothing -> t
+    Just (Unknown u) -> 
+      case Data.Map.lookup u (runSubstitution sub) of
+        Nothing -> t
+        Just t' -> t'
 
 -- |
 -- State required for type checking

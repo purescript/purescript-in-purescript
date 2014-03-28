@@ -154,8 +154,8 @@ instance eqType :: Eq Type where
 -- Convert a row to a list of pairs of labels and types
 --
 rowToList :: Type -> Tuple [Tuple String Type] Type
-rowToList (RCons name ty row) = let (Tuple tys rest) = rowToList row
-                                in (Tuple (Tuple name ty : tys) rest)
+rowToList (RCons name ty row) = case rowToList row of
+  (Tuple tys rest) -> Tuple (Tuple name ty : tys) rest
 rowToList r = Tuple [] r
 
 -- |
