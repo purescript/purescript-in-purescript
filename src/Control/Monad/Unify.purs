@@ -15,17 +15,12 @@
 
 module Control.Monad.Unify where
 
-import Prelude
-
-import Data.Maybe
 import Data.Either
-import Data.Tuple
-import Data.Array
-import Data.Monoid
-import Data.Generics
 import Data.Foldable
-
-import Control.Applicative
+import Data.Generics
+import Data.Maybe
+import Data.Monoid
+import Data.Tuple
 
 import Control.Monad.Trans
 import Control.Monad.State
@@ -80,11 +75,13 @@ data Substitution t = Substitution (Data.Map.Map Number t)
 runSubstitution :: forall t. Substitution t -> Data.Map.Map Number t
 runSubstitution (Substitution m) = m
 
-instance monoidSubstitution :: (Generic t, Partial t) => Monoid (Substitution t) where
-  mempty = Substitution Data.Map.empty
+instance semigroupSubstitution :: (Generic t, Partial t) => Semigroup (Substitution t) where
   (<>) s1 s2 = Substitution $
                  Data.Map.map (($?) s2) (runSubstitution s1) `Data.Map.union`
                  Data.Map.map (($?) s1) (runSubstitution s2)
+
+instance monoidSubstitution :: (Generic t, Partial t) => Monoid (Substitution t) where
+  mempty = Substitution Data.Map.empty
 
 -- |
 -- Apply a substitution to a value
@@ -127,9 +124,19 @@ data UnifyT t m a = UnifyT (StateT (UnifyState t) (ErrorT String m) a)
 unUnifyT :: forall t m a. UnifyT t m a -> StateT (UnifyState t) (ErrorT String m) a
 unUnifyT (UnifyT s) = s
 
-instance monadUnify :: (Monad m) => Monad (UnifyT t m) where
-  return = UnifyT <<< return
+instance functorUnify :: (Monad m) => Functor (UnifyT t m) where
+  (<$>) = liftA1
+
+instance applyUnify :: (Monad m) => Apply (UnifyT t m) where
+  (<*>) = ap
+
+instance applicativeUnify :: (Monad m) => Applicative (UnifyT t m) where
+  pure = UnifyT <<< pure
+
+instance bindUnify :: (Monad m) => Bind (UnifyT t m) where
   (>>=) (UnifyT x) f = UnifyT (x >>= unUnifyT <<< f)
+  
+instance monadUnify :: (Monad m) => Monad (UnifyT t m)
   
 instance monadErrorUnify :: (Monad m) => MonadError String (UnifyT t m) where
   throwError = UnifyT <<< throwError
@@ -147,7 +154,7 @@ instance monadStateUnifyState :: (Monad m) => MonadState (UnifyState t) (UnifyT 
 unknowns :: forall d. (Generic d) => d -> [Unknown]
 unknowns = 
   let collect (u@(Unknown _)) = [u]
-  in everything concat (mkQ [] collect)
+  in everything (++) (mkQ [] collect)
 
 -- |
 -- Run a computation in the Unify monad, failing with an error, or succeeding with a return value and the new next unification variable
@@ -184,18 +191,21 @@ occursCheck u t =
   case isUnknown t of
     Nothing | u `elem` unknowns t -> UnifyT (lift (throwError "Occurs check fails"))
     _ -> return {}
+    
+foreign import undefined :: forall a. a
 
 -- |
 -- Generate a fresh untyped unification variable
 --
 fresh' :: forall m t. (Monad m) => UnifyT t m Unknown
-fresh' = do
+fresh' = undefined
+{-do
   UnifyState st <- get
   put $ UnifyState 
     { unifyNextVar: st.unifyNextVar + 1
     , unifyCurrentSubstitution: st.unifyCurrentSubstitution 
     }
-  return $ Unknown st.unifyNextVar
+  return $ Unknown st.unifyNextVar-}
 
 -- |
 -- Generate a fresh unification variable at a specific type

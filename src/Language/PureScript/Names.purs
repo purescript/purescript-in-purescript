@@ -1,8 +1,8 @@
 module Language.PureScript.Names where
 
 import Prelude
+import Data.Array (map)
 import Data.Maybe
-import Data.Array
 import Data.Tuple
 import Data.String
 import Data.Generics
@@ -95,7 +95,7 @@ instance eqModuleName :: Eq ModuleName where
 --  compare (ModuleName s1) (ModuleName s2) = compare s1 s2
 
 runModuleName :: ModuleName -> String
-runModuleName (ModuleName pns) = joinWith (runProperName `map` pns) "."
+runModuleName (ModuleName pns) = joinWith "." (runProperName `map` pns)
 
 moduleNameFromString :: String -> ModuleName
 moduleNameFromString = ModuleName <<< map ProperName <<< split "."

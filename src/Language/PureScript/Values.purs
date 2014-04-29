@@ -389,7 +389,7 @@ instance genericBinder :: Generic Binder where
 -- Collect all names introduced in binders in an expression
 --
 binderNames :: forall d. (Generic d) => d -> [Ident]
-binderNames = everything concat (mkQ [] binderName)
+binderNames = everything (++) (mkQ [] binderName)
 
 binderName (VarBinder ident)     = [ident]
 binderName (NamedBinder ident _) = [ident]

@@ -1,11 +1,10 @@
 module Language.PureScript.CodeGen.Monad where
 
-import Prelude
+import Control.Apply
 import Control.Monad.Identity
 import Control.Monad.State
 import Control.Monad.State.Trans
 import Control.Monad.State.Class
-import Control.Applicative
 
 -- |
 -- Code generation monad data type
@@ -15,9 +14,19 @@ data Gen a = Gen (State [String] a)
 unGen :: forall a. Gen a -> State [String] a
 unGen (Gen x) = x
 
-instance monadGen :: Monad Gen where
-  return = Gen <<< return
+instance functorGen :: Functor Gen where
+  (<$>) = liftA1
+  
+instance applyGen :: Apply Gen where
+  (<*>) = ap
+
+instance applicativeGen :: Applicative Gen where
+  pure = Gen <<< return
+
+instance bindGen :: Bind Gen where
   (>>=) (Gen x) f = Gen (x >>= unGen <<< f)
+  
+instance monadGen :: Monad Gen
 
 instance monadStateGen :: MonadState [String] Gen where
   state = Gen <<< state

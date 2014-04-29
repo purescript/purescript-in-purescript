@@ -17,7 +17,7 @@ module Language.PureScript.Types where
 
 import Prelude
 
-import Data.Array
+import Data.Array (concatMap, map, nub)
 import Data.Maybe
 import Data.Tuple
 import Data.Generics
@@ -197,7 +197,7 @@ replaceTypeVars' bs name replacement (TypeApp t1 t2) = TypeApp (replaceTypeVars'
 replaceTypeVars' bs name replacement (SaturatedTypeSynonym name' ts) = SaturatedTypeSynonym name' $ map (replaceTypeVars' bs name replacement) ts
 replaceTypeVars' bs name replacement f@(ForAll v _ _) | v == name = f
 replaceTypeVars' bs name replacement (ForAll v t sco) | v `elem` usedTypeVariables replacement =
-  let v' = genName v (name : bs `concat` usedTypeVariables replacement) in
+  let v' = genName v (name : bs ++ usedTypeVariables replacement) in
   let t' = replaceTypeVars' bs v (TypeVar v') t in
   ForAll v' (replaceTypeVars' (v' : bs) name replacement t') sco
 replaceTypeVars' bs name replacement (ForAll v t sco) = ForAll v (replaceTypeVars' (v : bs) name replacement t) sco
@@ -222,7 +222,7 @@ replaceAllTypeVars = foldl (\f (Tuple name ty) -> replaceTypeVars name ty <<< f)
 -- Collect all type variables appearing in a type
 --
 usedTypeVariables :: Type -> [String]
-usedTypeVariables = nub <<< everything concat (mkQ [] usedTypeVariables')
+usedTypeVariables = nub <<< everything (++) (mkQ [] usedTypeVariables')
 
 usedTypeVariables' :: Type -> [String]
 usedTypeVariables' (TypeVar v) = [v]
@@ -237,11 +237,11 @@ freeTypeVariables = nub <<< freeTypeVariables' []
 freeTypeVariables' :: [String] -> Type -> [String]
 freeTypeVariables' bound (Object r) = freeTypeVariables' bound r
 freeTypeVariables' bound (TypeVar v) | v `notElem` bound = [v]
-freeTypeVariables' bound (TypeApp t1 t2) = freeTypeVariables' bound t1 `concat` freeTypeVariables' bound t2
+freeTypeVariables' bound (TypeApp t1 t2) = freeTypeVariables' bound t1 ++ freeTypeVariables' bound t2
 freeTypeVariables' bound (SaturatedTypeSynonym _ ts) = concatMap (freeTypeVariables' bound) ts
 freeTypeVariables' bound (ForAll v t _) = freeTypeVariables' (v : bound) t
-freeTypeVariables' bound (ConstrainedType cs t) = concatMap (concatMap (freeTypeVariables' bound) <<< snd) cs `concat` freeTypeVariables' bound t
-freeTypeVariables' bound (RCons _ t r) = freeTypeVariables' bound t `concat` freeTypeVariables' bound r
+freeTypeVariables' bound (ConstrainedType cs t) = concatMap (concatMap (freeTypeVariables' bound) <<< snd) cs ++ freeTypeVariables' bound t
+freeTypeVariables' bound (RCons _ t r) = freeTypeVariables' bound t ++ freeTypeVariables' bound r
 freeTypeVariables' _ _ = []
 
 -- |
