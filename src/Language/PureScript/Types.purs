@@ -20,9 +20,10 @@ import Prelude
 import Data.Array (concatMap, map, nub)
 import Data.Maybe
 import Data.Tuple
-import Data.Generics
+import Data.Traversable
 import Data.Foldable
 
+import Control.Bind
 import Control.Monad.Unify
 
 import Control.Arrow (second)
@@ -37,18 +38,12 @@ data SkolemScope = SkolemScope Number
 runSkolemScope :: SkolemScope -> Number
 runSkolemScope (SkolemScope n) = n
 
-instance genericSkolemScope :: Generic SkolemScope where
-  typeOf _ = TyCon { tyCon: "Language.PureScript.Types.SkolemScope", args: [] }  
-  term (SkolemScope n) = TmCon { con: "Language.PureScript.Types.SkolemScope", values: [term n] }
-  unTerm (TmCon { con = "Language.PureScript.Types.SkolemScope", values = [t] }) = SkolemScope <$> unTerm t
-  unTerm _ = Nothing
-
 instance showSkolemScope :: Show SkolemScope where
-  show = gshow
+  show (SkolemScope n) = "SkolemScope " ++ show n
 
 instance eqSkolemScope :: Eq SkolemScope where
-  (==) = geq
-  (/=) s1 s2 = not (s1 == s2)
+  (==) (SkolemScope x) (SkolemScope y) = x == y
+  (/=) (SkolemScope x) (SkolemScope y) = x /= y
 
 -- |
 -- The type of types
@@ -58,10 +53,6 @@ data Type
   -- A unification variable of type Type
   --
   = TUnknown Unknown
-  -- |
-  -- Javascript numbers
-  --
-  | Object Type
   -- |
   -- A named type variable
   --
@@ -109,45 +100,44 @@ data Type
   -- |
   -- A placeholder used in pretty printing
   --
+  | PrettyPrintObject Type
+  -- |
+  -- A placeholder used in pretty printing
+  --
   | PrettyPrintForAll [String] Type
 
-instance genericType :: Generic Type where
-  typeOf _ = TyCon { tyCon: "Language.PureScript.Types.Type", args: [] }  
-  term (TUnknown u)                         = TmCon { con: "Language.PureScript.Types.TUnknown",             values: [term u] }
-  term (Object t)                           = TmCon { con: "Language.PureScript.Types.Object",               values: [term t] }
-  term (TypeVar v)                          = TmCon { con: "Language.PureScript.Types.TypeVar",              values: [term v] }
-  term (TypeConstructor pn)                 = TmCon { con: "Language.PureScript.Types.TypeConstructor",      values: [term pn] }
-  term (TypeApp t1 t2)                      = TmCon { con: "Language.PureScript.Types.TypeApp",              values: [term t1, term t2] }
-  term (SaturatedTypeSynonym pn args)       = TmCon { con: "Language.PureScript.Types.SaturatedTypeSynonym", values: [term pn, term args] }
-  term (ForAll v t sco)                     = TmCon { con: "Language.PureScript.Types.ForAll",               values: [term v, term t, term sco] }
-  term (ConstrainedType cons t)             = TmCon { con: "Language.PureScript.Types.ConstrainedType",      values: [term cons, term t] }
-  term (Skolem u sco)                       = TmCon { con: "Language.PureScript.Types.Skolem",               values: [term u, term sco] }
-  term REmpty                               = TmCon { con: "Language.PureScript.Types.REmpty",               values: [] }
-  term (RCons p t r)                        = TmCon { con: "Language.PureScript.Types.RCons",                values: [term p, term t, term r] }
-  term (PrettyPrintFunction t1 t2)          = TmCon { con: "Language.PureScript.Types.PrettyPrintFunction",  values: [term t1, term t2] }
-  term (PrettyPrintArray t)                 = TmCon { con: "Language.PureScript.Types.PrettyPrintArray",     values: [term t] }
-  term (PrettyPrintForAll vs t)             = TmCon { con: "Language.PureScript.Types.PrettyPrintForAll",    values: [term vs, term t] }
-  unTerm (TmCon { con = "Language.PureScript.Types.TUnknown",             values = [u] })              = TUnknown <$> unTerm u
-  unTerm (TmCon { con = "Language.PureScript.Types.Object",               values = [t] })              = Object <$> unTerm t
-  unTerm (TmCon { con = "Language.PureScript.Types.TypeVar",              values = [v] })              = TypeVar <$> unTerm v
-  unTerm (TmCon { con = "Language.PureScript.Types.TypeConstructor",      values = [pn] })             = TypeConstructor <$> unTerm pn
-  unTerm (TmCon { con = "Language.PureScript.Types.TypeApp",              values = [t1, t2] })         = TypeApp <$> unTerm t1 <*> unTerm t2
-  unTerm (TmCon { con = "Language.PureScript.Types.SaturatedTypeSynonym", values = [pn, args] })       = SaturatedTypeSynonym <$> unTerm pn <*> unTerm args
-  unTerm (TmCon { con = "Language.PureScript.Types.ForAll",               values = [v, t, sco] })      = ForAll <$> unTerm v <*> unTerm t <*> unTerm sco
-  unTerm (TmCon { con = "Language.PureScript.Types.ConstrainedType",      values = [cons, t] })        = ConstrainedType <$> unTerm cons <*> unTerm t
-  unTerm (TmCon { con = "Language.PureScript.Types.Skolem",               values = [u, sco] })         = Skolem <$> unTerm u <*> unTerm sco
-  unTerm (TmCon { con = "Language.PureScript.Types.REmpty",               values = [] })               = pure REmpty
-  unTerm (TmCon { con = "Language.PureScript.Types.RCons",                values = [p, t, r] })        = RCons <$> unTerm p <*> unTerm t <*> unTerm r
-  unTerm (TmCon { con = "Language.PureScript.Types.PrettyPrintFunction",  values = [t1, t2] })         = PrettyPrintFunction <$> unTerm t1 <*> unTerm t2
-  unTerm (TmCon { con = "Language.PureScript.Types.PrettyPrintArray",     values = [t] })              = PrettyPrintArray <$> unTerm t
-  unTerm (TmCon { con = "Language.PureScript.Types.PrettyPrintForAll",    values = [vs, t] })          = PrettyPrintForAll <$> unTerm vs <*> unTerm t
-  unTerm _ = Nothing
-
 instance showType :: Show Type where
-  show = gshow
+  show (TUnknown u) = "TUnknown " ++ show u
+  show (TypeVar var) = "TypeVar " ++ show var
+  show (TypeConstructor name) = "TypeConstructor " ++ show name
+  show (TypeApp t1 t2) = "TypeApp " ++ show t1 ++ " " ++ show t2
+  show (SaturatedTypeSynonym name ts) = "SaturatedTypeSynonym " ++ show name ++ " " ++ show ts
+  show (ForAll name ty scope) = "ForAll " ++ show name ++ " " ++ show ty ++ " " ++ show scope
+  show (ConstrainedType cs ty) = "ConstrainedType " ++ show cs ++ " " ++ show ty
+  show (Skolem n scope) = "Skolem " ++ show n ++ " " ++ show scope
+  show REmpty = "REmpty"
+  show (RCons name t1 t2) = "RCons " ++ show name ++ " " ++ show t1 ++ " " ++ show t2
+  show (PrettyPrintFunction t1 t2) = "PrettyPrintFunction " ++ show t1 ++ " " ++ show t2
+  show (PrettyPrintArray t) = "PrettyPrintArray " ++ show t
+  show (PrettyPrintObject t) = "PrettyPrintObject " ++ show t
+  show (PrettyPrintForAll q t) = "PrettyPrintForAll " ++ show q ++ " " ++ show t
 
 instance eqType :: Eq Type where
-  (==) = geq
+  (==) (TUnknown u1)                    (TUnknown u2)                     = u1 == u2
+  (==) (TypeVar var1)                   (TypeVar var2)                    = var1 == var2
+  (==) (TypeConstructor name1)          (TypeConstructor name2)           = name1 == name2
+  (==) (TypeApp tx1 ty1)                (TypeApp tx2 ty2)                 = tx1 == tx2 && ty1 == ty2
+  (==) (SaturatedTypeSynonym name1 ts1) (SaturatedTypeSynonym name2 ts2)  = name1 == name2 && ts1 == ts2
+  (==) (ForAll name1 ty1 scope1)        (ForAll name2 ty2 scope2)         = name1 == name2 && ty1 == ty2 && scope1 == scope2
+  (==) (ConstrainedType cs1 ty1)        (ConstrainedType cs2 ty2)         = cs1 == cs2 && ty1 == ty2
+  (==) (Skolem n1 scope1)               (Skolem n2 scope2)                = n1 == n2 && scope1 == scope2
+  (==) REmpty                           REmpty                            = true
+  (==) (RCons name1 tx1 ty1)            (RCons name2 tx2 ty2)             = name1 == name2 && tx1 == tx2 && ty1 == ty2
+  (==) (PrettyPrintFunction tx1 ty1)    (PrettyPrintFunction tx2 ty2)     = tx1 == tx2 && ty1 == ty2
+  (==) (PrettyPrintArray t1)            (PrettyPrintArray t2)             = t1 == t2
+  (==) (PrettyPrintObject t1)           (PrettyPrintObject t2)            = t1 == t2
+  (==) (PrettyPrintForAll q1 t1)        (PrettyPrintForAll q2 t2)         = q1 == q2 && t1 == t2
+  (==) _ _ = false
   (/=) s1 s2 = not (s1 == s2)
 
 -- |
@@ -179,38 +169,31 @@ mkForAll :: [String] -> Type -> Type
 mkForAll args ty = foldl (\t arg -> ForAll arg t Nothing) ty args
 
 -- |
--- The empty record type
---
-unit :: Type
-unit = Object REmpty
-
--- |
 -- Replace a type variable, taking into account variable shadowing
 --
 replaceTypeVars :: String -> Type -> Type -> Type
 replaceTypeVars = replaceTypeVars' []
-
-replaceTypeVars' :: [String] -> String -> Type -> Type -> Type
-replaceTypeVars' bs name replacement (Object r) = Object $ replaceTypeVars' bs name replacement r
-replaceTypeVars' _  name replacement (TypeVar v) | v == name = replacement
-replaceTypeVars' bs name replacement (TypeApp t1 t2) = TypeApp (replaceTypeVars' bs name replacement t1) (replaceTypeVars' bs name replacement t2)
-replaceTypeVars' bs name replacement (SaturatedTypeSynonym name' ts) = SaturatedTypeSynonym name' $ map (replaceTypeVars' bs name replacement) ts
-replaceTypeVars' bs name replacement f@(ForAll v _ _) | v == name = f
-replaceTypeVars' bs name replacement (ForAll v t sco) | v `elem` usedTypeVariables replacement =
-  let v' = genName v (name : bs ++ usedTypeVariables replacement) in
-  let t' = replaceTypeVars' bs v (TypeVar v') t in
-  ForAll v' (replaceTypeVars' (v' : bs) name replacement t') sco
-replaceTypeVars' bs name replacement (ForAll v t sco) = ForAll v (replaceTypeVars' (v : bs) name replacement t) sco
-replaceTypeVars' bs name replacement (ConstrainedType cs t) = ConstrainedType (map (second $ map (replaceTypeVars' bs name replacement)) cs) (replaceTypeVars' bs name replacement t)
-replaceTypeVars' bs name replacement (RCons name' t r) = RCons name' (replaceTypeVars' bs name replacement t) (replaceTypeVars' bs name replacement r)
-replaceTypeVars' _ _ _ ty = ty
-
-genName :: String -> [String] -> String
-genName orig inUse = genName' orig inUse 0
-
-genName' :: String -> [String] -> Number -> String
-genName' orig inUse n | (orig ++ show n) `elem` inUse = genName' orig inUse (n + 1)
-genName' orig _ n = orig ++ show n
+  where
+  replaceTypeVars' bound name replacement = go bound
+    where
+    go :: [String] -> Type -> Type
+    go _  (TypeVar v) | v == name = replacement
+    go bs (TypeApp t1 t2) = TypeApp (go bs t1) (go bs t2)
+    go bs (SaturatedTypeSynonym name' ts) = SaturatedTypeSynonym name' $ map (go bs) ts
+    go bs f@(ForAll v t sco) | v == name = f
+    go bs f@(ForAll v t sco) | v `elem` usedTypeVariables replacement =
+                                 let v' = genName v (name : bs ++ usedTypeVariables replacement)
+                                     t' = replaceTypeVars' bs v (TypeVar v') t
+                                 in ForAll v' (go (v' : bs) t') sco
+    go bs f@(ForAll v t sco) = ForAll v (go (v : bs) t) sco
+    go bs (ConstrainedType cs t) = ConstrainedType (map (second $ map (go bs)) cs) (go bs t)
+    go bs (RCons name' t r) = RCons name' (go bs t) (go bs r)
+    go _ ty = ty
+  genName orig inUse = try 0
+    where
+    try :: Number -> String
+    try n | (orig ++ show n) `elem` inUse = try (n + 1)
+    try n = orig ++ show n
 
 -- |
 -- Replace named type variables with types
@@ -222,30 +205,120 @@ replaceAllTypeVars = foldl (\f (Tuple name ty) -> replaceTypeVars name ty <<< f)
 -- Collect all type variables appearing in a type
 --
 usedTypeVariables :: Type -> [String]
-usedTypeVariables = nub <<< everything (++) (mkQ [] usedTypeVariables')
-
-usedTypeVariables' :: Type -> [String]
-usedTypeVariables' (TypeVar v) = [v]
-usedTypeVariables' _ = []
+usedTypeVariables = nub <<< everythingOnTypes (++) go
+  where
+  go (TypeVar v) = [v]
+  go _ = []
 
 -- |
 -- Collect all free type variables appearing in a type
 --
 freeTypeVariables :: Type -> [String]
-freeTypeVariables = nub <<< freeTypeVariables' []
-
-freeTypeVariables' :: [String] -> Type -> [String]
-freeTypeVariables' bound (Object r) = freeTypeVariables' bound r
-freeTypeVariables' bound (TypeVar v) | v `notElem` bound = [v]
-freeTypeVariables' bound (TypeApp t1 t2) = freeTypeVariables' bound t1 ++ freeTypeVariables' bound t2
-freeTypeVariables' bound (SaturatedTypeSynonym _ ts) = concatMap (freeTypeVariables' bound) ts
-freeTypeVariables' bound (ForAll v t _) = freeTypeVariables' (v : bound) t
-freeTypeVariables' bound (ConstrainedType cs t) = concatMap (concatMap (freeTypeVariables' bound) <<< snd) cs ++ freeTypeVariables' bound t
-freeTypeVariables' bound (RCons _ t r) = freeTypeVariables' bound t ++ freeTypeVariables' bound r
-freeTypeVariables' _ _ = []
+freeTypeVariables = nub <<< go []
+  where
+  go :: [String] -> Type -> [String]
+  go bound (TypeVar v) | v `notElem` bound = [v]
+  go bound (TypeApp t1 t2) = go bound t1 ++ go bound t2
+  go bound (SaturatedTypeSynonym _ ts) = concatMap (go bound) ts
+  go bound (ForAll v t _) = go (v : bound) t
+  go bound (ConstrainedType cs t) = concatMap (concatMap (go bound) <<< snd) cs ++ go bound t
+  go bound (RCons _ t r) = go bound t ++ go bound r
+  go _ _ = []
 
 -- |
 -- Universally quantify over all type variables appearing free in a type
 --
 quantify :: Type -> Type
 quantify ty = foldr (\arg t -> ForAll arg t Nothing) ty $ freeTypeVariables ty
+
+-- |
+-- Move all universal quantifiers to the front of a type
+--
+moveQuantifiersToFront :: Type -> Type
+moveQuantifiersToFront = go [] []
+  where
+  go qs cs (ForAll q ty sco) = go (Tuple q sco : qs) cs ty
+  go qs cs (ConstrainedType cs' ty) = go qs (cs ++ cs') ty
+  go qs cs ty =
+    let constrained = case cs of
+                        [] -> ty
+                        cs' -> ConstrainedType cs' ty
+    in case qs of
+         [] -> constrained
+         qs' -> foldl (\ty' (Tuple q sco) -> ForAll q ty' sco) constrained qs'
+
+--
+-- Traversals
+--
+
+everywhereOnTypes :: (Type -> Type) -> Type -> Type
+everywhereOnTypes f = go
+  where
+  go (TypeApp t1 t2) = f (TypeApp (go t1) (go t2))
+  go (SaturatedTypeSynonym name tys) = f (SaturatedTypeSynonym name (map go tys))
+  go (ForAll arg ty sco) = f (ForAll arg (go ty) sco)
+  go (ConstrainedType cs ty) = f (ConstrainedType (map ((<$>) (map go)) cs) (go ty))
+  go (RCons name ty rest) = f (RCons name (go ty) (go rest))
+  go (PrettyPrintFunction t1 t2) = f (PrettyPrintFunction (go t1) (go t2))
+  go (PrettyPrintArray t) = f (PrettyPrintArray (go t))
+  go (PrettyPrintObject t) = f (PrettyPrintObject (go t))
+  go (PrettyPrintForAll args t) = f (PrettyPrintForAll args (go t))
+  go other = f other
+
+everywhereOnTypesTopDown :: (Type -> Type) -> Type -> Type
+everywhereOnTypesTopDown f = go <<< f
+  where
+  go (TypeApp t1 t2) = TypeApp (go (f t1)) (go (f t2))
+  go (SaturatedTypeSynonym name tys) = SaturatedTypeSynonym name (map (go <<< f) tys)
+  go (ForAll arg ty sco) = ForAll arg (go (f ty)) sco
+  go (ConstrainedType cs ty) = ConstrainedType (map ((<$>) (map (go <<< f))) cs) (go (f ty))
+  go (RCons name ty rest) = RCons name (go (f ty)) (go (f rest))
+  go (PrettyPrintFunction t1 t2) = PrettyPrintFunction (go (f t1)) (go (f t2))
+  go (PrettyPrintArray t) = PrettyPrintArray (go (f t))
+  go (PrettyPrintObject t) = PrettyPrintObject (go (f t))
+  go (PrettyPrintForAll args t) = PrettyPrintForAll args (go (f t))
+  go other = f other
+
+{-
+everywhereOnTypesM :: forall m. (Traversable m, Monad m) => (Type -> m Type) -> Type -> m Type
+everywhereOnTypesM f = go
+  where
+  go (TypeApp t1 t2) = (TypeApp <$> go t1 <*> go t2) >>= f
+  go (SaturatedTypeSynonym name tys) = (SaturatedTypeSynonym name <$> traverse go tys) >>= f
+  go (ForAll arg ty sco) = (ForAll arg <$> go ty <*> pure sco) >>= f
+  go (ConstrainedType cs ty) = (ConstrainedType <$> traverse (sndM (traverse go)) cs <*> go ty) >>= f
+  go (RCons name ty rest) = (RCons name <$> go ty <*> go rest) >>= f
+  go (PrettyPrintFunction t1 t2) = (PrettyPrintFunction <$> go t1 <*> go t2) >>= f
+  go (PrettyPrintArray t) = (PrettyPrintArray <$> go t) >>= f
+  go (PrettyPrintObject t) = (PrettyPrintObject <$> go t) >>= f
+  go (PrettyPrintForAll args t) = (PrettyPrintForAll args <$> go t) >>= f
+  go other = f other
+
+everywhereOnTypesTopDownM :: forall m. (Traversable m, Monad m) => (Type -> m Type) -> Type -> m Type
+everywhereOnTypesTopDownM f = go <=< f
+  where
+  go (TypeApp t1 t2) = TypeApp <$> (f t1 >>= go) <*> (f t2 >>= go)
+  go (SaturatedTypeSynonym name tys) = SaturatedTypeSynonym name <$> traverse (go <=< f) tys
+  go (ForAll arg ty sco) = ForAll arg <$> (f ty >>= go) <*> pure sco
+  go (ConstrainedType cs ty) = ConstrainedType <$> traverse (sndM (traverse (go <=< f))) cs <*> (f ty >>= go)
+  go (RCons name ty rest) = RCons name <$> (f ty >>= go) <*> (f rest >>= go)
+  go (PrettyPrintFunction t1 t2) = PrettyPrintFunction <$> (f t1 >>= go) <*> (f t2 >>= go)
+  go (PrettyPrintArray t) = PrettyPrintArray <$> (f t >>= go)
+  go (PrettyPrintObject t) = PrettyPrintObject <$> (f t >>= go)
+  go (PrettyPrintForAll args t) = PrettyPrintForAll args <$> (f t >>= go)
+  go other = f other
+-}
+
+everythingOnTypes :: forall r. (r -> r -> r) -> (Type -> r) -> Type -> r
+everythingOnTypes (<>) f = go
+  where
+  go t@(TypeApp t1 t2) = f t <> go t1 <> go t2
+  go t@(SaturatedTypeSynonym _ tys) = foldl (<>) (f t) (map go tys)
+  go t@(ForAll _ ty _) = f t <> go ty
+  go t@(ConstrainedType cs ty) = foldl (<>) (f t) (map go $ concatMap snd cs) <> go ty
+  go t@(RCons _ ty rest) = f t <> go ty <> go rest
+  go t@(PrettyPrintFunction t1 t2) = f t <> go t1 <> go t2
+  go t@(PrettyPrintArray t1) = f t <> go t1
+  go t@(PrettyPrintObject t1) = f t <> go t1
+  go t@(PrettyPrintForAll _ t1) = f t <> go t1
+  go other = f other
