@@ -1,9 +1,6 @@
 module Language.PureScript.Kinds where
 
-import Prelude
 import Control.Monad.Unify (Unknown())
-import Data.Generics
-import Data.Maybe
 
 -- |
 -- The data type of kinds
@@ -31,22 +28,31 @@ data Kind
   | FunKind Kind Kind
   
 instance showKind :: Show Kind where
-  show = gshow
+  show (KUnknown u) = "KUnknown " ++ show u
+  show Star = "Star"
+  show Bang = "Bang"
+  show (Row k) = "Row " ++ show k
+  show (FunKind x y) = "FunKind " ++ show x ++ " " ++ show y
 
 instance eqKind :: Eq Kind where
-  (==) = geq
-  (/=) x y = not (geq x y)
+  (==) (KUnknown u1) (KUnknown u2) = u1 == u2
+  (==) Star Star = true
+  (==) Bang Bang = true
+  (==) (Row k1) (Row k2) = k1 == k2
+  (==) (FunKind x1 y1) (FunKind x2 y2) = x1 == y1 && x2 == y2
+  (==) _ _ = false
+  (/=) x y = not (x == y)
 
-instance genericKind :: Generic Kind where
-  typeOf _ = TyCon { tyCon: "Language.PureScript.Kinds.Kind", args: [] }
-  term (KUnknown u)    = TmCon { con: "Language.PureScript.Kinds.KUnknown" , values: [term u] }
-  term Star            = TmCon { con: "Language.PureScript.Kinds.Star"     , values: [] }
-  term Bang            = TmCon { con: "Language.PureScript.Kinds.Bang"     , values: [] }
-  term (Row k)         = TmCon { con: "Language.PureScript.Kinds.Row"      , values: [term k] }
-  term (FunKind k1 k2) = TmCon { con: "Language.PureScript.Kinds.FunKind"  , values: [term k1, term k2] }
-  unTerm (TmCon { con = "Language.PureScript.Kinds.KUnknown" , values = [u]      }) = KUnknown <$> unTerm u
-  unTerm (TmCon { con = "Language.PureScript.Kinds.Star"                         }) = Just Star
-  unTerm (TmCon { con = "Language.PureScript.Kinds.Bang"                         }) = Just Bang
-  unTerm (TmCon { con = "Language.PureScript.Kinds.Row"      , values = [k]      }) = Row <$> unTerm k
-  unTerm (TmCon { con = "Language.PureScript.Kinds.FunKind"  , values = [k1, k2] }) = FunKind <$> unTerm k1 <*> unTerm k2
-  unTerm _ = Nothing
+everywhereOnKinds :: (Kind -> Kind) -> Kind -> Kind
+everywhereOnKinds f = go
+  where
+  go (Row k1) = f (Row (go k1))
+  go (FunKind k1 k2) = f (FunKind (go k1) (go k2))
+  go other = f other
+
+everythingOnKinds :: forall r. (r -> r -> r) -> (Kind -> r) -> Kind -> r
+everythingOnKinds (<>) f = go
+  where
+  go k@(Row k1) = f k <> go k1
+  go k@(FunKind k1 k2) = f k <> go k1 <> go k2
+  go other = f other
