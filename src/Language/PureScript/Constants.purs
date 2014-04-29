@@ -10,9 +10,6 @@ import Prelude ()
 (#) :: String
 (#) = "#"
 
-(!!) :: String
-(!!) = "!!"
-
 (++) :: String
 (++) = "++"
 
@@ -66,6 +63,9 @@ bar = "|"
 
 (||) :: String
 (||) = "||"
+
+unsafeIndex :: String
+unsafeIndex = "unsafeIndex"
 
 -- Prelude Operator Functions
 
@@ -133,6 +133,9 @@ pokeSTArray = "pokeSTArray"
 monadEffDictionary :: String
 monadEffDictionary = "monadEff"
 
+bindEffDictionary :: String
+bindEffDictionary = "bindEff"
+
 numNumber :: String
 numNumber = "numNumber"
 
@@ -154,6 +157,9 @@ bitsNumber = "bitsNumber"
 boolLikeBoolean :: String
 boolLikeBoolean = "boolLikeBoolean"
 
+semigroupString :: String
+semigroupString = "semigroupString"
+
 -- Main module
 
 main :: String
@@ -161,8 +167,8 @@ main = "main"
 
 -- Code Generation
 
-_ps :: String
-_ps = "_ps"
+__superclasses :: String
+__superclasses = "__superclasses"
 
 -- Modules
 
@@ -171,6 +177,9 @@ prim = "Prim"
 
 prelude :: String
 prelude = "Prelude"
+
+preludeUnsafe :: String
+preludeUnsafe = "Prelude_Unsafe"
 
 eff :: String
 eff = "Control_Monad_Eff"
