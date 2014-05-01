@@ -1,6 +1,5 @@
 module Language.PureScript.Options where
 
-import Prelude
 import Data.Maybe
 
 -- |
@@ -8,17 +7,21 @@ import Data.Maybe
 --
 data Options = Options {
     -- |
-    -- Perform tail-call elimination
+    -- Disable inclusion of the built in Prelude
     --
-    optionsTco :: Boolean
+    optionsNoPrelude :: Boolean
+    -- |
+    -- Disable tail-call elimination
+    --
+  , optionsNoTco :: Boolean
     -- |
     -- Perform type checks at runtime
     --
   , optionsPerformRuntimeTypeChecks :: Boolean
     -- |
-    -- Inline calls to ret and bind for the Eff monad
+    -- Disable inlining of calls to return and bind for the Eff monad
     --
-  , optionsMagicDo :: Boolean
+  , optionsNoMagicDo :: Boolean
     -- |
     -- When specified, checks the type of `main` in the module, and generate a call to run main
     -- after the module definitions.
@@ -32,7 +35,7 @@ data Options = Options {
     -- Specify the namespace that PureScript modules will be exported to when running in the
     -- browser.
     --
-  , optionsBrowserNamespace :: String
+  , optionsBrowserNamespace :: Maybe String
     -- |
     -- The modules to keep while enabling dead code elimination
     --
@@ -41,18 +44,24 @@ data Options = Options {
     -- The modules to code gen
     --
   , optionsCodeGenModules :: [String]
+    -- |
+    -- Verbose error message
+    --
+  , optionsVerboseErrors :: Boolean
   }
 
 -- |
 -- Default compiler options
 --
 defaultOptions :: Options
-defaultOptions = Options { optionsTco: false
+defaultOptions = Options { optionsNoPrelude: false
+                         , optionsNoTco: false
                          , optionsPerformRuntimeTypeChecks: false
-                         , optionsMagicDo: false
+                         , optionsNoMagicDo: false
                          , optionsMain: Nothing
                          , optionsNoOptimizations: false
-                         , optionsBrowserNamespace: "PS"
+                         , optionsBrowserNamespace: Nothing
                          , optionsModules: []
                          , optionsCodeGenModules: []
+                         , optionsVerboseErrors: false
                          }
