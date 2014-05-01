@@ -29,6 +29,7 @@ import Control.Monad.Unify
 import Control.Arrow (second)
 
 import Language.PureScript.Names
+import Language.PureScript.Traversals
 
 -- |
 -- An identifier for the scope of a skolem variable
@@ -279,8 +280,7 @@ everywhereOnTypesTopDown f = go <<< f
   go (PrettyPrintForAll args t) = PrettyPrintForAll args (go (f t))
   go other = f other
 
-{-
-everywhereOnTypesM :: forall m. (Traversable m, Monad m) => (Type -> m Type) -> Type -> m Type
+everywhereOnTypesM :: forall m. (Monad m) => (Type -> m Type) -> Type -> m Type
 everywhereOnTypesM f = go
   where
   go (TypeApp t1 t2) = (TypeApp <$> go t1 <*> go t2) >>= f
@@ -294,7 +294,7 @@ everywhereOnTypesM f = go
   go (PrettyPrintForAll args t) = (PrettyPrintForAll args <$> go t) >>= f
   go other = f other
 
-everywhereOnTypesTopDownM :: forall m. (Traversable m, Monad m) => (Type -> m Type) -> Type -> m Type
+everywhereOnTypesTopDownM :: forall m. (Monad m) => (Type -> m Type) -> Type -> m Type
 everywhereOnTypesTopDownM f = go <=< f
   where
   go (TypeApp t1 t2) = TypeApp <$> (f t1 >>= go) <*> (f t2 >>= go)
@@ -307,7 +307,6 @@ everywhereOnTypesTopDownM f = go <=< f
   go (PrettyPrintObject t) = PrettyPrintObject <$> (f t >>= go)
   go (PrettyPrintForAll args t) = PrettyPrintForAll args <$> (f t >>= go)
   go other = f other
--}
 
 everythingOnTypes :: forall r. (r -> r -> r) -> (Type -> r) -> Type -> r
 everythingOnTypes (<>) f = go
