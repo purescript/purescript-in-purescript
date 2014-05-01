@@ -17,15 +17,15 @@ data Ident
   -- A symbolic name for an infix operator
   --
   | Op String
-
-instance showIdent :: Show Ident where
-  show (Ident i) = "Ident " ++ show i
-  show (Op op) = "Op " ++ show op
   
 runIdent :: Ident -> String
 runIdent (Ident i) = i
 runIdent (Op op) = op
 
+instance showIdent :: Show Ident where
+  show (Ident i) = "Ident " ++ show i
+  show (Op op) = "Op " ++ show op
+  
 instance eqIdent :: Eq Ident where
   (==) (Ident s1) (Ident s2) = s1 == s2
   (==) (Op s1)    (Op s2)    = s1 == s2
@@ -61,6 +61,9 @@ instance ordProperName :: Ord ProperName where
 --
 data ModuleName = ModuleName [ProperName] 
 
+runModuleName :: ModuleName -> String
+runModuleName (ModuleName pns) = joinWith "." (runProperName `map` pns)
+
 instance showModuleName :: Show ModuleName where
   show = runModuleName
 
@@ -71,9 +74,6 @@ instance eqModuleName :: Eq ModuleName where
 instance ordModuleName :: Ord ModuleName where
   compare (ModuleName s1) (ModuleName s2) = compare s1 s2
 
-runModuleName :: ModuleName -> String
-runModuleName (ModuleName pns) = joinWith "." (runProperName `map` pns)
-
 moduleNameFromString :: String -> ModuleName
 moduleNameFromString = ModuleName <<< map ProperName <<< split "."
 
@@ -82,13 +82,18 @@ moduleNameFromString = ModuleName <<< map ProperName <<< split "."
 --
 data Qualified a = Qualified (Maybe ModuleName) a
 
-instance eqQualified :: (Eq a) => Eq (Qualified a) where
-  (==) (Qualified m1 a1) (Qualified m2 a2) = m1 == m2 && a1 == a2
-  (/=) q1 q2 = not (q1 == q2)
-
 instance showQualified :: (Show a) => Show (Qualified a) where
   show (Qualified Nothing a) = show a
   show (Qualified (Just name) a) = show name ++ "." ++ show a
+  
+instance eqQualified :: (Eq a) => Eq (Qualified a) where
+  (==) (Qualified m1 a1) (Qualified m2 a2) = m1 == m2 && a1 == a2
+  (/=) q1 q2 = not (q1 == q2)
+  
+instance ordQualified :: (Ord a) => Ord (Qualified a) where
+  compare (Qualified m1 a1) (Qualified m2 a2) = case compare m1 m2 of
+    EQ -> compare a1 a2
+    other -> other
 
 -- |
 -- Provide a default module name, if a name is unqualified
