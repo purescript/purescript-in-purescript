@@ -3,6 +3,7 @@
   "dependencies": {
     "grunt": "~0.4.4",
     "grunt-purescript": "~0.5.1",
-    "grunt-contrib-clean": "~0.5.0"
+    "grunt-contrib-clean": "~0.5.0",
+    "grunt-contrib-watch": "~0.6.1"
   }
 }

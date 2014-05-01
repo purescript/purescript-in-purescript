@@ -9,6 +9,13 @@ module.exports = function(grunt) {
       "bower_components/purescript-*/src/**/*.purs*"
     ],
     
+    watch: {
+      lib: {
+        files: ["<%=libFiles%>"],
+        tasks: ["pscMake"]
+      }
+    },
+    
     clean: ["output"],
   
     pscMake: ["<%=libFiles%>"],
@@ -18,6 +25,7 @@ module.exports = function(grunt) {
 
   grunt.loadNpmTasks("grunt-contrib-clean");
   grunt.loadNpmTasks("grunt-purescript");
+  grunt.loadNpmTasks('grunt-contrib-watch');
   
   grunt.registerTask("make", ["pscMake", "dotPsci"]);
   grunt.registerTask("default", ["make"]);
