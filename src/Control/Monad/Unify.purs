@@ -17,7 +17,6 @@ module Control.Monad.Unify where
 
 import Data.Either
 import Data.Foldable
-import Data.Generics
 import Data.Maybe
 import Data.Monoid
 import Data.Tuple
@@ -27,32 +26,12 @@ import Control.Monad.State
 import Control.Monad.State.Trans
 import Control.Monad.State.Class
 import Control.Monad.Error
-import Control.Monad.Error.Trans
 import Control.Monad.Error.Class
 
 -- |
 -- Untyped unification variables
 --
-data Unknown = Unknown Number
-
-runUnknown :: Unknown -> Number
-runUnknown (Unknown u) = u
-
-instance genericUnknown :: Generic Unknown where
-  typeOf _ = TyCon { tyCon: "Control.Monad.Unify.Unknown", args: [] }
-  term (Unknown u) = TmCon { con: "Control.Monad.Unify.Unknown", values : [term u] }
-  unTerm (TmCon { con = "Control.Monad.Unify.Unknown", values = [u] }) = Unknown <$> unTerm u
-  unTerm _ = Nothing
-
-instance showUnknown :: Show Unknown where
-  show (Unknown u) = "Unknown " ++ show u
-
-instance eqUnknown :: Eq Unknown where
-  (==) (Unknown u1) (Unknown u2) = u1 == u2
-  (/=) (Unknown u1) (Unknown u2) = u1 /= u2
-
-instance ordUnknown :: Ord Unknown where
-  compare (Unknown u1) (Unknown u2) = compare u1 u2
+type Unknown = Number
 
 -- |
 -- A type which can contain unification variables
@@ -60,41 +39,31 @@ instance ordUnknown :: Ord Unknown where
 class Partial t where
   unknown :: Unknown -> t
   isUnknown :: t -> Maybe Unknown
+  unknowns :: t -> [Unknown]
+  ($?) :: Substitution t -> t -> t
 
 -- |
 -- Identifies types which support unification
 --
-class Unifiable m t where
+class (Partial t) <= Unifiable m t where
   (=?=) :: t -> t -> UnifyT t m {}
 
 -- |
 -- A substitution maintains a mapping from unification variables to their values
 --
-data Substitution t = Substitution (Data.Map.Map Number t)
+data Substitution t = Substitution (Data.Map.Map Unknown t)
 
 runSubstitution :: forall t. Substitution t -> Data.Map.Map Number t
 runSubstitution (Substitution m) = m
 
-instance semigroupSubstitution :: (Generic t, Partial t) => Semigroup (Substitution t) where
+
+instance semigroupSubstitution :: (Partial t) => Semigroup (Substitution t) where
   (<>) s1 s2 = Substitution $
                  Data.Map.map (($?) s2) (runSubstitution s1) `Data.Map.union`
                  Data.Map.map (($?) s1) (runSubstitution s2)
 
-instance monoidSubstitution :: (Generic t, Partial t) => Monoid (Substitution t) where
+instance monoidSubstitution :: (Partial t) => Monoid (Substitution t) where
   mempty = Substitution Data.Map.empty
-
--- |
--- Apply a substitution to a value
---
-($?) :: forall t. (Generic t, Partial t) => Substitution t -> t -> t
-($?) sub = everywhere (mkT go)
-  where
-  go t = case isUnknown t of
-    Nothing -> t
-    Just (Unknown u) -> 
-      case Data.Map.lookup u (runSubstitution sub) of
-        Nothing -> t
-        Just t' -> t'
 
 -- |
 -- State required for type checking
@@ -103,7 +72,7 @@ data UnifyState t = UnifyState {
   -- |
   -- The next fresh unification variable
   --
-    unifyNextVar :: Number
+    unifyNextVar :: Unknown
   -- |
   -- The current substitution
   --
@@ -113,15 +82,15 @@ data UnifyState t = UnifyState {
 -- |
 -- An empty @UnifyState@
 --
-defaultUnifyState :: forall t. (Generic t, Partial t) => UnifyState t
+defaultUnifyState :: forall t. (Partial t) => UnifyState t
 defaultUnifyState = UnifyState { unifyNextVar: 0, unifyCurrentSubstitution: mempty }
 
 -- |
 -- The type checking monad, which provides the state of the type checker, and error reporting capabilities
 --
-data UnifyT t m a = UnifyT (StateT (UnifyState t) (ErrorT String m) a)
+data UnifyT t m a = UnifyT (StateT (UnifyState t) m a)
 
-unUnifyT :: forall t m a. UnifyT t m a -> StateT (UnifyState t) (ErrorT String m) a
+unUnifyT :: forall t m a. UnifyT t m a -> StateT (UnifyState t) m a
 unUnifyT (UnifyT s) = s
 
 instance functorUnify :: (Monad m) => Functor (UnifyT t m) where
@@ -138,40 +107,32 @@ instance bindUnify :: (Monad m) => Bind (UnifyT t m) where
   
 instance monadUnify :: (Monad m) => Monad (UnifyT t m)
   
-instance monadErrorUnify :: (Monad m) => MonadError String (UnifyT t m) where
+instance monadErrorUnify :: (Monad m, MonadError e m) => MonadError e (UnifyT t m) where
   throwError = UnifyT <<< throwError
-  catchError (UnifyT a) f = UnifyT (a `catchError` (unUnifyT <<< f))
+  catchError e f = UnifyT $ catchError (unUnifyT e) (unUnifyT <<< f)
 
 instance monadStateUnify :: (Monad m, MonadState s m) => MonadState s (UnifyT t m) where
-  state f = UnifyT (lift (lift (state f)))
+  state f = UnifyT (lift (state f))
 
 instance monadStateUnifyState :: (Monad m) => MonadState (UnifyState t) (UnifyT t m) where
   state = UnifyT <<< state
 
 -- |
--- Collect all unknowns occurring inside a value
---
-unknowns :: forall d. (Generic d) => d -> [Unknown]
-unknowns = 
-  let collect (u@(Unknown _)) = [u]
-  in everything (++) (mkQ [] collect)
-
--- |
 -- Run a computation in the Unify monad, failing with an error, or succeeding with a return value and the new next unification variable
 --
-runUnify :: forall t m a. UnifyState t -> UnifyT t m a -> m (Either String (Tuple a (UnifyState t)))
-runUnify s = runErrorT <<< flip runStateT s <<< unUnifyT
+runUnify :: forall t m a. (Monad m) => UnifyState t -> UnifyT t m a -> m (Tuple a (UnifyState t))
+runUnify s = flip runStateT s <<< unUnifyT
 
 -- |
 -- Substitute a single unification variable
 --
 substituteOne :: forall t. (Partial t) => Unknown -> t -> Substitution t
-substituteOne (Unknown u) t = Substitution $ Data.Map.singleton u t
+substituteOne u t = Substitution $ Data.Map.singleton u t
 
 -- |
 -- Replace a unification variable with the specified value in the current substitution
 --
-(=:=) :: forall m t. (Monad m, Generic t, Partial t, Unifiable m t) => Unknown -> t -> UnifyT t m {}
+(=:=) :: forall m t. (Monad m, MonadError String m, Partial t, Unifiable m t) => Unknown -> t -> UnifyT t m {}
 (=:=) u t' = do
   UnifyState st <- get
   let sub = st.unifyCurrentSubstitution
@@ -184,28 +145,33 @@ substituteOne (Unknown u) t = Substitution $ Data.Map.singleton u t
   modify $ \(UnifyState s) -> UnifyState { unifyNextVar: st.unifyNextVar, unifyCurrentSubstitution: substituteOne u t <> s.unifyCurrentSubstitution }
 
 -- |
+-- This type exists to get around a type error caused by the lack of functional dependencies
+--
+data Proxy e = Proxy
+
+-- |
 -- Perform the occurs check, to make sure a unification variable does not occur inside a value
 --
-occursCheck :: forall m t. (Monad m, Generic t, Partial t) => Unknown -> t -> UnifyT t m {}
+occursCheck :: forall m t. (Monad m, MonadError String m, Partial t) => Unknown -> t -> UnifyT t m {}
 occursCheck u t =
   case isUnknown t of
     Nothing | u `elem` unknowns t -> UnifyT (lift (throwError "Occurs check fails"))
     _ -> return {}
-    
-foreign import undefined :: forall a. a
-
+	
 -- |
 -- Generate a fresh untyped unification variable
 --
 fresh' :: forall m t. (Monad m) => UnifyT t m Unknown
-fresh' = undefined
-{-do
-  UnifyState st <- get
+fresh' = do
+  UnifyState st <- getState
   put $ UnifyState 
     { unifyNextVar: st.unifyNextVar + 1
     , unifyCurrentSubstitution: st.unifyCurrentSubstitution 
     }
-  return $ Unknown st.unifyNextVar-}
+  return st.unifyNextVar
+  where
+  getState :: forall m t. (Monad m) => UnifyT t m (UnifyState t)
+  getState = get
 
 -- |
 -- Generate a fresh unification variable at a specific type
