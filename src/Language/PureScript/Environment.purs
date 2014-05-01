@@ -1,12 +1,14 @@
 module Language.PureScript.Environment where
 
-import Prelude
 import Data.Maybe
 import Data.Tuple
+
+import Language.PureScript.Kinds
 import Language.PureScript.Names
 import Language.PureScript.Types
-import Language.PureScript.Kinds
+import Language.PureScript.Show
 import Language.PureScript.Values
+
 import qualified Language.PureScript.Constants as C
 import qualified Data.Map as M
 
@@ -40,7 +42,8 @@ data Environment = Environment {
   , typeClasses :: M.Map (Qualified ProperName) (Tuple [String] [Tuple Ident Type])
   }
   
-  -- TODO: deriving (Show)
+instance showEnv :: Show Environment where
+  show = defaultShow
 
 -- |
 -- The initial environment with no values and only the default javascript types defined
@@ -71,7 +74,15 @@ data ForeignImportType
   --
   | TypeClassAccessorImport
   
-  -- TODO: deriving (Show, Eq, Data, Typeable)
+instance showForeignImport :: Show ForeignImportType where
+  show = defaultShow
+  
+instance eqForeignImport :: Eq ForeignImportType where
+  (==) ForeignImport           ForeignImport           = true
+  (==) InlineJavascript        InlineJavascript        = true
+  (==) TypeClassAccessorImport TypeClassAccessorImport = true
+  (==) _ _ = false
+  (/=) x y = not (x == y)
 
 -- |
 -- The kind of a name
@@ -102,7 +113,18 @@ data NameKind
   --
   | TypeInstanceMember
   
-  -- TODO: deriving (Show, Eq, Data, Typeable)
+instance showNameKind :: Show NameKind where
+  show = defaultShow
+  
+instance eqNameKind :: Eq NameKind where
+  (==) Value                       Value                       = true
+  (==) (Extern t1)                 (Extern t2)                 = t1 == t2
+  (==) LocalVariable               LocalVariable               = true
+  (==) DataConstructor             DataConstructor             = true
+  (==) TypeInstanceDictionaryValue TypeInstanceDictionaryValue = true
+  (==) TypeInstanceMember          TypeInstanceMember          = true
+  (==) _ _ = false
+  (/=) x y = not (x == y)
 
 -- |
 -- The kinds of a type
@@ -125,7 +147,16 @@ data TypeKind
   --
   | LocalTypeVariable
   
-  -- TODO: deriving (Show, Eq, Data, Typeable)
+instance showTypeKind :: Show TypeKind where
+  show = defaultShow
+  
+instance eqTypeKind :: Eq TypeKind where
+  (==) (DataType args1 tys1) (DataType args2 tys2) = args1 == args2 && tys1 == tys2
+  (==) TypeSynonym           TypeSynonym           = true
+  (==) ExternData            ExternData            = true
+  (==) LocalTypeVariable     LocalTypeVariable     = true
+  (==) _ _ = false
+  (/=) x y = not (x == y)
 
 -- |
 -- Construct a ProperName in the Prim module
@@ -179,11 +210,8 @@ function t1 = TypeApp (TypeApp tyFunction t1)
 -- The primitive types in the external javascript environment with their associated kinds.
 --
 primTypes :: M.Map (Qualified ProperName) (Tuple Kind TypeKind)
-primTypes = M.empty 
-{- TODO: ord instances 
-            M.fromList [ Tuple (primName "Function") (Tuple (FunKind Star (FunKind Star Star)) ExternData)
+primTypes = M.fromList [ Tuple (primName "Function") (Tuple (FunKind Star (FunKind Star Star)) ExternData)
                        , Tuple (primName "Array")    (Tuple (FunKind Star Star) ExternData)
                        , Tuple (primName "String")   (Tuple Star ExternData)
                        , Tuple (primName "Number")   (Tuple Star ExternData)
                        , Tuple (primName "Boolean")  (Tuple Star ExternData) ]
--}
