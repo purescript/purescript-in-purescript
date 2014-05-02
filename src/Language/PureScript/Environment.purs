@@ -5,9 +5,9 @@ import Data.Tuple
 
 import Language.PureScript.Kinds
 import Language.PureScript.Names
-import Language.PureScript.Types
 import Language.PureScript.Show
-import Language.PureScript.Values
+import Language.PureScript.TypeClassDictionaries
+import Language.PureScript.Types
 
 import qualified Language.PureScript.Constants as C
 import qualified Data.Map as M
