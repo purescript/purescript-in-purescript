@@ -54,13 +54,14 @@ data Fixity = Fixity Associativity Precedence
 instance showFixity :: Show Fixity where
   show = defaultShow
   
-{-
 -- |
 -- A module declaration, consisting of a module name, a list of declarations, and a list of the
 -- declarations that are explicitly exported. If the export list is Nothing, everything is exported.
 --
-data Module = Module ModuleName [Declaration] (Maybe [DeclarationRef]) deriving (Show, D.Data, D.Typeable)
--}
+data Module = Module ModuleName [Declaration] (Maybe [DeclarationRef])
+
+instance showModule :: Show Module where
+  show = defaultShow
 
 -- |
 -- An item in a list of explicit imports or exports
