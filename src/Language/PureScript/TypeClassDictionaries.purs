@@ -5,7 +5,6 @@ import Data.Tuple
 
 import Language.PureScript.Names
 import Language.PureScript.Types
-import Language.PureScript.Show
 
 -- |
 -- Data representing a type class dictionary which is in scope
@@ -35,7 +34,12 @@ data TypeClassDictionaryInScope = TypeClassDictionaryInScope
     }
 
 instance showTCDIS :: Show TypeClassDictionaryInScope where
-  show = defaultShow
+  show (TypeClassDictionaryInScope o) = "TypeClassDictionaryInScope (" ++
+    show o.tcdName ++ ") (" ++
+	show o.tcdClassName ++ ") (" ++
+	show o.tcdInstanceTypes ++ ") (" ++
+	show o.tcdDependencies ++ ") (" ++
+	show o.tcdType ++ ")"
 
 -- |
 -- The type of a type class dictionary
@@ -51,7 +55,8 @@ data TypeClassDictionaryType
   | TCDAlias (Qualified Ident)
 
 instance showTCDT :: Show TypeClassDictionaryType where
-  show = defaultShow
+  show TCDRegular = "TCDRegular"
+  show (TCDAlias nm) = "TCDAlias (" ++ show nm ++ ")"
 
 instance eqTCDT :: Eq TypeClassDictionaryType where
   (==) TCDRegular    TCDRegular = true

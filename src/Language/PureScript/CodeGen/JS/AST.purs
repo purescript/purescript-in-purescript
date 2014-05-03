@@ -24,6 +24,12 @@ data UnaryOperator
   -- Numeric unary \'plus\'
   --
   | Positive
+  
+instance showUnaryOperator :: Show UnaryOperator where
+  show Negate = "Negate"
+  show Not = "Not"
+  show BitwiseNot = "BitwiseNot"
+  show Positive = "Positive"
 
 -- |
 -- Built-in binary operators
@@ -105,6 +111,27 @@ data BinaryOperator
   -- Bitwise right shift with zero-fill
   --
   | ZeroFillShiftRight
+  
+instance showBinaryOperator :: Show BinaryOperator where
+  show Add                   = "Add"
+  show Subtract              = "Subtract"
+  show Multiply              = "Multiply"
+  show Divide                = "Divide"
+  show Modulus               = "Modulus"
+  show EqualTo               = "EqualTo"
+  show NotEqualTo            = "NotEqualTo"
+  show LessThan              = "LessThan"
+  show LessThanOrEqualTo     = "LessThanOrEqualTo"
+  show GreaterThan           = "GreaterThan"
+  show GreaterThanOrEqualTo  = "GreaterThanOrEqualTo"
+  show And                   = "And"
+  show Or                    = "Or"
+  show BitwiseAnd            = "BitwiseAnd"
+  show BitwiseOr             = "BitwiseOr"
+  show BitwiseXor            = "BitwiseXor"
+  show ShiftLeft             = "ShiftLeft"
+  show ShiftRight            = "ShiftRight"
+  show ZeroFillShiftRight    = "ZeroFillShiftRight"
 
 -- |
 -- Data type for simplified Javascript expressions
@@ -220,4 +247,30 @@ data JS
   | JSRaw String
   
 instance showJS :: Show JS where
-  show = Language.PureScript.Show.defaultShow
+  show (JSNumericLiteral n) = "JSNumericLiteral (" ++ show n ++ ")"
+  show (JSStringLiteral s) = "JSStringLiteral (" ++ show s ++ ")"
+  show (JSBooleanLiteral b) = "JSBooleanLiteral (" ++ show b ++ ")"
+  show (JSUnary op js) = "JSUnary (" ++ show op ++ ") (" ++ show js ++ ")"
+  show (JSBinary op js1 js2) = "JSBinary (" ++ show op ++ ") (" ++ show js1 ++ ") (" ++ show js2 ++ ")"
+  show (JSArrayLiteral js) = "JSArrayLiteral (" ++ show js ++ ")"
+  show (JSIndexer js1 js2) = "JSIndexer (" ++ show js1 ++ ") (" ++ show js2 ++ ")"
+  show (JSObjectLiteral ps) = "JSObjectLiteral (" ++ show ps ++ ")"
+  show (JSAccessor prop js) = "JSAccessor (" ++ show prop ++ ") (" ++ show js ++ ")"
+  show (JSFunction nm args js) = "JSFunction (" ++ show nm ++ ") (" ++ show args ++ ") (" ++ show js ++ ")"
+  show (JSApp js args) = "JSApp (" ++ show js ++ ") (" ++ show args ++ ")"
+  show (JSVar nm) = "JSVar (" ++ show nm ++ ")"
+  show (JSConditional js1 js2 js3) = "JSConditional (" ++ show js1 ++ ") (" ++ show js2 ++ ") (" ++ show js3 ++ ")"
+  show (JSBlock js) = "JSBlock (" ++ show js ++ ")"
+  show (JSVariableIntroduction nm js) = "JSVariableIntroduction (" ++ show nm ++ ") (" ++ show js ++ ")"
+  show (JSAssignment js1 js2) = "JSAssignment (" ++ show js1 ++ ") (" ++ show js2 ++ ")"
+  show (JSWhile js1 js2) = "JSWhile (" ++ show js1 ++ ") (" ++ show js2 ++ ")"
+  show (JSFor nm js1 js2 js3) = "JSFor (" ++ show nm ++ ") (" ++ show js1 ++ ") (" ++ show js2 ++ ") (" ++ show js3 ++ ")"
+  show (JSForIn nm js1 js2) = "JSForIn String (" ++ show nm ++ ") (" ++ show js1 ++ ") (" ++ show js2 ++ ")"
+  show (JSIfElse js1 js2 js3) = "JSIfElse (" ++ show js1 ++ ") (" ++ show js2 ++ ") (" ++ show js3 ++ ")"
+  show (JSReturn js) = "JSReturn (" ++ show js ++ ")"
+  show (JSThrow js) = "JSThrow (" ++ show js ++ ")"
+  show (JSTypeOf js) = "JSTypeOf (" ++ show js ++ ")"
+  show (JSLabel lbl js) = "JSLabel (" ++ show lbl ++ ") (" ++ show js ++ ")"
+  show (JSBreak lbl) = "JSBreak (" ++ show lbl ++ ")"
+  show (JSContinue lbl) = "JSContinue (" ++ show lbl ++ ")"
+  show (JSRaw js) = "JSRaw (" ++ show js ++ ")"

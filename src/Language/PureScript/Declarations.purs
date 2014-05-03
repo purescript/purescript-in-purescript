@@ -16,7 +16,6 @@ import Language.PureScript.CodeGen.JS.AST
 import Language.PureScript.Environment
 import Language.PureScript.Kinds
 import Language.PureScript.Names
-import Language.PureScript.Show
 import Language.PureScript.Traversals
 import Language.PureScript.Types
 import Language.PureScript.TypeClassDictionaries
@@ -356,8 +355,28 @@ data Value
   | PositionedValue SourcePos Value
   
 instance showValue :: Show Value where
-  show = defaultShow
-
+  show (NumericLiteral n) = "NumericLiteral (" ++ show n ++ ")"
+  show (StringLiteral s) = "StringLiteral (" ++ show s ++ ")"
+  show (BooleanLiteral b) = "BooleanLiteral (" ++ show b ++ ")"
+  show (UnaryMinus v) = "UnaryMinus (" ++ show v ++ ")"
+  show (BinaryNoParens op v1 v2) = "BinaryNoParens (" ++ show op ++ ") (" ++ show v1 ++ ") (" ++ show v2 ++ ")"
+  show (Parens v) = "Parens (" ++ show v ++ ")"
+  show (ArrayLiteral vs) = "ArrayLiteral (" ++ show vs ++ ")"
+  show (ObjectLiteral ps) = "ObjectLiteral (" ++ show ps ++ ")"
+  show (Accessor prop v) = "Accessor (" ++ show prop ++ ") (" ++ show v ++ ")"
+  show (ObjectUpdate v ps) = "ObjectUpdate (" ++ show v ++ ") (" ++ show ps ++ ")"
+  show (Abs arg v) = "Abs (" ++ show arg ++ ") (" ++ show v ++ ")"
+  show (App v1 v2) = "App (" ++ show v1 ++ ") (" ++ show v2 ++ ")"
+  show (Var id) = "Var (" ++ show id ++ ")"
+  show (IfThenElse v1 v2 v3) = "IfThenElse (" ++ show v1 ++ ") (" ++ show v2 ++ ") (" ++ show v3 ++ ")"
+  show (Constructor ctor) = "Constructor (" ++ show ctor ++ ")"
+  show (Case val alts) = "Case (" ++ show val ++ ") (" ++ show alts ++ ")"
+  show (TypedValue check val ty) = "TypedValue (" ++ show check ++ ") (" ++ show val ++ ") (" ++ show ty ++ ")"
+  show (Let ds val) = "Let (" ++ show ds ++ ") (" ++ show val ++ ")"
+  show (Do els) = "Do (" ++ show els ++ ")"
+  show (TypeClassDictionary useSups cs sco) = "TypeClassDictionary (" ++ show useSups ++ ") (" ++ show cs ++ ") (" ++ show sco ++ ")"
+  show (SuperClassDictionary className tys) = "SuperClassDictionary (" ++ show className ++ ") (" ++ show tys ++ ")"
+  show (PositionedValue pos val) = "PositionedValue (" ++ show pos ++ ") (" ++ show val ++ ")"
 
 -- |
 -- An alternative in a case statement
@@ -456,7 +475,17 @@ data Binder
   | PositionedBinder SourcePos Binder
   
 instance showBinder :: Show Binder where
-  show = defaultShow
+  show NullBinder = "NullBinder"
+  show (BooleanBinder b) = "BooleanBinder (" ++ show b ++ ")"
+  show (StringBinder s) = "StringBinder (" ++ show s ++ ")"
+  show (NumberBinder n) = "NumberBinder (" ++ show n ++ ")"
+  show (VarBinder nm) = "VarBinder (" ++ show nm ++ ")"
+  show (ConstructorBinder ctor bs) = "ConstructorBinder (" ++ show ctor ++ ") (" ++ show bs ++ ")"
+  show (ObjectBinder ps) = "ObjectBinder (" ++ show ps ++ ")"
+  show (ArrayBinder bs) = "ArrayBinder (" ++ show bs ++ ")"
+  show (ConsBinder b1 b2) = "ConsBinder (" ++ show b1 ++ ") (" ++ show b2 ++ ")"
+  show (NamedBinder nm b) = "NamedBinder (" ++ show nm ++ ") (" ++ show b ++ ")"
+  show (PositionedBinder pos b) = "PositionedBinder (" ++ show pos ++ ") (" ++ show b ++ ")"
 
 
 -- |

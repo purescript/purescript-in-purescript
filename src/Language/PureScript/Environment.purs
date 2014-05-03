@@ -5,7 +5,6 @@ import Data.Tuple
 
 import Language.PureScript.Kinds
 import Language.PureScript.Names
-import Language.PureScript.Show
 import Language.PureScript.TypeClassDictionaries
 import Language.PureScript.Types
 
@@ -43,7 +42,13 @@ data Environment = Environment {
   }
   
 instance showEnv :: Show Environment where
-  show = defaultShow
+  show (Environment o) = "Environment (" ++ 
+    show o.names ++ ") (" ++ 
+	show o.types ++ ") (" ++ 
+	show o.dataConstructors ++ ") (" ++ 
+	show o.typeSynonyms ++ ") (" ++ 
+	show o.typeClassDictionaries ++ ") (" ++ 
+	show o.typeClasses ++ ")"
 
 -- |
 -- The initial environment with no values and only the default javascript types defined
@@ -69,18 +74,14 @@ data ForeignImportType
   -- A foreign import which contains inline Javascript as a string literal
   --
   | InlineJavascript
-  -- |
-  -- A type class dictionary member accessor import, generated during desugaring of type class declarations
-  --
-  | TypeClassAccessorImport
   
 instance showForeignImport :: Show ForeignImportType where
-  show = defaultShow
+  show ForeignImport = "ForeignImport"
+  show InlineJavascript = "InlineJavascript"
   
 instance eqForeignImport :: Eq ForeignImportType where
   (==) ForeignImport           ForeignImport           = true
   (==) InlineJavascript        InlineJavascript        = true
-  (==) TypeClassAccessorImport TypeClassAccessorImport = true
   (==) _ _ = false
   (/=) x y = not (x == y)
 
@@ -112,9 +113,19 @@ data NameKind
   -- A type instance member, generated during desugaring of type class declarations
   --
   | TypeInstanceMember
+  -- |
+  -- A type class dictionary member accessor import, generated during desugaring of type class declarations
+  --
+  | TypeClassAccessorImport
   
 instance showNameKind :: Show NameKind where
-  show = defaultShow
+  show Value = "Value"
+  show (Extern fit) = "Extern (" ++ show fit ++ ")" 
+  show LocalVariable = "LocalVariable"
+  show DataConstructor = "DataConstructor"
+  show TypeInstanceDictionaryValue = "TypeInstanceDictionaryValue"
+  show TypeInstanceMember = "TypeInstanceMember"
+  show TypeClassAccessorImport = "TypeClassAccessorImport"
   
 instance eqNameKind :: Eq NameKind where
   (==) Value                       Value                       = true
@@ -123,6 +134,7 @@ instance eqNameKind :: Eq NameKind where
   (==) DataConstructor             DataConstructor             = true
   (==) TypeInstanceDictionaryValue TypeInstanceDictionaryValue = true
   (==) TypeInstanceMember          TypeInstanceMember          = true
+  (==) TypeClassAccessorImport     TypeClassAccessorImport     = true
   (==) _ _ = false
   (/=) x y = not (x == y)
 
@@ -148,7 +160,10 @@ data TypeKind
   | LocalTypeVariable
   
 instance showTypeKind :: Show TypeKind where
-  show = defaultShow
+  show (DataType args dctors) = "DataType (" ++ show args ++ ") (" ++ show dctors ++ ")"
+  show TypeSynonym = "TypeSynonym"
+  show ExternData = "ExternData"
+  show LocalTypeVariable = "LocalTypeVariable"
   
 instance eqTypeKind :: Eq TypeKind where
   (==) (DataType args1 tys1) (DataType args2 tys2) = args1 == args2 && tys1 == tys2
