@@ -218,3 +218,6 @@ data JS
   -- Raw Javascript (for an inline foreign import declarations)
   --
   | JSRaw String
+  
+instance showJS :: Show JS where
+  show = Language.PureScript.Show.defaultShow

@@ -52,7 +52,7 @@ instance showAssociativity :: Show Associativity where
 data Fixity = Fixity Associativity Precedence
 
 instance showFixity :: Show Fixity where
-  show = defaultShow
+  show (Fixity assoc prec) = "Fixity (" ++ show assoc ++ ") (" ++ show prec ++ ")"
   
 -- |
 -- A module declaration, consisting of a module name, a list of declarations, and a list of the
@@ -61,7 +61,7 @@ instance showFixity :: Show Fixity where
 data Module = Module ModuleName [Declaration] (Maybe [DeclarationRef])
 
 instance showModule :: Show Module where
-  show = defaultShow
+  show (Module nm ds rs) = "Module (" ++ show nm ++ ") (" ++ show ds ++ ") (" ++ show rs ++ ")"
 
 -- |
 -- An item in a list of explicit imports or exports
@@ -89,7 +89,11 @@ data DeclarationRef
   | PositionedDeclarationRef SourcePos DeclarationRef
 
 instance showDeclarationRef :: Show DeclarationRef where
-  show = defaultShow
+  show (TypeRef pn dctors) = "TypeRef (" ++ show pn ++ ") (" ++ show dctors ++ ")"
+  show (ValueRef nm) = "ValueRef (" ++ show nm ++ ")"
+  show (TypeClassRef nm) = "TypeClassRef (" ++ show nm ++ ")"
+  show (TypeInstanceRef nm) = "TypeInstanceRef (" ++ show nm ++ ")"
+  show (PositionedDeclarationRef pos ref) = "PositionedDeclarationRef (" ++ show pos ++ ") (" ++ show ref ++ ")" 
 
 instance eqDeclarationRef :: Eq DeclarationRef where
   (==) (TypeRef name dctors)  (TypeRef name' dctors') = name == name' && dctors == dctors'
@@ -165,7 +169,20 @@ data Declaration
   | PositionedDeclaration SourcePos Declaration
   
 instance showDeclaration :: Show Declaration where
-  show = defaultShow
+  show (DataDeclaration nm args dctors) =                   "DataDeclaration (" ++ show nm ++ ") (" ++ show args ++ ") (" ++ show dctors ++ ")"
+  show (DataBindingGroupDeclaration ds) =                   "DataBindingGroupDeclaration (" ++ show ds ++ ")"
+  show (TypeSynonymDeclaration nm args ty) =                "TypeSynonymDeclaration (" ++ show nm ++ ") (" ++ show args ++ ") (" ++ show ty ++ ")"
+  show (TypeDeclaration nm ty) =                            "TypeDeclaration (" ++ show nm ++ ") (" ++ show ty ++ ")" 
+  show (ValueDeclaration nm nameKind bs grd val) =          "ValueDeclaration (" ++ show nm ++ ") (" ++ show nameKind ++ ") (" ++ show bs ++ ") (" ++ show grd ++ ") (" ++ show val ++ ")"
+  show (BindingGroupDeclaration ds) =                       "BindingGroupDeclaration (" ++ show ds ++ ")"
+  show (ExternDeclaration impTy nm js ty) =                 "ExternDeclaration (" ++ show impTy ++ ") (" ++ show nm ++ ") (" ++ show js ++ ") (" ++ show ty ++ ")" 
+  show (ExternDataDeclaration nm k) =                       "ExternDataDeclaration (" ++ show nm ++ ") (" ++ show k ++ ")"
+  show (ExternInstanceDeclaration nm cs className tys) =    "ExternInstanceDeclaration (" ++ show nm ++ ") (" ++ show cs ++ ") (" ++ show className ++ ") (" ++ show tys ++ ")" 
+  show (FixityDeclaration f nm) =                           "FixityDeclaration (" ++ show f ++ ") (" ++ show nm ++ ")"
+  show (ImportDeclaration mn imps qual) =                   "ImportDeclaration (" ++ show mn ++ ") (" ++ show imps ++ ") (" ++ show qual ++ ")"
+  show (TypeClassDeclaration className args cs ds) =        "TypeClassDeclaration (" ++ show className ++ ") (" ++ show args ++ ") (" ++ show cs ++ ") (" ++ show ds ++ ")"
+  show (TypeInstanceDeclaration nm cs className tys ds) =   "TypeInstanceDeclaration (" ++ show nm ++ ") (" ++ show cs ++ ") (" ++ show className ++ ") (" ++ show tys ++ ") (" ++ show ds ++ ")"
+  show (PositionedDeclaration pos d) =                      "PositionedDeclaration (" ++ show pos ++ ") (" ++ show d ++ ")"
   
 -- |
 -- Test if a declaration is a value declaration
@@ -353,7 +370,7 @@ mkCaseAlternative :: [Binder] -> Maybe Guard -> Value -> CaseAlternative
 mkCaseAlternative bs g r = CaseAlternative { binders: bs, guard: g, result: r }
   
 instance showCaseAlternative :: Show CaseAlternative where
-  show = defaultShow
+  show (CaseAlternative o) = "CaseAlternative (" ++ show o.binders ++ ") (" ++ show o.guard ++ ") (" ++ show o.result ++ ")"
 
 -- |
 -- Find the original dictionary which a type class dictionary in scope refers to
@@ -384,7 +401,10 @@ data DoNotationElement
   | PositionedDoNotationElement SourcePos DoNotationElement
   
 instance showDoNotationElement :: Show DoNotationElement where
-  show = defaultShow
+  show (DoNotationValue val) = "DoNotationValue (" ++ show val ++ ")"
+  show (DoNotationBind b val) = "DoNotationBind (" ++ show b ++ ") (" ++ show val ++ ")"
+  show (DoNotationLet ds) = "DoNotationLet (" ++ show ds ++ ")"
+  show (PositionedDoNotationElement pos e) = "PositionedDoNotationElement (" ++ show pos ++ ") (" ++ show e ++ ")"
 
 -- |
 -- Data type for binders
@@ -511,7 +531,6 @@ everywhereOnValues f g h = Tuple3 f' g' h'
   handleDoNotationElement (DoNotationBind b v) = DoNotationBind (h' b) (g' v)
   handleDoNotationElement (DoNotationLet ds) = DoNotationLet (map f' ds)
   handleDoNotationElement (PositionedDoNotationElement pos e) = PositionedDoNotationElement pos (handleDoNotationElement e)
-
 
 everywhereOnValuesTopDownM :: forall m. (Monad m) =>
   (Declaration -> m Declaration) ->
