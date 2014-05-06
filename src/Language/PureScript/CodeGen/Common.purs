@@ -1,7 +1,7 @@
 module Language.PureScript.CodeGen.Common where
 
-import Data.Array (concatMap, elem, map)
-import Data.Foldable (all, foldMap)
+import Data.Array (concatMap, map)
+import Data.Foldable (all, elem, foldMap)
 import Data.Monoid ()
 import Data.String (charCodeAt, joinWith, split)
 import Data.String.Regex (Regex(..), regex, test)
