@@ -81,7 +81,7 @@ data Type
   -- |
   -- A skolem constant
   --
-  | Skolem Number SkolemScope
+  | Skolem String Number SkolemScope
   -- |
   -- An empty row
   --
@@ -115,7 +115,7 @@ instance showType :: Show Type where
   show (SaturatedTypeSynonym name ts) = "SaturatedTypeSynonym " ++ show name ++ " " ++ show ts
   show (ForAll name ty scope) = "ForAll " ++ show name ++ " " ++ show ty ++ " " ++ show scope
   show (ConstrainedType cs ty) = "ConstrainedType " ++ show cs ++ " " ++ show ty
-  show (Skolem n scope) = "Skolem " ++ show n ++ " " ++ show scope
+  show (Skolem s n scope) = "Skolem " ++ show s ++ " " ++ show n ++ " " ++ show scope
   show REmpty = "REmpty"
   show (RCons name t1 t2) = "RCons " ++ show name ++ " " ++ show t1 ++ " " ++ show t2
   show (PrettyPrintFunction t1 t2) = "PrettyPrintFunction " ++ show t1 ++ " " ++ show t2
@@ -131,7 +131,7 @@ instance eqType :: Eq Type where
   (==) (SaturatedTypeSynonym name1 ts1) (SaturatedTypeSynonym name2 ts2)  = name1 == name2 && ts1 == ts2
   (==) (ForAll name1 ty1 scope1)        (ForAll name2 ty2 scope2)         = name1 == name2 && ty1 == ty2 && scope1 == scope2
   (==) (ConstrainedType cs1 ty1)        (ConstrainedType cs2 ty2)         = cs1 == cs2 && ty1 == ty2
-  (==) (Skolem n1 scope1)               (Skolem n2 scope2)                = n1 == n2 && scope1 == scope2
+  (==) (Skolem s1 n1 scope1)            (Skolem s2 n2 scope2)             = s1 == s2 && n1 == n2 && scope1 == scope2
   (==) REmpty                           REmpty                            = true
   (==) (RCons name1 tx1 ty1)            (RCons name2 tx2 ty2)             = name1 == name2 && tx1 == tx2 && ty1 == ty2
   (==) (PrettyPrintFunction tx1 ty1)    (PrettyPrintFunction tx2 ty2)     = tx1 == tx2 && ty1 == ty2
