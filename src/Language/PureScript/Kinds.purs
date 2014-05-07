@@ -32,7 +32,7 @@ instance showKind :: Show Kind where
   show Star = "Star"
   show Bang = "Bang"
   show (Row k) = "Row " ++ show k
-  show (FunKind x y) = "FunKind " ++ show x ++ " " ++ show y
+  show (FunKind x y) = "FunKind (" ++ show x ++ ") (" ++ show y ++ ")"
 
 instance eqKind :: Eq Kind where
   (==) (KUnknown u1) (KUnknown u2) = u1 == u2
