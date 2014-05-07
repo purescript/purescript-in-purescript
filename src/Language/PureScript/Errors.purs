@@ -153,3 +153,12 @@ rethrow f = flip catchError $ \e -> throwError (f e)
 --
 rethrowWithPosition :: forall m a. (MonadError ErrorStack m) => SourcePos -> m a -> m a
 rethrowWithPosition pos = rethrow ((<>) (positionError pos))
+
+-- |
+-- Throw a runtime error for a situation where something unexpected (and 
+-- supposedly impossible) happened
+--
+foreign import theImpossibleHappened
+  "function theImpossibleHappened(msg) {\
+  \  throw new Error(msg);\
+  \}" :: forall a. String -> a 
