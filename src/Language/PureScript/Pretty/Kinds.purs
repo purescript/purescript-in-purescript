@@ -1,12 +1,10 @@
 module Language.PureScript.Pretty.Kinds (prettyPrintKind) where
 
+import Control.Arrow
 import Data.Maybe
 import Data.Tuple
-
-import Control.Arrow
 import Text.Pretty.PatternArrows
 
-import Language.PureScript.Errors (theImpossibleHappened)
 import Language.PureScript.Kinds
 import Language.PureScript.Pretty.Common
 
@@ -34,9 +32,7 @@ funKind = mkPattern match
 -- Generate a pretty-printed string representing a Kind
 --
 prettyPrintKind :: Kind -> String
-prettyPrintKind k = case pattern matchKind unit k of 
-    Just x -> x
-    Nothing -> theImpossibleHappened "Incomplete pattern"
+prettyPrintKind = runPretty $ pattern matchKind unit
   where
   matchKind :: Pattern Unit Kind String
   matchKind = fix $ \p -> buildPrettyPrinter operators (typeLiterals <+> (parens <$> p))

@@ -7,6 +7,8 @@ import Data.Maybe
 import Data.Monoid
 import Data.Traversable (traverse)
 import Data.String (joinWith)
+
+import Language.PureScript.Errors (theImpossibleHappened)
 --TODO: import Language.PureScript.Parser.Common (reservedPsNames, opChars)
 
 -- |
@@ -72,3 +74,10 @@ prettyPrintObjectKey s | s `elem` reservedPsNames = show s
                        | head s `elem` opChars = show s
                        | otherwise = s
 -}
+
+foreign import prettyPrintObjectKey :: String -> String
+
+runPretty :: forall a b. (a -> Maybe b) -> a -> b
+runPretty p x = case p x of
+  Just x -> x
+  Nothing -> theImpossibleHappened "Incomplete pattern"
