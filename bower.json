@@ -5,9 +5,9 @@
     "purescript-arrows": "*",
     "purescript-node-readline": "*",
     "purescript-maps": "*",
-    "purescript-parsing": "*",
     "purescript-transformers": "*",
-    "purescript-pattern-arrows": "*"
+    "purescript-pattern-arrows": "*",
+    "purescript-string-parsers": "*"
   },
   "devDependencies": {
     "purescript-quickcheck": "*"
