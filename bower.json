@@ -6,7 +6,8 @@
     "purescript-node-readline": "*",
     "purescript-maps": "*",
     "purescript-parsing": "*",
-    "purescript-transformers": "*"
+    "purescript-transformers": "*",
+    "purescript-pattern-arrows": "*"
   },
   "devDependencies": {
     "purescript-quickcheck": "*"
