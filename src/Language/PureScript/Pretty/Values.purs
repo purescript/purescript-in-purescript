@@ -12,7 +12,7 @@ import Data.Array (map)
 import Data.Either (Either(..), either)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (joinWith)
-import Data.Traversable (sequence, traverse)
+import Data.Traversable (sequence, for)
 import Data.Tuple
 import Text.Pretty.PatternArrows
 
@@ -45,7 +45,7 @@ literals _ = mkPattern' match
   match (Constructor name) = return $ show name
   match (Case values binders) = joinWith "" <$> sequence
     [ return "case "
-    --, joinWith " " <$> traverse values prettyPrintValue'
+    , joinWith " " <$> for values prettyPrintValue'
     , return " of\n"
     , withIndent $ prettyPrintMany prettyPrintCaseAlternative binders
     , currentIndent
@@ -82,10 +82,8 @@ prettyPrintDeclaration _ = theImpossibleHappened "Invalid argument to prettyPrin
 prettyPrintCaseAlternative :: CaseAlternative -> StateT PrinterState Maybe String
 prettyPrintCaseAlternative (CaseAlternative { binders = binders, guard = grd, result = val }) =
   joinWith "" <$> sequence
-    [ 
-    {-joinWith ", " <$> traverse binders prettyPrintBinder'
-    , -}
-    maybe (return "") ((<$>) ((++) "| ") <<< prettyPrintValue') grd
+    [ joinWith ", " <$> for binders prettyPrintBinder'
+    , maybe (return "") ((<$>) ((++) "| ") <<< prettyPrintValue') grd
     , return " -> "
     , prettyPrintValue' val
     ]
@@ -168,7 +166,7 @@ prettyPrintBinderAtom _ = mkPattern' match
   match (VarBinder ident) = return $ show ident
   match (ConstructorBinder ctor args) = joinWith "" <$> sequence
     [ return $ show ctor ++ " "
-    --, joinWith " " <$> traverse args match
+    , joinWith " " <$> for args match
     ]
   match (ObjectBinder bs) = joinWith "" <$> sequence
     [ return "{\n"
@@ -178,7 +176,7 @@ prettyPrintBinderAtom _ = mkPattern' match
     ]
   match (ArrayBinder bs) = joinWith "" <$> sequence
     [ return "["
-    , joinWith " " <$> traverse prettyPrintBinder' bs
+    , joinWith " " <$> for bs prettyPrintBinder'
     , return "]"
     ]
   match (NamedBinder ident binder) = ((++) (show ident ++ "@")) <$> prettyPrintBinder' binder
