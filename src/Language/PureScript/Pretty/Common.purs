@@ -3,13 +3,14 @@ module Language.PureScript.Pretty.Common where
 import Control.Monad.State.Trans
 import Control.Monad.State.Class
 import Data.Array (map)
+import Data.Foldable (elem)
 import Data.Maybe
 import Data.Monoid
 import Data.Traversable (traverse)
-import Data.String (joinWith)
+import Data.String (charAt, joinWith)
 
 import Language.PureScript.Errors (theImpossibleHappened)
---TODO: import Language.PureScript.Parser.Common (reservedPsNames, opChars)
+import Language.PureScript.Keywords
 
 -- |
 -- Wrap a string in parentheses
@@ -65,17 +66,13 @@ prettyPrintMany f xs = do
   indentString <- currentIndent
   return $ joinWith "\n" $ map ((++) indentString) ss
 
-{-
 -- |
 -- Prints an object key, escaping reserved names.
 --
-TODO: prettyPrintObjectKey :: String -> String
+prettyPrintObjectKey :: String -> String
 prettyPrintObjectKey s | s `elem` reservedPsNames = show s
-                       | head s `elem` opChars = show s
-                       | otherwise = s
--}
-
-foreign import prettyPrintObjectKey :: String -> String
+prettyPrintObjectKey s | charAt 0 s `elem` opChars = show s
+prettyPrintObjectKey s = s
 
 runPretty :: forall a b. (a -> Maybe b) -> a -> b
 runPretty p x = case p x of
