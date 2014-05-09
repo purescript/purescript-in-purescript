@@ -34,12 +34,13 @@ data TypeClassDictionaryInScope = TypeClassDictionaryInScope
     }
 
 instance showTCDIS :: Show TypeClassDictionaryInScope where
-  show (TypeClassDictionaryInScope o) = "TypeClassDictionaryInScope (" ++
-    show o.tcdName ++ ") (" ++
-	show o.tcdClassName ++ ") (" ++
-	show o.tcdInstanceTypes ++ ") (" ++
-	show o.tcdDependencies ++ ") (" ++
-	show o.tcdType ++ ")"
+  show (TypeClassDictionaryInScope o) = "TypeClassDictionaryInScope { " ++
+    "tcdName: " ++ show o.tcdName ++ ", " ++
+    "tcdClassName: " ++ show o.tcdClassName ++ "," ++
+    "tcdInstanceTypes: " ++ show o.tcdInstanceTypes ++ ", " ++
+    "tcdDependencies:" ++ show o.tcdDependencies ++ ", " ++ " "
+    "tcdType:" ++ show o.tcdType ++ 
+    "}"
 
 -- |
 -- The type of a type class dictionary

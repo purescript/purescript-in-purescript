@@ -75,9 +75,9 @@ mkCompileError compileErrorMessage compileErrorValue compileErrorPosition =
   
 instance showCompileError :: Show CompileError where
   show (CompileError o) = "CompileError {" ++
-    "compileErrorMessage: " ++  show o.compileErrorMessage ++
-    "compileErrorValue: " ++    show o.compileErrorValue ++
-    "compileErrorPosition: " ++ show o.compileErrorPosition ++
+    "compileErrorMessage: " ++  show o.compileErrorMessage ++ ", "
+    "compileErrorValue: " ++    show o.compileErrorValue ++ ", "
+    "compileErrorPosition: " ++ show o.compileErrorPosition ++ " "
 	  "}" 
 
 -- |

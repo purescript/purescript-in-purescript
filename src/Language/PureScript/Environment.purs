@@ -42,13 +42,14 @@ data Environment = Environment {
   }
   
 instance showEnv :: Show Environment where
-  show (Environment o) = "Environment (" ++ 
-    show o.names ++ ") (" ++ 
-	show o.types ++ ") (" ++ 
-	show o.dataConstructors ++ ") (" ++ 
-	show o.typeSynonyms ++ ") (" ++ 
-	show o.typeClassDictionaries ++ ") (" ++ 
-	show o.typeClasses ++ ")"
+  show (Environment o) = "Environment {" ++ 
+    "names: " ++ show o.names ++ ", " ++ 
+    "types: " ++ show o.types ++ ", " ++ 
+    "dataConstructors: " ++ show o.dataConstructors ++ ", " ++ 
+    "typeSynonyms: " ++ show o.typeSynonyms ++ ", " ++ 
+    "typeClassDictionaries: " ++ show o.typeClassDictionaries ++ ", " ++ 
+    "typeClasses: " ++ show o.typeClasses ++ " " ++
+    "}"
 
 -- |
 -- The initial environment with no values and only the default javascript types defined
