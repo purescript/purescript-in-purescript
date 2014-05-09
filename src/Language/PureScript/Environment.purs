@@ -2,6 +2,7 @@ module Language.PureScript.Environment where
 
 import Data.Maybe
 import Data.Tuple
+import Data.Tuple3
 
 import Language.PureScript.Kinds
 import Language.PureScript.Names
@@ -38,7 +39,7 @@ data Environment = Environment {
   -- |
   -- Type classes
   --
-  , typeClasses :: M.Map (Qualified ProperName) (Tuple [String] [Tuple Ident Type])
+  , typeClasses :: M.Map (Qualified ProperName) (Tuple3 [String] [Tuple Ident Type] [Tuple (Qualified ProperName) [Type]])
   }
   
 instance showEnv :: Show Environment where
