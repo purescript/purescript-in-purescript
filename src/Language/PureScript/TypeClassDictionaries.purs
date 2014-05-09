@@ -14,32 +14,32 @@ data TypeClassDictionaryInScope = TypeClassDictionaryInScope
     -- |
     -- The identifier with which the dictionary can be accessed at runtime
     --
-      tcdName :: Qualified Ident
+      name :: Qualified Ident
     -- |
     -- The name of the type class to which this type class instance applies
     --
-    , tcdClassName :: Qualified ProperName
+    , className :: Qualified ProperName
     -- |
     -- The types to which this type class instance applies
     --
-    , tcdInstanceTypes :: [Type]
+    , instanceTypes :: [Type]
     -- |
     -- Type class dependencies which must be satisfied to construct this dictionary
     --
-    , tcdDependencies :: Maybe [Tuple (Qualified ProperName) [Type]]
+    , dependencies :: Maybe [Tuple (Qualified ProperName) [Type]]
     -- |
     -- The type of this dictionary
     --
-    , tcdType :: TypeClassDictionaryType
+    , ty :: TypeClassDictionaryType
     }
 
 instance showTCDIS :: Show TypeClassDictionaryInScope where
   show (TypeClassDictionaryInScope o) = "TypeClassDictionaryInScope { " ++
-    "tcdName: " ++ show o.tcdName ++ ", " ++
-    "tcdClassName: " ++ show o.tcdClassName ++ "," ++
-    "tcdInstanceTypes: " ++ show o.tcdInstanceTypes ++ ", " ++
-    "tcdDependencies:" ++ show o.tcdDependencies ++ ", " ++ " " ++
-    "tcdType:" ++ show o.tcdType ++ " " ++
+    "name: " ++ show o.name ++ ", " ++
+    "className: " ++ show o.className ++ "," ++
+    "instanceTypes: " ++ show o.instanceTypes ++ ", " ++
+    "dependencies:" ++ show o.dependencies ++ ", " ++ " " ++
+    "ty:" ++ show o.ty ++ " " ++
     "}"
 
 -- |

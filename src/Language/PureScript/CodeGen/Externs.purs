@@ -77,13 +77,13 @@ moduleToPs (Module moduleName ds (Just exts)) (Environment env) = joinWith "\n" 
             tell [ "  " ++ show member ++ " :: " ++ prettyPrintType ty ]
 
     exportToPs (TypeInstanceRef ident) =
-      case find (((==) (Qualified (Just moduleName) ident)) <<< (\(TypeClassDictionaryInScope tcd) -> tcd.tcdName)) env.typeClassDictionaries of
+      case find (((==) (Qualified (Just moduleName) ident)) <<< (\(TypeClassDictionaryInScope tcd) -> tcd.name)) env.typeClassDictionaries of
         Nothing -> theImpossibleHappened "Type class instance has no dictionary in exportToPs"
         Just (TypeClassDictionaryInScope tcd) -> do
-          let constraintsText = case fromMaybe [] tcd.tcdDependencies of
+          let constraintsText = case fromMaybe [] tcd.dependencies of
                                   [] -> ""
                                   cs -> "(" ++ joinWith ", " (map (\(Tuple pn tys') -> show pn ++ " " ++ joinWith " " (map prettyPrintTypeAtom tys')) cs) ++ ") => "
-          tell ["foreign import instance " ++ show ident ++ " :: " ++ constraintsText ++ show tcd.tcdClassName ++ " " ++ joinWith " " (map prettyPrintTypeAtom tcd.tcdInstanceTypes)]
+          tell ["foreign import instance " ++ show ident ++ " :: " ++ constraintsText ++ show tcd.className ++ " " ++ joinWith " " (map prettyPrintTypeAtom tcd.instanceTypes)]
 
     isValueExported :: Ident -> Boolean
     isValueExported ident = ValueRef ident `elem` exts

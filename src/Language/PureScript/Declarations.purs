@@ -395,8 +395,8 @@ instance showCaseAlternative :: Show CaseAlternative where
 -- Find the original dictionary which a type class dictionary in scope refers to
 --
 canonicalizeDictionary :: TypeClassDictionaryInScope -> Qualified Ident
-canonicalizeDictionary (TypeClassDictionaryInScope { tcdType = TCDRegular, tcdName = nm }) = nm
-canonicalizeDictionary (TypeClassDictionaryInScope { tcdType = TCDAlias nm }) = nm
+canonicalizeDictionary (TypeClassDictionaryInScope { ty = TCDRegular, name = nm }) = nm
+canonicalizeDictionary (TypeClassDictionaryInScope { ty = TCDAlias nm }) = nm
 
 -- |
 -- A statement in a do-notation block
