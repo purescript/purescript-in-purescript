@@ -38,8 +38,8 @@ instance showTCDIS :: Show TypeClassDictionaryInScope where
     "tcdName: " ++ show o.tcdName ++ ", " ++
     "tcdClassName: " ++ show o.tcdClassName ++ "," ++
     "tcdInstanceTypes: " ++ show o.tcdInstanceTypes ++ ", " ++
-    "tcdDependencies:" ++ show o.tcdDependencies ++ ", " ++ " "
-    "tcdType:" ++ show o.tcdType ++ 
+    "tcdDependencies:" ++ show o.tcdDependencies ++ ", " ++ " " ++
+    "tcdType:" ++ show o.tcdType ++ " " ++
     "}"
 
 -- |
