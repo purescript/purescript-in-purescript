@@ -59,7 +59,7 @@ matchTypeAtom :: Unit -> Pattern Unit Type String
 matchTypeAtom _ = typeLiterals unit <+> (parens <$> matchType unit)
 
 matchType :: Unit -> Pattern Unit Type String
-matchType _ = buildPrettyPrinter operators (matchTypeAtom unit)
+matchType _ = fix $ \p -> buildPrettyPrinter operators (typeLiterals unit <+> (parens <$> p))
   where
   operators :: OperatorTable Unit Type String
   operators =
