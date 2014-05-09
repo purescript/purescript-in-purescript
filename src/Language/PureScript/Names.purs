@@ -23,8 +23,8 @@ runIdent (Ident i) = i
 runIdent (Op op) = op
 
 instance showIdent :: Show Ident where
-  show (Ident i) = "Ident " ++ show i
-  show (Op op) = "Op " ++ show op
+  show (Ident i) = i
+  show (Op op) = "(" ++ op ++ ")"
   
 instance eqIdent :: Eq Ident where
   (==) (Ident s1) (Ident s2) = s1 == s2

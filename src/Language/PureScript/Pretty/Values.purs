@@ -16,6 +16,7 @@ import Data.Traversable (sequence, for)
 import Data.Tuple
 import Text.Pretty.PatternArrows
 
+import Language.PureScript.Names
 import Language.PureScript.Declarations
 import Language.PureScript.Errors (theImpossibleHappened)
 import Language.PureScript.Pretty.Common
