@@ -14,6 +14,7 @@ import Text.Pretty.PatternArrows
 import Language.PureScript.Environment
 import Language.PureScript.Pretty.Common
 import Language.PureScript.Types
+import Language.PureScript.Names
 
 typeLiterals :: Unit -> Pattern Unit Type String
 typeLiterals _ = mkPattern match
