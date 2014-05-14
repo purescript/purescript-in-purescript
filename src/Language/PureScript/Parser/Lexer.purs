@@ -58,19 +58,34 @@ instance showToken :: Show Token where
   show Tick             = "Tick"
     
 lex :: String -> Either String [Token]
-lex input = Data.Array.reverse <$> go 0 []
+lex input = 
+  let wh = eatWhitespace 0
+  in Data.Array.reverse <$> go wh.len wh.len wh.next []
   where
-  go :: Number -> [Token] -> Either String [Token]
-  go i ts | i >= length input = Right ts
-  go i ts | charAt i input == "(" = go (i + 1) (LParen : ts)
-  go i ts | charAt i input == ")" = go (i + 1) (RParen : ts)
-  go i ts | charAt i input == "{" = go (i + 1) (LBrace : ts)
-  go i ts | charAt i input == "}" = go (i + 1) (RBrace : ts)
-  go i ts | charAt i input == "[" = go (i + 1) (LSquare : ts)
-  go i ts | charAt i input == "]" = go (i + 1) (RSquare : ts)
-  go i ts | charAt i input == "<" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go (i + 1) (LAngle : ts)
-  go i ts | charAt i input == ">" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go (i + 1) (RAngle : ts)
-  go i _ = Left $ "Parse error at location " ++ show i ++ ": '" ++ take 20 (drop i input) ++ "...'"
+  go :: Number -> Number -> Number -> [Token] -> Either String [Token]
+  go _ _ i ts | i >= length input = Right ts
+  go ref ind i ts | charAt i input == " " = go ref ind (i + 1) ts
+  go ref ind i ts | charAt i input == "\r" = go ref ind (i + 1) ts
+  go ref ind i ts | charAt i input == "\n" = case eatWhitespace (i + 1) of
+                                               wh | wh.len < ref -> go ind wh.len wh.next (Dedent : ts)
+                                               wh | wh.len > ref -> go ind wh.len wh.next (Indent : ts)
+                                               wh -> go ind wh.len wh.next ts
+  go ref ind i ts | charAt i input == "(" = go ref ind (i + 1) (LParen : ts)
+  go ref ind i ts | charAt i input == ")" = go ref ind (i + 1) (RParen : ts)
+  go ref ind i ts | charAt i input == "{" = go ref ind (i + 1) (LBrace : ts)
+  go ref ind i ts | charAt i input == "}" = go ref ind (i + 1) (RBrace : ts)
+  go ref ind i ts | charAt i input == "[" = go ref ind (i + 1) (LSquare : ts)
+  go ref ind i ts | charAt i input == "]" = go ref ind (i + 1) (RSquare : ts)
+  go ref ind i ts | charAt i input == "<" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go ref ind (i + 1) (LAngle : ts)
+  go ref ind i ts | charAt i input == ">" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go ref ind (i + 1) (RAngle : ts)
+  go _ _ i _ = Left $ "Parse error at location " ++ show i ++ ": " ++ show (take 20 (drop i input))
+  
+  eatWhitespace :: Number -> { len :: Number, count :: Number, next :: Number }
+  eatWhitespace = eat 0 0
+    where
+    eat len count i | charAt i input == " " = eat (len + 1) (count + 1) (i + 1)
+    eat len count i | charAt i input == "\r" = eat len (count + 1) (i + 1)
+    eat len count i = { len: len, count: count, next: i }
   
   lookaheadChar :: Number -> (String -> Boolean) -> Boolean
   lookaheadChar i pred = pred (charAt i input)
