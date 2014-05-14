@@ -37,11 +37,14 @@ reservedTypeNames =
   [ "forall"
   , "where" ]
   
+opCharsString :: String
+opCharsString = ":!#$%&*+./<=>?@\\^|-~"
+  
 -- |
 -- The characters allowed for use in operators
 --
 opChars :: [String]
-opChars = split "" ":!#$%&*+./<=>?@\\^|-~"
+opChars = split "" opCharsString
 
 -- |
 -- A list of reserved operators
