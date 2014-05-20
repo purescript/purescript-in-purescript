@@ -42,6 +42,9 @@ data Token
   | Float Number
   | Hex Number
   
+  | LineComment String
+  | BlockComment String
+  
 instance showToken :: Show Token where
   show LParen                = "LParen"
   show RParen                = "RParen"
@@ -72,6 +75,8 @@ instance showToken :: Show Token where
   show (Integer n)           = "Integer (" ++ show n ++ ")"
   show (Float n)             = "Float (" ++ show n ++ ")"
   show (Hex n)               = "Hex (" ++ show n ++ ")"
+  show (LineComment s)       = "LineComment (" ++ show s ++ ")"
+  show (BlockComment s)      = "BlockComment (" ++ show s ++ ")"
     
 type Indentation = Number 
 
@@ -105,6 +110,13 @@ lex input =
   go line col ref i ts | charAt i input == "\n" = 
     let wh = eatWhitespace (i + 1) ref ts
     in go (line + 1) (wh.len + 1) wh.len wh.next wh.toks
+
+  go line col ref i ts | charAt i input == "-" && charAt (i + 1) input == "-" && lookaheadChar (i + 2) (not <<< isSymbolChar) = 
+    let tok = eatWhile (i + 2) (\s -> s /= "\n")
+    in go line (col + length tok.str) ref tok.next (LineComment tok.str : ts)
+  go line col ref i ts | charAt i input == "{" && charAt (i + 1) input == "-" = 
+    let tok = eatWhile' (i + 2) (\j -> j < length input && ((charAt j input /= "-") || (charAt (j + 1) input /= "}")))
+    in go line (col + length tok.str + 2) ref (tok.next + 2) (BlockComment tok.str : ts)
       
   go line col ref i ts | charAt i input == "(" = go line (col + 1) ref (i + 1) (LParen : ts)
   go line col ref i ts | charAt i input == ")" = go line (col + 1) ref (i + 1) (RParen : ts)
@@ -120,7 +132,7 @@ lex input =
   go line col ref i ts | charAt i input == "|" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) ref (i + 1) (Pipe : ts)
   go line col ref i ts | charAt i input == "`" = go line (col + 1) ref (i + 1) (Tick : ts)
   go line col ref i ts | charAt i input == "," = go line (col + 1) ref (i + 1) (Comma : ts)
-
+  
   go line col ref i ts | charAt i input == ":" && charAt (i + 1) input == ":" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) ref (i + 2) (DoubleColon : ts)
   go line col ref i ts | charAt i input == "<" && charAt (i + 1) input == "-" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) ref (i + 2) (LArrow : ts)
   go line col ref i ts | charAt i input == "-" && charAt (i + 1) input == ">" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) ref (i + 2) (RArrow : ts)
@@ -163,7 +175,7 @@ lex input =
       Left err -> Left err
       Right tok -> go line (col + tok.count) ref tok.next (StringLiteral tok.str : ts)
     
-  go line col _ i _ = Left $ "Parse error at line " ++ show line ++ ", column " ++ show col ++ ": " ++ show (take 20 (drop i input))
+  go line col _ _ _ = Left $ "Lexer error at line " ++ show line ++ ", column " ++ show col
   
   eatWhitespace :: Position -> Indentation -> [Token] -> { len :: Number, count :: Number, next :: Position, toks :: [Token] }
   eatWhitespace = eat 0 0
@@ -175,10 +187,13 @@ lex input =
     eat len count i _   ts = { len: len, count: count, next: i, toks: ts }
     
   eatWhile :: Position -> (String -> Boolean) -> { next :: Position, str :: String }
-  eatWhile start p = eat start 0
+  eatWhile start p = eatWhile' start (\i -> p (charAt i input))
+    
+  eatWhile' :: Position -> (Number -> Boolean) -> { next :: Position, str :: String }
+  eatWhile' start p = eat start 0
     where
     eat i _   | i >= length input = { next: i, str: drop start input }
-    eat i len | p (charAt i input) = eat (i + 1) (len + 1)
+    eat i len | p i = eat (i + 1) (len + 1)
     eat i len = { next: i, str: take len (drop start input) }
     
   readStringLiteral :: Position -> Either String { next :: Position, str :: String, count :: Number }
