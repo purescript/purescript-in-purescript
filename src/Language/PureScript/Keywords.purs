@@ -1,3 +1,17 @@
+-----------------------------------------------------------------------------
+--
+-- Module      :  Language.PureScript.Keywords
+-- Copyright   :  (c) 2013-14 Phil Freeman, (c) 2014 Gary Burgess, and other contributors
+-- License     :  MIT
+--
+-- Maintainer  :  Phil Freeman <paf31@cantab.net>
+-- Stability   :  experimental
+-- Portability :
+--
+-- | Various reserved keywords and operator names
+--
+-----------------------------------------------------------------------------
+
 module Language.PureScript.Keywords where
 
 import Data.String (split)

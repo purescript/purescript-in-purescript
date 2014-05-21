@@ -28,6 +28,7 @@ import Text.Parsing.Parser
 import Text.Parsing.Parser.String
 import Text.Parsing.Parser.Combinators
 
+import Language.PureScript.Pos
 import Language.PureScript.Parser.Lexer
 import Language.PureScript.Names
 
@@ -214,6 +215,18 @@ blockComment = token' "block comment" go
   go _ = Nothing
 
 -- |
+-- Parse an identifier
+--
+ident :: Parser [Token] Ident
+ident = (Ident <$> lname) <|> (Op <$> parens symbol)
+
+-- |
+-- Parse an identifier in backticks or an operator
+--
+parseIdentInfix :: Parser [Token] (Qualified Ident)
+parseIdentInfix = between tick tick (parseQualified (Ident <$> lname)) <|> (parseQualified (Op <$> symbol))
+
+-- |
 -- Parse a proper name
 --
 properName :: Parser [Token] ProperName
@@ -248,3 +261,9 @@ parseQualified parser = part []
   
   qual :: [ProperName] -> Maybe ModuleName
   qual path = if null path then Nothing else Just $ ModuleName path
+  
+-- |
+-- TODO: A parser which returns the current source position
+--
+sourcePos :: Parser [Token] SourcePos
+sourcePos = return $ mkSourcePos "" 0 0

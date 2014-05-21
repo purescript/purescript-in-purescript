@@ -12,6 +12,7 @@ import Data.Tuple
 import Data.Tuple3
 import Data.Tuple5
 
+import Language.PureScript.Pos
 import Language.PureScript.CodeGen.JS.AST
 import Language.PureScript.Environment
 import Language.PureScript.Kinds
@@ -19,16 +20,6 @@ import Language.PureScript.Names
 import Language.PureScript.Traversals
 import Language.PureScript.Types
 import Language.PureScript.TypeClassDictionaries
-
--- |
--- Source position information
---
-data SourcePos = SourcePos { name :: String, line :: Number, column :: Number }
-
-instance showSourcePos :: Show SourcePos where
-  show (SourcePos sp) = sp.name ++ 
-                        " line " ++ show sp.line ++ 
-                        ", column " ++ show sp.column
                         
 -- |
 -- A precedence level for an infix operator

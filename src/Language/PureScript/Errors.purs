@@ -27,6 +27,7 @@ import Data.Foldable (mconcat)
 import Control.Monad.Error
 import Control.Monad.Error.Class
 
+import Language.PureScript.Pos
 import Language.PureScript.Declarations
 {- import Language.PureScript.Pretty -}
 import Language.PureScript.Types
