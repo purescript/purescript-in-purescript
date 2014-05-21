@@ -67,7 +67,7 @@ lbrace :: Parser [Token] {}
 lbrace = match LBrace
 
 rbrace :: Parser [Token] {}
-rbrace = match LBrace
+rbrace = match RBrace
 
 braces :: forall a. Parser [Token] a -> Parser [Token] a
 braces = between lbrace rbrace
