@@ -90,12 +90,6 @@ rsquare = match RSquare
 
 squares :: forall a. Parser [Token] a -> Parser [Token] a
 squares = between lsquare rsquare
-  
-indent :: Parser [Token] {}
-indent = match Indent
-
-dedent :: Parser [Token] {}
-dedent = match Dedent
 
 larrow :: Parser [Token] {}
 larrow = match LArrow
@@ -129,6 +123,9 @@ dot = match Dot
 
 comma :: Parser [Token] {}
 comma = match Comma
+
+semi :: Parser [Token] {}
+semi = match Semi
 
 commaSep :: forall a. Parser [Token] a -> Parser [Token] [a]
 commaSep p = sepBy p comma
