@@ -14,7 +14,8 @@
 -----------------------------------------------------------------------------
 
 module Language.PureScript.Parser.Types (
-    parseType
+    parseType,
+    parseTypeAtom
   ) where
 
 import Control.Apply
@@ -36,13 +37,19 @@ import Text.Parsing.Parser.Combinators
 import Text.Parsing.Parser.Expr
 
 parseType :: Parser [Token] Type
-parseType = fix $ \p -> 
+parseType = snd parseType_
+
+parseTypeAtom :: Parser [Token] Type
+parseTypeAtom = fst parseType_
+
+parseType_ :: Tuple (Parser [Token] Type) (Parser [Token] Type)
+parseType_ = fix2 $ \(Tuple atom p) -> 
   let
     -- |
     -- Parse a type as it appears in e.g. a data constructor
     --
-    parseTypeAtom :: {} -> Parser [Token] Type
-    parseTypeAtom _ = choice (map try
+    atom' :: Parser [Token] Type
+    atom' = choice (map try
         [ parseNumber
         , parseString
         , parseBoolean
@@ -52,7 +59,7 @@ parseType = fix $ \p ->
         , parseObject
         , parseTypeVariable
         , parseTypeConstructor
-        , parseForAll {}
+        , parseForAll
         , parens (parseRow true)
         , parens p ])
         
@@ -86,16 +93,16 @@ parseType = fix $ \p ->
     parseTypeConstructor :: Parser [Token] Type
     parseTypeConstructor = TypeConstructor <$> parseQualified properName
 
-    parseForAll :: {} -> Parser [Token] Type
-    parseForAll _ = mkForAll <$> (try (lname' "forall") *> many1 lname <* dot)
-                             <*> parseConstrainedType {}
+    parseForAll :: Parser [Token] Type
+    parseForAll = mkForAll <$> (try (lname' "forall") *> many1 lname <* dot)
+                           <*> parseConstrainedType
 
-    parseConstrainedType :: {} -> Parser [Token] Type
-    parseConstrainedType _ = do
+    parseConstrainedType :: Parser [Token] Type
+    parseConstrainedType = do
       constraints <- optionMaybe <<< try $ do
         constraints <- parens <<< commaSep1 $ do
           className <- parseQualified properName
-          ty <- many (parseTypeAtom {})
+          ty <- many atom
           return (Tuple className ty)
         rfatArrow
         return constraints
@@ -112,7 +119,7 @@ parseType = fix $ \p ->
     parseRow nonEmpty = (curry rowFromList <$> many' (parseNameAndType p) <*> parseRowEnding) <?> "row"
       where many' = if nonEmpty then commaSep1 else commaSep    
         
-  in buildExprParser operators (parseTypeAtom {}) <?> "type"
+  in Tuple atom' (buildExprParser operators atom' <?> "type")
   where
   operators = [ [ Infix (return TypeApp) AssocLeft ]
               , [ Infix (try rarrow *> return function) AssocRight ] ]
