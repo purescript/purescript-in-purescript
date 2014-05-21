@@ -108,20 +108,20 @@ data Type
   | PrettyPrintForAll [String] Type
 
 instance showType :: Show Type where
-  show (TUnknown u) = "TUnknown " ++ show u
-  show (TypeVar var) = "TypeVar " ++ show var
-  show (TypeConstructor name) = "TypeConstructor " ++ show name
-  show (TypeApp t1 t2) = "TypeApp " ++ show t1 ++ " " ++ show t2
-  show (SaturatedTypeSynonym name ts) = "SaturatedTypeSynonym " ++ show name ++ " " ++ show ts
-  show (ForAll name ty scope) = "ForAll " ++ show name ++ " " ++ show ty ++ " " ++ show scope
-  show (ConstrainedType cs ty) = "ConstrainedType " ++ show cs ++ " " ++ show ty
-  show (Skolem s n scope) = "Skolem " ++ show s ++ " " ++ show n ++ " " ++ show scope
+  show (TUnknown u) = "TUnknown (" ++ show u ++ ")"
+  show (TypeVar var) = "TypeVar (" ++ show var ++ ")"
+  show (TypeConstructor name) = "TypeConstructor (" ++ show name ++ ")"
+  show (TypeApp t1 t2) = "TypeApp (" ++ show t1 ++ ") (" ++ show t2 ++ ")"
+  show (SaturatedTypeSynonym name ts) = "SaturatedTypeSynonym (" ++ show name ++ ") (" ++ show ts ++ ")"
+  show (ForAll name ty scope) = "ForAll (" ++ show name ++ ") (" ++ show ty ++ " " ++ show scope ++ ")"
+  show (ConstrainedType cs ty) = "ConstrainedType (" ++ show cs ++ ") (" ++ show ty ++ ")"
+  show (Skolem s n scope) = "Skolem (" ++ show s ++ ") (" ++ show n ++ ") (" ++ show scope ++ ")"
   show REmpty = "REmpty"
-  show (RCons name t1 t2) = "RCons " ++ show name ++ " " ++ show t1 ++ " " ++ show t2
-  show (PrettyPrintFunction t1 t2) = "PrettyPrintFunction " ++ show t1 ++ " " ++ show t2
-  show (PrettyPrintArray t) = "PrettyPrintArray " ++ show t
-  show (PrettyPrintObject t) = "PrettyPrintObject " ++ show t
-  show (PrettyPrintForAll q t) = "PrettyPrintForAll " ++ show q ++ " " ++ show t
+  show (RCons name t1 t2) = "RCons (" ++ show name ++ ") (" ++ show t1 ++ ") (" ++ show t2 ++ ")"
+  show (PrettyPrintFunction t1 t2) = "PrettyPrintFunction (" ++ show t1 ++ ") (" ++ show t2 ++ ")"
+  show (PrettyPrintArray t) = "PrettyPrintArray (" ++ show t ++ ")"
+  show (PrettyPrintObject t) = "PrettyPrintObject (" ++ show t ++ ")"
+  show (PrettyPrintForAll q t) = "PrettyPrintForAll (" ++ show q ++ ") (" ++ show t ++ ")"
 
 instance eqType :: Eq Type where
   (==) (TUnknown u1)                    (TUnknown u2)                     = u1 == u2

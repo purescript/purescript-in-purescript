@@ -17,6 +17,9 @@ module Language.PureScript.Parser.Common where
   
 import Data.Maybe
 import Data.Either
+import Data.Array (null)
+
+import Control.Apply
 
 import Control.Monad.State.Class
 import Control.Monad.Error.Class
@@ -26,14 +29,12 @@ import Text.Parsing.Parser.String
 import Text.Parsing.Parser.Combinators
 
 import Language.PureScript.Parser.Lexer
+import Language.PureScript.Names
 
 runTokenParser :: forall a. Parser [Token] a -> [Token] -> Either String a
 runTokenParser p ts = case runParser ts p of
   Left (ParseError o) -> Left o.message
   Right a -> Right a
-
-parens :: forall a. Parser [Token] a -> Parser [Token] a
-parens = between lparen rparen
 
 token :: forall tok a. String -> (tok -> String) -> (tok -> Maybe a) -> Parser [tok] a
 token exp sh p = do
@@ -59,11 +60,17 @@ lparen = match LParen
 rparen :: Parser [Token] {}
 rparen = match RParen
 
+parens :: forall a. Parser [Token] a -> Parser [Token] a
+parens = between lparen rparen
+
 lbrace :: Parser [Token] {}
 lbrace = match LBrace
 
 rbrace :: Parser [Token] {}
 rbrace = match LBrace
+
+braces :: forall a. Parser [Token] a -> Parser [Token] a
+braces = between lbrace rbrace
 
 langle :: Parser [Token] {}
 langle = match LAngle
@@ -71,11 +78,17 @@ langle = match LAngle
 rangle :: Parser [Token] {}
 rangle = match RAngle
 
+angles :: forall a. Parser [Token] a -> Parser [Token] a
+angles = between langle rangle
+
 lsquare :: Parser [Token] {}
 lsquare = match LSquare
 
 rsquare :: Parser [Token] {}
 rsquare = match RSquare
+
+squares :: forall a. Parser [Token] a -> Parser [Token] a
+squares = between lsquare rsquare
   
 indent :: Parser [Token] {}
 indent = match Indent
@@ -115,6 +128,12 @@ dot = match Dot
 
 comma :: Parser [Token] {}
 comma = match Comma
+
+commaSep :: forall a. Parser [Token] a -> Parser [Token] [a]
+commaSep p = sepBy p comma
+
+commaSep1 :: forall a. Parser [Token] a -> Parser [Token] [a]
+commaSep1 p = sepBy1 p comma
 
 lname :: Parser [Token] String
 lname = token' "identifier" go
@@ -193,3 +212,39 @@ blockComment = token' "block comment" go
   where
   go (BlockComment s) = Just s
   go _ = Nothing
+
+-- |
+-- Parse a proper name
+--
+properName :: Parser [Token] ProperName
+properName = ProperName <$> uname
+
+-- |
+-- Parse a module name
+--
+moduleName :: Parser [Token] ModuleName
+moduleName = ModuleName <$> (sepBy properName dot)
+
+notFollowedBy :: forall s a. String -> Parser s a -> Parser s {}
+notFollowedBy name p = try $ (do
+  c <- p
+  fail ("Unexpected " ++ name)) <|> return {}
+
+-- |
+-- Parse a qualified name, i.e. M.name or just name
+--
+parseQualified :: forall a. Parser [Token] a -> Parser [Token] (Qualified a)
+parseQualified parser = part []
+  where
+  part path = (do name <- try (properName <* delimiter)
+                  part (updatePath path name))
+              <|> (Qualified (qual path) <$> try parser)
+           
+  delimiter :: Parser [Token] {}
+  delimiter = dot <* notFollowedBy "dot" dot
+  
+  updatePath :: [ProperName] -> ProperName -> [ProperName]
+  updatePath path name = path ++ [name]
+  
+  qual :: [ProperName] -> Maybe ModuleName
+  qual path = if null path then Nothing else Just $ ModuleName path
