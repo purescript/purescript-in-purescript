@@ -28,10 +28,10 @@ data Kind
   | FunKind Kind Kind
   
 instance showKind :: Show Kind where
-  show (KUnknown u) = "KUnknown " ++ show u
+  show (KUnknown u) = "KUnknown (" ++ show u ++ ")"
   show Star = "Star"
   show Bang = "Bang"
-  show (Row k) = "Row " ++ show k
+  show (Row k) = "Row (" ++ show k ++ ")"
   show (FunKind x y) = "FunKind (" ++ show x ++ ") (" ++ show y ++ ")"
 
 instance eqKind :: Eq Kind where

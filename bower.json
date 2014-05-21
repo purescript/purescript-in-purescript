@@ -7,7 +7,7 @@
     "purescript-maps": "*",
     "purescript-transformers": "*",
     "purescript-pattern-arrows": "*",
-    "purescript-string-parsers": "*"
+    "purescript-parsing": "*"
   },
   "devDependencies": {
     "purescript-quickcheck": "*"

@@ -17,34 +17,35 @@ module Language.PureScript.Parser.Kinds (
     parseKind
   ) where
 
+import Control.Apply
+
 import Language.PureScript.Kinds
---import Language.PureScript.Parser.State 
+import Language.PureScript.Parser.Lexer
 import Language.PureScript.Parser.Common
 
-import Text.Parsing.StringParser
-import Text.Parsing.StringParser.Combinators 
-import Text.Parsing.StringParser.Expr
-import Text.Parsing.StringParser.String
+import Text.Parsing.Parser
+import Text.Parsing.Parser.Combinators 
+import Text.Parsing.Parser.Expr
 
-parseStar :: Parser Kind
-parseStar = const Star <$> {- lexeme -} (string "*")
+parseStar :: Parser [Token] Kind
+parseStar = const Star <$> symbol' "*"
 
-parseBang :: Parser Kind
-parseBang = const Bang <$> {- lexeme -} (string "!")
+parseBang :: Parser [Token] Kind
+parseBang = const Bang <$> symbol' "!"
 
 -- |
 -- Parse a kind
 --
-parseKind :: Parser Kind
+parseKind :: Parser [Token] Kind
 parseKind = fix (\parseKind -> 
   let 
-    parseKindAtom :: Parser Kind
-    parseKindAtom = {- indented *> -}choice
-                [ parseStar
-                , parseBang
-                , parens parseKind ]
+    parseKindAtom :: Parser [Token] Kind
+    parseKindAtom = choice
+      [ parseStar
+      , parseBang
+      , parens parseKind ]
     
-  in buildExprParser operators parseKindAtom <?> "kind")
+  in buildExprParser operators parseKindAtom)
   where
-  operators = [ [ Prefix ({- lexeme -} (string "#") >>= \_ -> return Row) ]
-              , [ Infix ({- lexeme -} (try (string "->")) >>= \_ -> return FunKind) AssocRight ] ]
+  operators = [ [ Prefix (symbol' "#" *> return Row) ]
+              , [ Infix (rarrow *> return FunKind) AssocRight ] ]

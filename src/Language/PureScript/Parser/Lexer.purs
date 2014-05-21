@@ -15,10 +15,6 @@ data Token
   | LSquare
   | RSquare
   
-  | LName String
-  | UName String
-  | Symbol String
-  
   | Indent
   | Dedent
 
@@ -34,6 +30,10 @@ data Token
   | Tick
   | Dot
   | Comma
+  
+  | LName String
+  | UName String
+  | Symbol String
   
   | StringLiteral String
 
@@ -54,9 +54,6 @@ instance showToken :: Show Token where
   show RAngle                = "RAngle"
   show LSquare               = "LSquare"
   show RSquare               = "RSquare"
-  show (LName s)             = "LName (" ++ show s ++ ")"
-  show (UName s)             = "UName (" ++ show s ++ ")"
-  show (Symbol s)            = "Symbol (" ++ show s ++ ")"
   show Indent                = "Indent"
   show Dedent                = "Dedent"
   show LArrow                = "LArrow"
@@ -70,6 +67,9 @@ instance showToken :: Show Token where
   show Tick                  = "Tick"
   show Dot                   = "Dot"
   show Comma                 = "Comma"
+  show (LName s)             = "LName (" ++ show s ++ ")"
+  show (UName s)             = "UName (" ++ show s ++ ")"
+  show (Symbol s)            = "Symbol (" ++ show s ++ ")"
   show (StringLiteral s)     = "StringLiteral (" ++ show s ++ ")"
   show (Natural n)           = "Natural (" ++ show n ++ ")"
   show (Integer n)           = "Integer (" ++ show n ++ ")"
@@ -77,6 +77,41 @@ instance showToken :: Show Token where
   show (Hex n)               = "Hex (" ++ show n ++ ")"
   show (LineComment s)       = "LineComment (" ++ show s ++ ")"
   show (BlockComment s)      = "BlockComment (" ++ show s ++ ")"
+  
+instance eqToken :: Eq Token where
+  (==) LParen              LParen              = true
+  (==) RParen              RParen              = true
+  (==) LBrace              LBrace              = true
+  (==) RBrace              RBrace              = true
+  (==) LAngle              LAngle              = true
+  (==) RAngle              RAngle              = true
+  (==) LSquare             LSquare             = true
+  (==) RSquare             RSquare             = true
+  (==) Indent              Indent              = true
+  (==) Dedent              Dedent              = true
+  (==) LArrow              LArrow              = true
+  (==) RArrow              RArrow              = true
+  (==) LFatArrow           LFatArrow           = true
+  (==) RFatArrow           RFatArrow           = true
+  (==) Colon               Colon               = true
+  (==) DoubleColon         DoubleColon         = true
+  (==) Equals              Equals              = true
+  (==) Pipe                Pipe                = true
+  (==) Tick                Tick                = true
+  (==) Dot                 Dot                 = true
+  (==) Comma               Comma               = true
+  (==) (LName s1)          (LName s2)          = s1 == s2
+  (==) (UName s1)          (UName s2)          = s1 == s2
+  (==) (Symbol s1)         (Symbol s2)         = s1 == s2
+  (==) (StringLiteral s1)  (StringLiteral s2)  = s1 == s2
+  (==) (Natural n1)        (Natural n2)        = n1 == n2
+  (==) (Integer n1)        (Integer n2)        = n1 == n2
+  (==) (Float n1)          (Float n2)          = n1 == n2
+  (==) (Hex n1)            (Hex n2)            = n1 == n2
+  (==) (LineComment s1)    (LineComment s2)    = s1 == s2
+  (==) (BlockComment s1)   (BlockComment s2)   = s1 == s2
+  (==) _                   _                   = false
+  (/=) tok1                tok2                = not (tok1 == tok2)
     
 type Indentation = Number 
 
