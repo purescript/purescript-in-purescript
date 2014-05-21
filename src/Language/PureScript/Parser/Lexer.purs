@@ -205,7 +205,6 @@ lex input =
     in go line (col + length tok.str) ref tok.next (Symbol tok.str : ts)
     
   go line col ref i ts | charAt i input == "\"" =
-    -- TODO: make this tail recursive 
     case readStringLiteral (i + 1) of
       Left err -> Left err
       Right tok -> go line (col + tok.count) ref tok.next (StringLiteral tok.str : ts)
