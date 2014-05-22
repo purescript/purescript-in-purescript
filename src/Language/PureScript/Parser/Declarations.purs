@@ -294,22 +294,6 @@ parseLet _ = do
   result <- parseValue {}
   return $ Let ds result
   
-parseValueAtom :: {} -> P.Parser [L.Token] Value
-parseValueAtom _ = P.choice
-  [ parseNumericLiteral
-  , parseStringLiteral
-  , parseBooleanLiteral
-  , parseArrayLiteral {}
-  , P.try (parseObjectLiteral {})
-  , parseAbs {}
-  , P.try parseConstructor
-  , P.try parseVar
-  , parseCase {}
-  , parseIfThenElse {}
-  , parseDo {}
-  , parseLet {}
-  , Parens <$> parens (parseValue {}) ]
-  
 parsePropertyUpdate :: {} -> P.Parser [L.Token] (Tuple String Value)
 parsePropertyUpdate _ = do
   name <- identifier <|> stringLiteral
@@ -324,17 +308,39 @@ parseAccessor obj = P.try $ Accessor <$> (dot *> (identifier <|> stringLiteral))
 -- Parse a value
 --
 parseValue :: {} -> P.Parser [L.Token] Value
-parseValue _ = PositionedValue <$> sourcePos
+parseValue _ = P.fix $ \parseValue' ->
+  let
+  
+    parseValueAtom :: P.Parser [L.Token] Value
+    parseValueAtom = P.choice
+      [ parseNumericLiteral
+      , parseStringLiteral
+      , parseBooleanLiteral
+      , parseArrayLiteral {}
+      , P.try (parseObjectLiteral {})
+      , parseAbs {}
+      , P.try parseConstructor
+      , P.try parseVar
+      , parseCase {}
+      , parseIfThenElse {}
+      , parseDo {}
+      , parseLet {}
+      , Parens <$> parens parseValue' ]
+  
+    indexersAndAccessors = buildPostfixParser postfixTable1 parseValueAtom
+    
+    postfixTable1 = [ parseAccessor
+                    , \v -> P.try $ flip ObjectUpdate <$> (braces (commaSep1 (parsePropertyUpdate {}))) <*> pure v 
+                    ]
+    postfixTable2 = [ \v -> P.try (flip App <$> indexersAndAccessors) <*> pure v
+                    , \v -> flip (TypedValue true) <$> (doubleColon *> parseType) <*> pure v
+                    ]
+      
+  in PositionedValue <$> sourcePos
                                <*> (P.buildExprParser operators <<< buildPostfixParser postfixTable2 $ indexersAndAccessors) 
                                P.<?> "expression"
   where
-  indexersAndAccessors = buildPostfixParser postfixTable1 (parseValueAtom {})
-  postfixTable1 = [ parseAccessor
-                  , \v -> P.try $ flip ObjectUpdate <$> (braces (commaSep1 (parsePropertyUpdate {}))) <*> pure v 
-                  ]
-  postfixTable2 = [ \v -> P.try (flip App <$> indexersAndAccessors) <*> pure v
-                  , \v -> flip (TypedValue true) <$> (doubleColon *> parseType) <*> pure v
-                  ]
+  
   operators = [ [ P.Prefix (P.try (symbol' "-") *> return UnaryMinus)
                 ]
               , [ P.Infix (P.try (parseIdentInfix P.<?> "operator") >>= \ident ->
