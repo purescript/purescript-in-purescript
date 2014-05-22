@@ -13,18 +13,20 @@
 --
 -----------------------------------------------------------------------------
 
-module Language.PureScript.Parser.Declarations {-(
+module Language.PureScript.Parser.Declarations (
     parseDeclaration,
     parseModule,
     parseModules,
     parseValue,
     parseGuard,
     parseBinder,
-    parseBinderNoParens,
-)-} where
+    parseBinderNoParens
+  ) where
 
 import Data.Tuple
 import Data.Maybe
+import Data.Either
+import Data.Foldable (foldr)
 
 import Control.Apply
 
@@ -62,20 +64,24 @@ parseTypeSynonymDeclaration =
   TypeSynonymDeclaration <$> (reserved "type" *> properName)
                          <*> P.many identifier
                          <*> (equals *> parseType)
-         
-{-                
+                     
 parseValueDeclaration :: P.Parser [L.Token] Declaration
-parseValueDeclaration = do
-  name <- ident
-  binders <- P.many parseBinderNoParens
-  guard <- P.optionMaybe parseGuard
-  value <- equals *> parseValue
-  whereClause <- P.optionMaybe $ do
-    reserved "where"
-    braces (P.semiSep1 parseLocalDeclaration)
-    
-  return $ ValueDeclaration name Value binders guard (maybe value (\ds -> Let ds value) whereClause)
--}
+parseValueDeclaration = P.fix $ \p -> 
+  let
+    parseLocalDeclaration :: P.Parser [L.Token] Declaration
+    parseLocalDeclaration = PositionedDeclaration <$> sourcePos <*> P.choice
+                       [ parseTypeDeclaration
+                       , p
+                       ] P.<?> "local declaration"
+  in do
+    name <- ident
+    binders <- P.many parseBinderNoParens
+    guard <- P.optionMaybe parseGuard
+    value <- equals *> parseValue
+    whereClause <- P.optionMaybe $ do
+      reserved "where"
+      braces (semiSep1 parseLocalDeclaration)
+    return $ ValueDeclaration name Value binders guard (maybe value (\ds -> Let ds value) whereClause)
                        
 parseExternDeclaration :: P.Parser [L.Token] Declaration
 parseExternDeclaration = reserved "foreign" *> reserved "import" *> 
@@ -168,22 +174,13 @@ parseDeclaration = positioned (P.choice
                    [ parseDataDeclaration
                    , parseTypeDeclaration
                    , parseTypeSynonymDeclaration
-                   -- , parseValueDeclaration
+                   , parseValueDeclaration
                    , parseExternDeclaration
                    , parseFixityDeclaration
                    , parseImportDeclaration
                    , parseTypeClassDeclaration
                    -- , parseTypeInstanceDeclaration
                    ]) P.<?> "declaration"
-           
--- |
--- Parse a declaration which can appear inside a let binding
---  
-parseLocalDeclaration :: P.Parser [L.Token] Declaration
-parseLocalDeclaration = PositionedDeclaration <$> sourcePos <*> P.choice
-                   [ parseTypeDeclaration
-                   -- , parseValueDeclaration
-                   ] P.<?> "local declaration"
 
 -- |
 -- Parse a module header and a collection of declarations
@@ -196,3 +193,79 @@ parseModule = do
   reserved "where"
   decls <- braces (semiSep parseDeclaration)
   return $ Module name decls exports
+  
+-- |
+-- Parse a collection of modules
+--
+parseModules :: P.Parser [L.Token] [Module]
+parseModules = P.many parseModule <* eof
+
+--
+-- Values
+--
+
+booleanLiteral :: P.Parser [L.Token] Boolean
+booleanLiteral = (reserved "true" *> return true) <|> (reserved "false" *> return false)
+
+parseNumericLiteral :: P.Parser [L.Token] Value
+parseNumericLiteral = NumericLiteral <$> (natural <|> integer <|> float <|> hex)
+
+parseStringLiteral :: P.Parser [L.Token] Value
+parseStringLiteral = StringLiteral <$> stringLiteral
+
+parseBooleanLiteral :: P.Parser [L.Token] Value
+parseBooleanLiteral = BooleanLiteral <$> booleanLiteral
+
+parseArrayLiteral :: P.Parser [L.Token] Value
+parseArrayLiteral = ArrayLiteral <$> squares (commaSep parseValue)
+
+parseObjectLiteral :: P.Parser [L.Token] Value
+parseObjectLiteral = ObjectLiteral <$> braces (commaSep parseIdentifierAndValue)
+
+parseIdentifierAndValue :: P.Parser [L.Token] (Tuple String Value)
+parseIdentifierAndValue = Tuple <$> ((identifier <|> stringLiteral) <* colon)
+                                <*> parseValue
+                    
+parseAbs :: P.Parser [L.Token] Value
+parseAbs = do
+  symbol' "\\"
+  args <- P.many1 (Abs <$> (Left <$> P.try ident <|> Right <$> parseBinderNoParens))
+  rarrow
+  value <- parseValue
+  return $ toFunction args value
+  where
+  toFunction :: [Value -> Value] -> Value -> Value
+  toFunction args value = foldr ($) value args
+  
+parseVar :: P.Parser [L.Token] Value
+parseVar = Var <$> parseQualified ident
+
+parseConstructor :: P.Parser [L.Token] Value
+parseConstructor = Constructor <$> parseQualified properName 
+
+parseCase :: P.Parser [L.Token] Value
+parseCase = Case <$> P.between (P.try (reserved "case")) (reserved "of") (return <$> parseValue)
+                 <*> P.many parseCaseAlternative
+                 
+parseCaseAlternative :: P.Parser [L.Token] CaseAlternative
+parseCaseAlternative = mkCaseAlternative <$> (return <$> parseBinder)
+                                         <*> P.optionMaybe parseGuard
+                                         <*> (rarrow *> parseValue)
+                                         P.<?> "case alternative"
+                                         
+parseIfThenElse :: P.Parser [L.Token] Value
+parseIfThenElse = IfThenElse <$> (P.try (reserved "if") *> parseValue)
+                             <*> (reserved "then" *> parseValue)
+                             <*> (reserved "else" *> parseValue)
+                                
+parseValue :: P.Parser [L.Token] Value  
+parseValue = P.fail "Not implemented"    
+
+parseGuard :: P.Parser [L.Token] Value
+parseGuard = P.fail "Not implemented"        
+
+parseBinder :: P.Parser [L.Token] Binder
+parseBinder = P.fail "Not implemented"       
+
+parseBinderNoParens :: P.Parser [L.Token] Binder
+parseBinderNoParens = P.fail "Not implemented"     

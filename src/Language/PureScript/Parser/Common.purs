@@ -26,7 +26,6 @@ import Control.Monad.State.Class
 import Control.Monad.Error.Class
   
 import Text.Parsing.Parser
-import Text.Parsing.Parser.String
 import Text.Parsing.Parser.Combinators
 
 import Language.PureScript.Pos
@@ -38,7 +37,17 @@ runTokenParser :: forall a. Parser [Token] a -> [Token] -> Either String a
 runTokenParser p ts = case runParser ts p of
   Left (ParseError o) -> Left o.message
   Right a -> Right a
-
+  
+eof :: Parser [Token] {}
+eof = do
+  ts <- get
+  case tokens ts of
+    [] -> return {}
+    _ -> fail "Expected EOF"
+  where 
+  tokens :: [Token] -> [Token]
+  tokens ts = ts
+    
 token :: forall tok a. String -> (tok -> String) -> (tok -> Maybe a) -> Parser [tok] a
 token exp sh p = do
   ts <- get
