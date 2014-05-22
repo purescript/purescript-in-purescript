@@ -65,23 +65,16 @@ parseTypeSynonymDeclaration =
                          <*> P.many identifier
                          <*> (equals *> parseType)
                      
-parseValueDeclaration :: P.Parser [L.Token] Declaration
-parseValueDeclaration = P.fix $ \p -> 
-  let
-    parseLocalDeclaration :: P.Parser [L.Token] Declaration
-    parseLocalDeclaration = PositionedDeclaration <$> sourcePos <*> P.choice
-                       [ parseTypeDeclaration
-                       , p
-                       ] P.<?> "local declaration"
-  in do
-    name <- ident
-    binders <- P.many parseBinderNoParens
-    guard <- P.optionMaybe parseGuard
-    value <- equals *> parseValue
-    whereClause <- P.optionMaybe $ do
-      reserved "where"
-      braces (semiSep1 parseLocalDeclaration)
-    return $ ValueDeclaration name Value binders guard (maybe value (\ds -> Let ds value) whereClause)
+parseValueDeclaration :: {} -> P.Parser [L.Token] Declaration
+parseValueDeclaration _ = do
+  name <- ident
+  binders <- P.many parseBinderNoParens
+  guard <- P.optionMaybe parseGuard
+  value <- equals *> parseValue
+  whereClause <- P.optionMaybe $ do
+    reserved "where"
+    braces (semiSep1 (parseLocalDeclaration {}))
+  return $ ValueDeclaration name Value binders guard (maybe value (\ds -> Let ds value) whereClause)
                        
 parseExternDeclaration :: P.Parser [L.Token] Declaration
 parseExternDeclaration = reserved "foreign" *> reserved "import" *> 
@@ -158,10 +151,22 @@ parseTypeClassDeclaration = do
     return implies
   className <- properName
   idents <- P.many identifier
-  members <- P.option [] <<< P.try $ do
+  members <- P.option [] $ do
     reserved "where"
     braces (semiSep1 (positioned parseTypeDeclaration))
   return $ TypeClassDeclaration className idents implies members
+  
+parseTypeInstanceDeclaration :: P.Parser [L.Token] Declaration
+parseTypeInstanceDeclaration = do
+  reserved "instance"
+  name <- ident <* doubleColon
+  deps <- P.optionMaybe $ parens (commaSep1 (Tuple <$> parseQualified properName <*> P.many parseTypeAtom)) <* rfatArrow
+  className <- parseQualified properName
+  ty <- P.many parseTypeAtom
+  members <- P.option [] $ do
+    reserved "where"
+    P.many (positioned (parseValueDeclaration {}))
+  return $ TypeInstanceDeclaration name (fromMaybe [] deps) className ty members
   
 positioned :: P.Parser [L.Token] Declaration -> P.Parser [L.Token] Declaration
 positioned d = PositionedDeclaration <$> sourcePos <*> d
@@ -174,13 +179,19 @@ parseDeclaration = positioned (P.choice
                    [ parseDataDeclaration
                    , parseTypeDeclaration
                    , parseTypeSynonymDeclaration
-                   , parseValueDeclaration
+                   , parseValueDeclaration {}
                    , parseExternDeclaration
                    , parseFixityDeclaration
                    , parseImportDeclaration
                    , parseTypeClassDeclaration
-                   -- , parseTypeInstanceDeclaration
+                   , parseTypeInstanceDeclaration
                    ]) P.<?> "declaration"
+                   
+parseLocalDeclaration :: {} -> P.Parser [L.Token] Declaration
+parseLocalDeclaration _ = PositionedDeclaration <$> sourcePos <*> P.choice
+                   [ parseTypeDeclaration
+                   , parseValueDeclaration {}
+                   ] P.<?> "local declaration"
 
 -- |
 -- Parse a module header and a collection of declarations
@@ -257,6 +268,47 @@ parseIfThenElse :: P.Parser [L.Token] Value
 parseIfThenElse = IfThenElse <$> (P.try (reserved "if") *> parseValue)
                              <*> (reserved "then" *> parseValue)
                              <*> (reserved "else" *> parseValue)
+          
+parseDo :: P.Parser [L.Token] Value
+parseDo = do
+  reserved "do"
+  Do <$> P.many parseDoNotationElement
+
+parseDoNotationLet :: P.Parser [L.Token] DoNotationElement
+parseDoNotationLet = DoNotationLet <$> (reserved "let" *> P.many1 (parseLocalDeclaration {}))
+
+parseDoNotationBind :: P.Parser [L.Token] DoNotationElement
+parseDoNotationBind = DoNotationBind <$> parseBinder <*> (larrow *> parseValue)
+
+parseDoNotationElement :: P.Parser [L.Token] DoNotationElement
+parseDoNotationElement = P.choice
+  [ P.try parseDoNotationBind
+  , parseDoNotationLet
+  , P.try (DoNotationValue <$> parseValue) ]
+                             
+parseLet :: P.Parser [L.Token] Value
+parseLet = do
+  reserved "let"
+  ds <- P.many1 (parseLocalDeclaration {})
+  reserved "in"
+  result <- parseValue
+  return $ Let ds result
+  
+parseValueAtom :: P.Parser [L.Token] Value
+parseValueAtom = P.choice
+  [ parseNumericLiteral
+  , parseStringLiteral
+  , parseBooleanLiteral
+  , parseArrayLiteral
+  , P.try parseObjectLiteral
+  , parseAbs
+  , P.try parseConstructor
+  , P.try parseVar
+  , parseCase
+  , parseIfThenElse
+  , parseDo
+  , parseLet
+  , Parens <$> parens parseValue ]
                                 
 parseValue :: P.Parser [L.Token] Value  
 parseValue = P.fail "Not implemented"    
