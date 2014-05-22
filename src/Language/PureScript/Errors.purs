@@ -119,11 +119,7 @@ prettyPrintErrorStack printFullStack (ErrorStack es) =
           es' = filter isErrorNonEmpty es
         in case length es' of
           1 -> showError (Unsafe.head es')
-          _ -> showError (Unsafe.head es') ++ "\n" ++ showError (unsafeLast es')
-
--- TODO: move this to Data.Array.Unsafe					
-unsafeLast :: forall a. [a] -> a
-unsafeLast xs = unsafeIndex xs (length xs - 1)
+          _ -> showError (Unsafe.head es') ++ "\n" ++ showError (Unsafe.last es')
 
 stringifyErrorStack :: forall a. Boolean -> Either ErrorStack a -> Either String a
 stringifyErrorStack printFullStack = either (Left <<< prettyPrintErrorStack printFullStack) Right
