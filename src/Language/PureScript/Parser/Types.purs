@@ -94,7 +94,7 @@ parseType_ = fix2 $ \(Tuple atom p) ->
     parseTypeConstructor = TypeConstructor <$> parseQualified properName
 
     parseForAll :: Parser [Token] Type
-    parseForAll = mkForAll <$> (try (lname' "forall") *> many1 lname <* dot)
+    parseForAll = mkForAll <$> (try (reserved "forall") *> many1 lname <* dot)
                            <*> parseConstrainedType
 
     parseConstrainedType :: Parser [Token] Type

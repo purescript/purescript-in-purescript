@@ -44,9 +44,9 @@ import qualified Text.Parsing.Parser.Expr as P
 
 parseDataDeclaration :: P.Parser [L.Token] Declaration
 parseDataDeclaration = do
-  lname' "data"
+  reserved "data"
   name <- properName
-  tyArgs <- P.many lname
+  tyArgs <- P.many identifier
   ctors <- P.option [] $ do
     equals
     P.sepBy1 (Tuple <$> properName <*> P.many parseTypeAtom) pipe
@@ -59,8 +59,8 @@ parseTypeDeclaration =
                   
 parseTypeSynonymDeclaration :: P.Parser [L.Token] Declaration
 parseTypeSynonymDeclaration =
-  TypeSynonymDeclaration <$> (lname' "type" *> properName)
-                         <*> P.many lname
+  TypeSynonymDeclaration <$> (reserved "type" *> properName)
+                         <*> P.many identifier
                          <*> (equals *> parseType)
          
 {-                
@@ -71,19 +71,20 @@ parseValueDeclaration = do
   guard <- P.optionMaybe parseGuard
   value <- equals *> parseValue
   whereClause <- P.optionMaybe $ do
-    lname' "where"
-    P.many1 parseLocalDeclaration
+    reserved "where"
+    braces (P.semiSep1 parseLocalDeclaration)
+    
   return $ ValueDeclaration name Value binders guard (maybe value (\ds -> Let ds value) whereClause)
 -}
                        
 parseExternDeclaration :: P.Parser [L.Token] Declaration
-parseExternDeclaration = lname' "foreign" *> lname' "import" *> 
-   ((do lname' "data"
+parseExternDeclaration = reserved "foreign" *> reserved "import" *> 
+   ((do reserved "data"
         name <- properName
         doubleColon
         kind <- parseKind
         return $ ExternDataDeclaration name kind)
-    <|> (do lname' "instance"
+    <|> (do reserved "instance"
             name <- ident
             doubleColon
             deps <- P.option [] do
@@ -101,9 +102,9 @@ parseExternDeclaration = lname' "foreign" *> lname' "import" *>
             
 parseAssociativity :: P.Parser [L.Token] Associativity
 parseAssociativity =
-  (lname' "infixl" *> return Infixl) <|>
-  (lname' "infixr" *> return Infixr) <|>
-  (lname' "infix"  *> return Infix)
+  (reserved "infixl" *> return Infixl) <|>
+  (reserved "infixr" *> return Infixr) <|>
+  (reserved "infix"  *> return Infix)
 
 parseFixity :: P.Parser [L.Token] Fixity
 parseFixity = Fixity <$> parseAssociativity <*> natural
@@ -123,7 +124,7 @@ parseDeclarationRef = PositionedDeclarationRef <$> sourcePos <*>
   
 parseImportDeclaration :: P.Parser [L.Token] Declaration
 parseImportDeclaration = do
-  lname' "import"
+  reserved "import"
   qualImport <|> stdImport
   where
   
@@ -135,25 +136,25 @@ parseImportDeclaration = do
   
   qualImport :: P.Parser [L.Token] Declaration
   qualImport = do
-    lname' "qualified"
+    reserved "qualified"
     moduleName' <- moduleName
     idents <- P.optionMaybe (parens $ commaSep parseDeclarationRef)
-    lname' "as"
+    reserved "as"
     asQ <- moduleName
     return $ ImportDeclaration moduleName' idents (Just asQ)
     
 parseTypeClassDeclaration :: P.Parser [L.Token] Declaration
 parseTypeClassDeclaration = do
-  lname' "class"
+  reserved "class"
   implies <- P.option [] do
     implies <- parens (commaSep1 (Tuple <$> parseQualified properName <*> P.many parseTypeAtom))
     lfatArrow
     return implies
   className <- properName
-  idents <- P.many lname
+  idents <- P.many identifier
   members <- P.option [] <<< P.try $ do
-    lname' "where"
-    P.many (positioned parseTypeDeclaration)
+    reserved "where"
+    braces (semiSep1 (positioned parseTypeDeclaration))
   return $ TypeClassDeclaration className idents implies members
   
 positioned :: P.Parser [L.Token] Declaration -> P.Parser [L.Token] Declaration
@@ -189,9 +190,9 @@ parseLocalDeclaration = PositionedDeclaration <$> sourcePos <*> P.choice
 --
 parseModule :: P.Parser [L.Token] Module
 parseModule = do
-  lname' "module"
+  reserved "module"
   name <- moduleName
   exports <- P.optionMaybe $ parens $ commaSep1 parseDeclarationRef
-  lname' "where"
-  decls <- P.many parseDeclaration
+  reserved "where"
+  decls <- braces (semiSep parseDeclaration)
   return $ Module name decls exports

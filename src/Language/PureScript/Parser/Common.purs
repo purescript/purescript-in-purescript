@@ -18,6 +18,7 @@ module Language.PureScript.Parser.Common where
 import Data.Maybe
 import Data.Either
 import Data.Array (null)
+import Data.Foldable (elem)
 
 import Control.Apply
 
@@ -31,6 +32,7 @@ import Text.Parsing.Parser.Combinators
 import Language.PureScript.Pos
 import Language.PureScript.Parser.Lexer
 import Language.PureScript.Names
+import Language.PureScript.Keywords
 
 runTokenParser :: forall a. Parser [Token] a -> [Token] -> Either String a
 runTokenParser p ts = case runParser ts p of
@@ -127,6 +129,12 @@ comma = match Comma
 semi :: Parser [Token] {}
 semi = match Semi
 
+semiSep :: forall a. Parser [Token] a -> Parser [Token] [a]
+semiSep p = sepBy p semi
+
+semiSep1 :: forall a. Parser [Token] a -> Parser [Token] [a]
+semiSep1 p = sepBy1 p semi
+
 commaSep :: forall a. Parser [Token] a -> Parser [Token] [a]
 commaSep p = sepBy p comma
 
@@ -139,8 +147,8 @@ lname = token' "identifier" go
   go (LName s) = Just s
   go _ = Nothing
   
-lname' :: String -> Parser [Token] {}
-lname' s = token' (show s) go
+reserved :: String -> Parser [Token] {}
+reserved s = token' (show s) go
   where
   go (LName s') | s == s' = Just {}
   go _ = Nothing
@@ -211,11 +219,18 @@ blockComment = token' "block comment" go
   go (BlockComment s) = Just s
   go _ = Nothing
 
+identifier :: Parser [Token] String
+identifier = do
+  s <- lname
+  if (s `elem` reservedPsNames) 
+    then fail "Unexpected keyword" 
+    else return s
+
 -- |
 -- Parse an identifier
 --
 ident :: Parser [Token] Ident
-ident = (Ident <$> lname) <|> (Op <$> parens symbol)
+ident = (Ident <$> identifier) <|> (Op <$> parens symbol)
 
 -- |
 -- Parse an identifier in backticks or an operator
