@@ -27,19 +27,19 @@ import Text.Parsing.Parser
 import Text.Parsing.Parser.Combinators 
 import Text.Parsing.Parser.Expr
 
-parseStar :: Parser [Token] Kind
+parseStar :: Parser TokenStream Kind
 parseStar = const Star <$> symbol' "*"
 
-parseBang :: Parser [Token] Kind
+parseBang :: Parser TokenStream Kind
 parseBang = const Bang <$> symbol' "!"
 
 -- |
 -- Parse a kind
 --
-parseKind :: Parser [Token] Kind
+parseKind :: Parser TokenStream Kind
 parseKind = fix (\parseKind -> 
   let 
-    parseKindAtom :: Parser [Token] Kind
+    parseKindAtom :: Parser TokenStream Kind
     parseKindAtom = choice
       [ parseStar
       , parseBang

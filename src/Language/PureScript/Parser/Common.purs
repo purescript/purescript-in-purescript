@@ -15,9 +15,11 @@
 
 module Language.PureScript.Parser.Common where
   
+import Prelude.Unsafe (unsafeIndex)
+  
 import Data.Maybe
 import Data.Either
-import Data.Array (map, null)
+import Data.Array (map, null, length)
 import Data.Foldable (elem, foldl)
 
 import Control.Apply
@@ -33,202 +35,214 @@ import Language.PureScript.Parser.Lexer
 import Language.PureScript.Names
 import Language.PureScript.Keywords
 
-runTokenParser :: forall a. Parser [Token] a -> [Token] -> Either String a
-runTokenParser p ts = case runParser ts p of
+data TokenStream = TokenStream { tokens :: [Token], position :: Number }
+
+toTokenStream :: [Token] -> TokenStream
+toTokenStream ts = TokenStream { tokens: ts, position: 0 }
+
+unconsStream :: TokenStream -> Maybe { head :: Token, tail :: TokenStream }
+unconsStream (TokenStream o) | o.position < length o.tokens = 
+  Just { head: o.tokens `unsafeIndex` o.position
+       , tail: TokenStream { tokens: o.tokens
+                           , position: o.position + 1 
+                           } 
+       }
+unconsStream _ = Nothing
+
+runTokenParser :: forall a. Parser TokenStream a -> [Token] -> Either String a
+runTokenParser p ts = case runParser (toTokenStream ts) p of
   Left (ParseError o) -> Left o.message
   Right a -> Right a
   
-eof :: Parser [Token] {}
+eof :: Parser TokenStream {}
 eof = do
   ts <- get
-  case tokens ts of
-    [] -> return {}
+  case unconsStream ts of
+    Nothing -> return {}
     _ -> fail "Expected EOF"
-  where 
-  tokens :: [Token] -> [Token]
-  tokens ts = ts
     
-token :: forall tok a. String -> (tok -> String) -> (tok -> Maybe a) -> Parser [tok] a
+token :: forall a. String -> (Token -> String) -> (Token -> Maybe a) -> Parser TokenStream a
 token exp sh p = do
   ts <- get
-  case ts of
-    (t : ts') -> case p t of
-      Just a -> do
-        put (Consumed true)
-        put ts'
-        return a
-      Nothing -> fail $ "Expected " ++ exp ++ ", found " ++ sh t
+  case unconsStream ts of
+    Just cons -> 
+      case p cons.head of
+        Just a -> do
+          put (Consumed true)
+          put cons.tail
+          return a
+        Nothing -> fail $ "Expected " ++ exp ++ ", found " ++ sh cons.head
     _ -> fail $ "Expected " ++ exp ++ ", found EOF"
     
-token' :: forall a. String -> (Token -> Maybe a) -> Parser [Token] a
+token' :: forall a. String -> (Token -> Maybe a) -> Parser TokenStream a
 token' exp p = token exp show p
 
-match :: forall a. Token -> Parser [Token] {}
+match :: forall a. Token -> Parser TokenStream {}
 match tok = token' (show tok) (\tok' -> if tok == tok' then Just {} else Nothing)
     
-lparen :: Parser [Token] {}
+lparen :: Parser TokenStream {}
 lparen = match LParen 
 
-rparen :: Parser [Token] {}
+rparen :: Parser TokenStream {}
 rparen = match RParen
 
-parens :: forall a. Parser [Token] a -> Parser [Token] a
+parens :: forall a. Parser TokenStream a -> Parser TokenStream a
 parens = between lparen rparen
 
-lbrace :: Parser [Token] {}
+lbrace :: Parser TokenStream {}
 lbrace = match LBrace
 
-rbrace :: Parser [Token] {}
+rbrace :: Parser TokenStream {}
 rbrace = match RBrace
 
-braces :: forall a. Parser [Token] a -> Parser [Token] a
+braces :: forall a. Parser TokenStream a -> Parser TokenStream a
 braces = between lbrace rbrace
 
-langle :: Parser [Token] {}
+langle :: Parser TokenStream {}
 langle = match LAngle
 
-rangle :: Parser [Token] {}
+rangle :: Parser TokenStream {}
 rangle = match RAngle
 
-angles :: forall a. Parser [Token] a -> Parser [Token] a
+angles :: forall a. Parser TokenStream a -> Parser TokenStream a
 angles = between langle rangle
 
-lsquare :: Parser [Token] {}
+lsquare :: Parser TokenStream {}
 lsquare = match LSquare
 
-rsquare :: Parser [Token] {}
+rsquare :: Parser TokenStream {}
 rsquare = match RSquare
 
-squares :: forall a. Parser [Token] a -> Parser [Token] a
+squares :: forall a. Parser TokenStream a -> Parser TokenStream a
 squares = between lsquare rsquare
 
-larrow :: Parser [Token] {}
+larrow :: Parser TokenStream {}
 larrow = match LArrow
 
-rarrow :: Parser [Token] {}
+rarrow :: Parser TokenStream {}
 rarrow = match RArrow
 
-lfatArrow :: Parser [Token] {}
+lfatArrow :: Parser TokenStream {}
 lfatArrow = match LFatArrow
 
-rfatArrow :: Parser [Token] {}
+rfatArrow :: Parser TokenStream {}
 rfatArrow = match RFatArrow
 
-colon :: Parser [Token] {}
+colon :: Parser TokenStream {}
 colon = match Colon
 
-doubleColon :: Parser [Token] {}
+doubleColon :: Parser TokenStream {}
 doubleColon = match DoubleColon
 
-equals :: Parser [Token] {}
+equals :: Parser TokenStream {}
 equals = match Equals
 
-pipe :: Parser [Token] {}
+pipe :: Parser TokenStream {}
 pipe = match Pipe
 
-tick :: Parser [Token] {}
+tick :: Parser TokenStream {}
 tick = match Tick
 
-dot :: Parser [Token] {}
+dot :: Parser TokenStream {}
 dot = match Dot
 
-comma :: Parser [Token] {}
+comma :: Parser TokenStream {}
 comma = match Comma
 
-semi :: Parser [Token] {}
+semi :: Parser TokenStream {}
 semi = match Semi
 
-semiSep :: forall a. Parser [Token] a -> Parser [Token] [a]
+semiSep :: forall a. Parser TokenStream a -> Parser TokenStream [a]
 semiSep p = sepBy p semi
 
-semiSep1 :: forall a. Parser [Token] a -> Parser [Token] [a]
+semiSep1 :: forall a. Parser TokenStream a -> Parser TokenStream [a]
 semiSep1 p = sepBy1 p semi
 
-commaSep :: forall a. Parser [Token] a -> Parser [Token] [a]
+commaSep :: forall a. Parser TokenStream a -> Parser TokenStream [a]
 commaSep p = sepBy p comma
 
-commaSep1 :: forall a. Parser [Token] a -> Parser [Token] [a]
+commaSep1 :: forall a. Parser TokenStream a -> Parser TokenStream [a]
 commaSep1 p = sepBy1 p comma
 
-lname :: Parser [Token] String
+lname :: Parser TokenStream String
 lname = token' "identifier" go
   where
   go (LName s) = Just s
   go _ = Nothing
   
-reserved :: String -> Parser [Token] {}
+reserved :: String -> Parser TokenStream {}
 reserved s = token' (show s) go
   where
   go (LName s') | s == s' = Just {}
   go _ = Nothing
 
-uname :: Parser [Token] String
+uname :: Parser TokenStream String
 uname = token' "proper name" go
   where
   go (UName s) = Just s
   go _ = Nothing
   
-uname' :: String -> Parser [Token] {}
+uname' :: String -> Parser TokenStream {}
 uname' s = token' (show s) go
   where
   go (UName s') | s == s' = Just {}
   go _ = Nothing
   
-symbol :: Parser [Token] String
+symbol :: Parser TokenStream String
 symbol = token' "symbol" go
   where
   go (Symbol s) = Just s
   go _ = Nothing
   
-symbol' :: String -> Parser [Token] {}
+symbol' :: String -> Parser TokenStream {}
 symbol' s = token' (show s) go
   where
   go (Symbol s') | s == s' = Just {}
   go _ = Nothing
 
-stringLiteral :: Parser [Token] String
+stringLiteral :: Parser TokenStream String
 stringLiteral = token' "string literal" go
   where
   go (StringLiteral s) = Just s
   go _ = Nothing
 
-natural :: Parser [Token] Number
+natural :: Parser TokenStream Number
 natural = token' "natural number" go
   where
   go (Natural n) = Just n
   go _ = Nothing
 
-integer :: Parser [Token] Number
+integer :: Parser TokenStream Number
 integer = token' "integer" go
   where
   go (Integer n) = Just n
   go _ = Nothing
 
-float :: Parser [Token] Number
+float :: Parser TokenStream Number
 float = token' "floating point" go
   where
   go (Float n) = Just n
   go _ = Nothing
 
-hex :: Parser [Token] Number
+hex :: Parser TokenStream Number
 hex = token' "hexadecimal" go
   where
   go (Hex n) = Just n
   go _ = Nothing
 
-lineComment :: Parser [Token] String
+lineComment :: Parser TokenStream String
 lineComment = token' "lineComment" go
   where
   go (LineComment s) = Just s
   go _ = Nothing
 
-blockComment :: Parser [Token] String
+blockComment :: Parser TokenStream String
 blockComment = token' "block comment" go
   where
   go (BlockComment s) = Just s
   go _ = Nothing
 
-identifier :: Parser [Token] String
+identifier :: Parser TokenStream String
 identifier = do
   s <- lname
   if (s `elem` reservedPsNames) 
@@ -238,25 +252,25 @@ identifier = do
 -- |
 -- Parse an identifier
 --
-ident :: Parser [Token] Ident
+ident :: Parser TokenStream Ident
 ident = (Ident <$> identifier) <|> (Op <$> parens symbol)
 
 -- |
 -- Parse an identifier in backticks or an operator
 --
-parseIdentInfix :: Parser [Token] (Qualified Ident)
+parseIdentInfix :: Parser TokenStream (Qualified Ident)
 parseIdentInfix = between tick tick (parseQualified (Ident <$> lname)) <|> (parseQualified (Op <$> symbol))
 
 -- |
 -- Parse a proper name
 --
-properName :: Parser [Token] ProperName
+properName :: Parser TokenStream ProperName
 properName = ProperName <$> uname
 
 -- |
 -- Parse a module name
 --
-moduleName :: Parser [Token] ModuleName
+moduleName :: Parser TokenStream ModuleName
 moduleName = ModuleName <$> (sepBy properName dot)
 
 notFollowedBy :: forall s a. String -> Parser s a -> Parser s {}
@@ -296,14 +310,14 @@ buildPostfixParser fs first = do
 -- |
 -- Parse a qualified name, i.e. M.name or just name
 --
-parseQualified :: forall a. Parser [Token] a -> Parser [Token] (Qualified a)
+parseQualified :: forall a. Parser TokenStream a -> Parser TokenStream (Qualified a)
 parseQualified parser = part []
   where
   part path = (do name <- try (properName <* delimiter)
                   part (updatePath path name))
               <|> (Qualified (qual path) <$> try parser)
            
-  delimiter :: Parser [Token] {}
+  delimiter :: Parser TokenStream {}
   delimiter = dot <* notFollowedBy "dot" dot
   
   updatePath :: [ProperName] -> ProperName -> [ProperName]
@@ -315,5 +329,5 @@ parseQualified parser = part []
 -- |
 -- TODO: A parser which returns the current source position
 --
-sourcePos :: Parser [Token] SourcePos
+sourcePos :: Parser TokenStream SourcePos
 sourcePos = return $ mkSourcePos "" 0 0

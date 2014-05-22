@@ -44,7 +44,7 @@ import qualified Text.Parsing.Parser as P
 import qualified Text.Parsing.Parser.Combinators as P
 import qualified Text.Parsing.Parser.Expr as P
 
-parseDataDeclaration :: P.Parser [L.Token] Declaration
+parseDataDeclaration :: P.Parser TokenStream Declaration
 parseDataDeclaration = do
   reserved "data"
   name <- properName
@@ -54,18 +54,18 @@ parseDataDeclaration = do
     P.sepBy1 (Tuple <$> properName <*> P.many parseTypeAtom) pipe
   return $ DataDeclaration name tyArgs ctors
   
-parseTypeDeclaration :: P.Parser [L.Token] Declaration
+parseTypeDeclaration :: P.Parser TokenStream Declaration
 parseTypeDeclaration =
   TypeDeclaration <$> P.try (ident <* doubleColon)
                   <*> parseType
                   
-parseTypeSynonymDeclaration :: P.Parser [L.Token] Declaration
+parseTypeSynonymDeclaration :: P.Parser TokenStream Declaration
 parseTypeSynonymDeclaration =
   TypeSynonymDeclaration <$> (reserved "type" *> properName)
                          <*> P.many identifier
                          <*> (equals *> parseType)
                      
-parseValueDeclaration :: {} -> P.Parser [L.Token] Declaration
+parseValueDeclaration :: {} -> P.Parser TokenStream Declaration
 parseValueDeclaration _ = do
   name <- ident
   binders <- P.many parseBinderNoParens
@@ -76,7 +76,7 @@ parseValueDeclaration _ = do
     braces (semiSep1 (parseLocalDeclaration {}))
   return $ ValueDeclaration name Value binders guard (maybe value (\ds -> Let ds value) whereClause)
                        
-parseExternDeclaration :: P.Parser [L.Token] Declaration
+parseExternDeclaration :: P.Parser TokenStream Declaration
 parseExternDeclaration = reserved "foreign" *> reserved "import" *> 
    ((do reserved "data"
         name <- properName
@@ -99,41 +99,41 @@ parseExternDeclaration = reserved "foreign" *> reserved "import" *>
             ty <- parseType
             return $ ExternDeclaration (if isJust js then InlineJavascript else ForeignImport) ident js ty))
             
-parseAssociativity :: P.Parser [L.Token] Associativity
+parseAssociativity :: P.Parser TokenStream Associativity
 parseAssociativity =
   (reserved "infixl" *> return Infixl) <|>
   (reserved "infixr" *> return Infixr) <|>
   (reserved "infix"  *> return Infix)
 
-parseFixity :: P.Parser [L.Token] Fixity
+parseFixity :: P.Parser TokenStream Fixity
 parseFixity = Fixity <$> parseAssociativity <*> natural
 
-parseFixityDeclaration :: P.Parser [L.Token] Declaration
+parseFixityDeclaration :: P.Parser TokenStream Declaration
 parseFixityDeclaration = do
   fixity <- parseFixity
   name <- symbol
   return $ FixityDeclaration fixity name
   
-parseDeclarationRef :: P.Parser [L.Token] DeclarationRef
+parseDeclarationRef :: P.Parser TokenStream DeclarationRef
 parseDeclarationRef = PositionedDeclarationRef <$> sourcePos <*>
   (ValueRef <$> ident
    <|> do name <- properName
           dctors <- P.optionMaybe $ parens ((symbol' ".." *> pure Nothing) <|> Just <$> commaSep properName)
           return $ maybe (TypeClassRef name) (TypeRef name) dctors)  
   
-parseImportDeclaration :: P.Parser [L.Token] Declaration
+parseImportDeclaration :: P.Parser TokenStream Declaration
 parseImportDeclaration = do
   reserved "import"
   qualImport <|> stdImport
   where
   
-  stdImport :: P.Parser [L.Token] Declaration
+  stdImport :: P.Parser TokenStream Declaration
   stdImport = do
     moduleName' <- moduleName
     idents <- P.optionMaybe (parens $ commaSep parseDeclarationRef)
     return $ ImportDeclaration moduleName' idents Nothing
   
-  qualImport :: P.Parser [L.Token] Declaration
+  qualImport :: P.Parser TokenStream Declaration
   qualImport = do
     reserved "qualified"
     moduleName' <- moduleName
@@ -142,7 +142,7 @@ parseImportDeclaration = do
     asQ <- moduleName
     return $ ImportDeclaration moduleName' idents (Just asQ)
     
-parseTypeClassDeclaration :: P.Parser [L.Token] Declaration
+parseTypeClassDeclaration :: P.Parser TokenStream Declaration
 parseTypeClassDeclaration = do
   reserved "class"
   implies <- P.option [] do
@@ -156,7 +156,7 @@ parseTypeClassDeclaration = do
     braces (semiSep1 (positioned parseTypeDeclaration))
   return $ TypeClassDeclaration className idents implies members
   
-parseTypeInstanceDeclaration :: P.Parser [L.Token] Declaration
+parseTypeInstanceDeclaration :: P.Parser TokenStream Declaration
 parseTypeInstanceDeclaration = do
   reserved "instance"
   name <- ident <* doubleColon
@@ -168,13 +168,13 @@ parseTypeInstanceDeclaration = do
     P.many (positioned (parseValueDeclaration {}))
   return $ TypeInstanceDeclaration name (fromMaybe [] deps) className ty members
   
-positioned :: P.Parser [L.Token] Declaration -> P.Parser [L.Token] Declaration
+positioned :: P.Parser TokenStream Declaration -> P.Parser TokenStream Declaration
 positioned d = PositionedDeclaration <$> sourcePos <*> d
 
 -- |
 -- Parse a single declaration
 --
-parseDeclaration :: P.Parser [L.Token] Declaration
+parseDeclaration :: P.Parser TokenStream Declaration
 parseDeclaration = positioned (P.choice
                    [ parseDataDeclaration
                    , parseTypeDeclaration
@@ -187,7 +187,7 @@ parseDeclaration = positioned (P.choice
                    , parseTypeInstanceDeclaration
                    ]) P.<?> "declaration"
                    
-parseLocalDeclaration :: {} -> P.Parser [L.Token] Declaration
+parseLocalDeclaration :: {} -> P.Parser TokenStream Declaration
 parseLocalDeclaration _ = PositionedDeclaration <$> sourcePos <*> P.choice
                    [ parseTypeDeclaration
                    , parseValueDeclaration {}
@@ -196,7 +196,7 @@ parseLocalDeclaration _ = PositionedDeclaration <$> sourcePos <*> P.choice
 -- |
 -- Parse a module header and a collection of declarations
 --
-parseModule :: P.Parser [L.Token] Module
+parseModule :: P.Parser TokenStream Module
 parseModule = do
   reserved "module"
   name <- moduleName
@@ -208,36 +208,36 @@ parseModule = do
 -- |
 -- Parse a collection of modules
 --
-parseModules :: P.Parser [L.Token] [Module]
+parseModules :: P.Parser TokenStream [Module]
 parseModules = P.many parseModule <* eof
 
 --
 -- Values
 --
 
-booleanLiteral :: P.Parser [L.Token] Boolean
+booleanLiteral :: P.Parser TokenStream Boolean
 booleanLiteral = (reserved "true" *> return true) <|> (reserved "false" *> return false)
 
-parseNumericLiteral :: P.Parser [L.Token] Value
+parseNumericLiteral :: P.Parser TokenStream Value
 parseNumericLiteral = NumericLiteral <$> (natural <|> integer <|> float <|> hex)
 
-parseStringLiteral :: P.Parser [L.Token] Value
+parseStringLiteral :: P.Parser TokenStream Value
 parseStringLiteral = StringLiteral <$> stringLiteral
 
-parseBooleanLiteral :: P.Parser [L.Token] Value
+parseBooleanLiteral :: P.Parser TokenStream Value
 parseBooleanLiteral = BooleanLiteral <$> booleanLiteral
 
-parseArrayLiteral :: {} -> P.Parser [L.Token] Value
+parseArrayLiteral :: {} -> P.Parser TokenStream Value
 parseArrayLiteral _ = ArrayLiteral <$> squares (commaSep (parseValue {}))
 
-parseObjectLiteral :: {} -> P.Parser [L.Token] Value
+parseObjectLiteral :: {} -> P.Parser TokenStream Value
 parseObjectLiteral _ = ObjectLiteral <$> braces (commaSep (parseIdentifierAndValue {}))
 
-parseIdentifierAndValue :: {} -> P.Parser [L.Token] (Tuple String Value)
+parseIdentifierAndValue :: {} -> P.Parser TokenStream (Tuple String Value)
 parseIdentifierAndValue _ = Tuple <$> ((identifier <|> stringLiteral) <* colon)
                                 <*> parseValue {}
                     
-parseAbs :: {} -> P.Parser [L.Token] Value
+parseAbs :: {} -> P.Parser TokenStream Value
 parseAbs _ = do
   symbol' "\\"
   args <- P.many1 (Abs <$> (Left <$> P.try ident <|> Right <$> parseBinderNoParens))
@@ -248,45 +248,45 @@ parseAbs _ = do
   toFunction :: [Value -> Value] -> Value -> Value
   toFunction args value = foldr ($) value args
   
-parseVar :: P.Parser [L.Token] Value
+parseVar :: P.Parser TokenStream Value
 parseVar = Var <$> parseQualified ident
 
-parseConstructor :: P.Parser [L.Token] Value
+parseConstructor :: P.Parser TokenStream Value
 parseConstructor = Constructor <$> parseQualified properName 
 
-parseCase :: {} -> P.Parser [L.Token] Value
+parseCase :: {} -> P.Parser TokenStream Value
 parseCase _ = Case <$> P.between (P.try (reserved "case")) (reserved "of") (return <$> parseValue {})
                    <*> P.many (parseCaseAlternative {})
                  
-parseCaseAlternative :: {} -> P.Parser [L.Token] CaseAlternative
+parseCaseAlternative :: {} -> P.Parser TokenStream CaseAlternative
 parseCaseAlternative _ = mkCaseAlternative <$> (return <$> parseBinder)
                                            <*> P.optionMaybe (parseGuard {})
                                            <*> (rarrow *> parseValue {})
                                            P.<?> "case alternative"
                                          
-parseIfThenElse :: {} -> P.Parser [L.Token] Value
+parseIfThenElse :: {} -> P.Parser TokenStream Value
 parseIfThenElse _ = IfThenElse <$> (P.try (reserved "if") *> parseValue {})
                                <*> (reserved "then" *> parseValue {})
                                <*> (reserved "else" *> parseValue {})
           
-parseDo :: {} -> P.Parser [L.Token] Value
+parseDo :: {} -> P.Parser TokenStream Value
 parseDo _ = do
   reserved "do"
   Do <$> P.many (parseDoNotationElement {})
 
-parseDoNotationLet :: {} -> P.Parser [L.Token] DoNotationElement
+parseDoNotationLet :: {} -> P.Parser TokenStream DoNotationElement
 parseDoNotationLet _ = DoNotationLet <$> (reserved "let" *> P.many1 (parseLocalDeclaration {}))
 
-parseDoNotationBind :: {} -> P.Parser [L.Token] DoNotationElement
+parseDoNotationBind :: {} -> P.Parser TokenStream DoNotationElement
 parseDoNotationBind _ = DoNotationBind <$> parseBinder <*> (larrow *> parseValue {})
 
-parseDoNotationElement :: {} -> P.Parser [L.Token] DoNotationElement
+parseDoNotationElement :: {} -> P.Parser TokenStream DoNotationElement
 parseDoNotationElement _ = P.choice
   [ P.try (parseDoNotationBind {})
   , parseDoNotationLet {}
   , P.try (DoNotationValue <$> parseValue {}) ]
                              
-parseLet :: {} -> P.Parser [L.Token] Value
+parseLet :: {} -> P.Parser TokenStream Value
 parseLet _ = do
   reserved "let"
   ds <- P.many1 (parseLocalDeclaration {})
@@ -294,24 +294,24 @@ parseLet _ = do
   result <- parseValue {}
   return $ Let ds result
   
-parsePropertyUpdate :: {} -> P.Parser [L.Token] (Tuple String Value)
+parsePropertyUpdate :: {} -> P.Parser TokenStream (Tuple String Value)
 parsePropertyUpdate _ = do
   name <- identifier <|> stringLiteral
   value <- equals *> parseValue {}
   return (Tuple name value)
 
-parseAccessor :: Value -> P.Parser [L.Token] Value
+parseAccessor :: Value -> P.Parser TokenStream Value
 parseAccessor (Constructor _) = P.fail "Unexpected constructor"
 parseAccessor obj = P.try $ Accessor <$> (dot *> (identifier <|> stringLiteral)) <*> pure obj  
                                 
 -- |
 -- Parse a value
 --
-parseValue :: {} -> P.Parser [L.Token] Value
+parseValue :: {} -> P.Parser TokenStream Value
 parseValue _ = P.fix $ \parseValue' ->
   let
   
-    parseValueAtom :: P.Parser [L.Token] Value
+    parseValueAtom :: P.Parser TokenStream Value
     parseValueAtom = P.choice
       [ parseNumericLiteral
       , parseStringLiteral
@@ -348,11 +348,11 @@ parseValue _ = P.fix $ \parseValue' ->
                 ]
               ]
 
-parseGuard :: {} -> P.Parser [L.Token] Guard
+parseGuard :: {} -> P.Parser TokenStream Guard
 parseGuard _ = pipe *> parseValue {}
 
-parseBinder :: P.Parser [L.Token] Binder
+parseBinder :: P.Parser TokenStream Binder
 parseBinder = P.fail "Not implemented"       
 
-parseBinderNoParens :: P.Parser [L.Token] Binder
+parseBinderNoParens :: P.Parser TokenStream Binder
 parseBinderNoParens = P.fail "Not implemented"     
