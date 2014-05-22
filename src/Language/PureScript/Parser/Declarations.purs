@@ -69,8 +69,8 @@ parseValueDeclaration :: {} -> P.Parser [L.Token] Declaration
 parseValueDeclaration _ = do
   name <- ident
   binders <- P.many parseBinderNoParens
-  guard <- P.optionMaybe parseGuard
-  value <- equals *> parseValue
+  guard <- P.optionMaybe (parseGuard {})
+  value <- equals *> parseValue {}
   whereClause <- P.optionMaybe $ do
     reserved "where"
     braces (semiSep1 (parseLocalDeclaration {}))
@@ -227,22 +227,22 @@ parseStringLiteral = StringLiteral <$> stringLiteral
 parseBooleanLiteral :: P.Parser [L.Token] Value
 parseBooleanLiteral = BooleanLiteral <$> booleanLiteral
 
-parseArrayLiteral :: P.Parser [L.Token] Value
-parseArrayLiteral = ArrayLiteral <$> squares (commaSep parseValue)
+parseArrayLiteral :: {} -> P.Parser [L.Token] Value
+parseArrayLiteral _ = ArrayLiteral <$> squares (commaSep (parseValue {}))
 
-parseObjectLiteral :: P.Parser [L.Token] Value
-parseObjectLiteral = ObjectLiteral <$> braces (commaSep parseIdentifierAndValue)
+parseObjectLiteral :: {} -> P.Parser [L.Token] Value
+parseObjectLiteral _ = ObjectLiteral <$> braces (commaSep (parseIdentifierAndValue {}))
 
-parseIdentifierAndValue :: P.Parser [L.Token] (Tuple String Value)
-parseIdentifierAndValue = Tuple <$> ((identifier <|> stringLiteral) <* colon)
-                                <*> parseValue
+parseIdentifierAndValue :: {} -> P.Parser [L.Token] (Tuple String Value)
+parseIdentifierAndValue _ = Tuple <$> ((identifier <|> stringLiteral) <* colon)
+                                <*> parseValue {}
                     
-parseAbs :: P.Parser [L.Token] Value
-parseAbs = do
+parseAbs :: {} -> P.Parser [L.Token] Value
+parseAbs _ = do
   symbol' "\\"
   args <- P.many1 (Abs <$> (Left <$> P.try ident <|> Right <$> parseBinderNoParens))
   rarrow
-  value <- parseValue
+  value <- parseValue {}
   return $ toFunction args value
   where
   toFunction :: [Value -> Value] -> Value -> Value
@@ -254,67 +254,96 @@ parseVar = Var <$> parseQualified ident
 parseConstructor :: P.Parser [L.Token] Value
 parseConstructor = Constructor <$> parseQualified properName 
 
-parseCase :: P.Parser [L.Token] Value
-parseCase = Case <$> P.between (P.try (reserved "case")) (reserved "of") (return <$> parseValue)
-                 <*> P.many parseCaseAlternative
+parseCase :: {} -> P.Parser [L.Token] Value
+parseCase _ = Case <$> P.between (P.try (reserved "case")) (reserved "of") (return <$> parseValue {})
+                   <*> P.many (parseCaseAlternative {})
                  
-parseCaseAlternative :: P.Parser [L.Token] CaseAlternative
-parseCaseAlternative = mkCaseAlternative <$> (return <$> parseBinder)
-                                         <*> P.optionMaybe parseGuard
-                                         <*> (rarrow *> parseValue)
-                                         P.<?> "case alternative"
+parseCaseAlternative :: {} -> P.Parser [L.Token] CaseAlternative
+parseCaseAlternative _ = mkCaseAlternative <$> (return <$> parseBinder)
+                                           <*> P.optionMaybe (parseGuard {})
+                                           <*> (rarrow *> parseValue {})
+                                           P.<?> "case alternative"
                                          
-parseIfThenElse :: P.Parser [L.Token] Value
-parseIfThenElse = IfThenElse <$> (P.try (reserved "if") *> parseValue)
-                             <*> (reserved "then" *> parseValue)
-                             <*> (reserved "else" *> parseValue)
+parseIfThenElse :: {} -> P.Parser [L.Token] Value
+parseIfThenElse _ = IfThenElse <$> (P.try (reserved "if") *> parseValue {})
+                               <*> (reserved "then" *> parseValue {})
+                               <*> (reserved "else" *> parseValue {})
           
-parseDo :: P.Parser [L.Token] Value
-parseDo = do
+parseDo :: {} -> P.Parser [L.Token] Value
+parseDo _ = do
   reserved "do"
-  Do <$> P.many parseDoNotationElement
+  Do <$> P.many (parseDoNotationElement {})
 
-parseDoNotationLet :: P.Parser [L.Token] DoNotationElement
-parseDoNotationLet = DoNotationLet <$> (reserved "let" *> P.many1 (parseLocalDeclaration {}))
+parseDoNotationLet :: {} -> P.Parser [L.Token] DoNotationElement
+parseDoNotationLet _ = DoNotationLet <$> (reserved "let" *> P.many1 (parseLocalDeclaration {}))
 
-parseDoNotationBind :: P.Parser [L.Token] DoNotationElement
-parseDoNotationBind = DoNotationBind <$> parseBinder <*> (larrow *> parseValue)
+parseDoNotationBind :: {} -> P.Parser [L.Token] DoNotationElement
+parseDoNotationBind _ = DoNotationBind <$> parseBinder <*> (larrow *> parseValue {})
 
-parseDoNotationElement :: P.Parser [L.Token] DoNotationElement
-parseDoNotationElement = P.choice
-  [ P.try parseDoNotationBind
-  , parseDoNotationLet
-  , P.try (DoNotationValue <$> parseValue) ]
+parseDoNotationElement :: {} -> P.Parser [L.Token] DoNotationElement
+parseDoNotationElement _ = P.choice
+  [ P.try (parseDoNotationBind {})
+  , parseDoNotationLet {}
+  , P.try (DoNotationValue <$> parseValue {}) ]
                              
-parseLet :: P.Parser [L.Token] Value
-parseLet = do
+parseLet :: {} -> P.Parser [L.Token] Value
+parseLet _ = do
   reserved "let"
   ds <- P.many1 (parseLocalDeclaration {})
   reserved "in"
-  result <- parseValue
+  result <- parseValue {}
   return $ Let ds result
   
-parseValueAtom :: P.Parser [L.Token] Value
-parseValueAtom = P.choice
+parseValueAtom :: {} -> P.Parser [L.Token] Value
+parseValueAtom _ = P.choice
   [ parseNumericLiteral
   , parseStringLiteral
   , parseBooleanLiteral
-  , parseArrayLiteral
-  , P.try parseObjectLiteral
-  , parseAbs
+  , parseArrayLiteral {}
+  , P.try (parseObjectLiteral {})
+  , parseAbs {}
   , P.try parseConstructor
   , P.try parseVar
-  , parseCase
-  , parseIfThenElse
-  , parseDo
-  , parseLet
-  , Parens <$> parens parseValue ]
-                                
-parseValue :: P.Parser [L.Token] Value  
-parseValue = P.fail "Not implemented"    
+  , parseCase {}
+  , parseIfThenElse {}
+  , parseDo {}
+  , parseLet {}
+  , Parens <$> parens (parseValue {}) ]
+  
+parsePropertyUpdate :: {} -> P.Parser [L.Token] (Tuple String Value)
+parsePropertyUpdate _ = do
+  name <- identifier <|> stringLiteral
+  value <- equals *> parseValue {}
+  return (Tuple name value)
 
-parseGuard :: P.Parser [L.Token] Value
-parseGuard = P.fail "Not implemented"        
+parseAccessor :: Value -> P.Parser [L.Token] Value
+parseAccessor (Constructor _) = P.fail "Unexpected constructor"
+parseAccessor obj = P.try $ Accessor <$> (dot *> (identifier <|> stringLiteral)) <*> pure obj  
+                                
+-- |
+-- Parse a value
+--
+parseValue :: {} -> P.Parser [L.Token] Value
+parseValue _ = PositionedValue <$> sourcePos
+                               <*> (P.buildExprParser operators <<< buildPostfixParser postfixTable2 $ indexersAndAccessors) 
+                               P.<?> "expression"
+  where
+  indexersAndAccessors = buildPostfixParser postfixTable1 (parseValueAtom {})
+  postfixTable1 = [ parseAccessor
+                  , \v -> P.try $ flip ObjectUpdate <$> (braces (commaSep1 (parsePropertyUpdate {}))) <*> pure v 
+                  ]
+  postfixTable2 = [ \v -> P.try (flip App <$> indexersAndAccessors) <*> pure v
+                  , \v -> flip (TypedValue true) <$> (doubleColon *> parseType) <*> pure v
+                  ]
+  operators = [ [ P.Prefix (P.try (symbol' "-") *> return UnaryMinus)
+                ]
+              , [ P.Infix (P.try (parseIdentInfix P.<?> "operator") >>= \ident ->
+                    return (BinaryNoParens ident)) P.AssocRight
+                ]
+              ]
+
+parseGuard :: {} -> P.Parser [L.Token] Guard
+parseGuard _ = pipe *> parseValue {}
 
 parseBinder :: P.Parser [L.Token] Binder
 parseBinder = P.fail "Not implemented"       

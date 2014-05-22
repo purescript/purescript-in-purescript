@@ -17,8 +17,8 @@ module Language.PureScript.Parser.Common where
   
 import Data.Maybe
 import Data.Either
-import Data.Array (null)
-import Data.Foldable (elem)
+import Data.Array (map, null)
+import Data.Foldable (elem, foldl)
 
 import Control.Apply
 
@@ -263,6 +263,35 @@ notFollowedBy :: forall s a. String -> Parser s a -> Parser s {}
 notFollowedBy name p = try $ (do
   c <- p
   fail ("Unexpected " ++ name)) <|> return {}
+
+-- |
+-- Run the first parser, then match the second if possible, applying the specified function on a successful match
+--
+augment :: forall s a b. Parser s a -> Parser s b -> (a -> b -> a) -> Parser s a
+augment p q f = flip (maybe id $ flip f) <$> p <*> optionMaybe q
+
+-- |
+-- Run the first parser, then match the second zero or more times, applying the specified function for each match
+--
+fold :: forall s a b. Parser s a -> Parser s b -> (a -> b -> a) -> Parser s a
+fold first more combine = do
+  a <- first
+  bs <- many more
+  return $ foldl combine a bs
+
+-- |
+-- Build a parser from a smaller parser and a list of parsers for postfix operators
+--
+buildPostfixParser :: forall s a. [a -> Parser s a] -> Parser s a -> Parser s a
+buildPostfixParser fs first = do
+  a <- first
+  go a
+  where
+  go a = do
+    maybeA <- optionMaybe $ choice (map (\f -> f a) fs)
+    case maybeA of
+      Nothing -> return a
+      Just a' -> go a'
 
 -- |
 -- Parse a qualified name, i.e. M.name or just name
