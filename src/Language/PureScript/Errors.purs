@@ -159,3 +159,17 @@ foreign import theImpossibleHappened
   "function theImpossibleHappened(msg) {\
   \  throw new Error(msg);\
   \}" :: forall a. String -> a 
+
+-- |
+-- This is a hack to emulate the semantics of Haskell's "error" function.
+-- It can only be used with types whose runtime representation is an Object.
+--
+foreign import error 
+  "function error(msg) {\
+  \  var explode = function() {;\
+  \    this.__defineGetter__('ctor', function() {\
+  \      throw new Error(msg);\
+  \    });\
+  \  };\
+  \  return new explode();\
+  \}" :: forall a. a

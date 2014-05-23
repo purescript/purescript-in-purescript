@@ -30,7 +30,8 @@ import Language.PureScript.Traversals (sndM)
 import Language.PureScript.Types
 
 -- TODO: not this, once Language.PureScript.Optimizer is in place
-foreign import optimize :: forall a. a
+optimize :: Options -> JS -> JS
+optimize _ js = js
 
 -- |
 -- Different types of modules which are supported
@@ -207,7 +208,8 @@ bindNames m idents (Environment env) = Environment $ env {
     names = M.fromList (flip map idents (\ident -> Tuple (Tuple m ident) (Tuple noType LocalVariable))) `M.union` env.names
   }
   where
-  noType = theImpossibleHappened "Temporary lambda variable type was read"
+  noType :: Type 
+  noType = error "Temporary lambda variable type was read"
 
 -- |
 -- Generate code in the simplified Javascript intermediate representation for runtime type checks.
