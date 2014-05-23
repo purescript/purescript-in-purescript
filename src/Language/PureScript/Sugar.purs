@@ -17,6 +17,7 @@ module Language.PureScript.Sugar (desugar) where
 
 import Data.Either
 
+import Control.Bind ((>=>))
 import Control.Monad
 import Control.Monad.Trans
 
@@ -27,12 +28,12 @@ import Language.PureScript.Supply
 {-
 import Language.PureScript.Sugar.Operators
 import Language.PureScript.Sugar.DoNotation
-import Language.PureScript.Sugar.CaseDeclarations
 import Language.PureScript.Sugar.TypeDeclarations
 import Language.PureScript.Sugar.TypeClasses
 import Language.PureScript.Sugar.Names
 -}
 
+import Language.PureScript.Sugar.CaseDeclarations
 import Language.PureScript.Sugar.BindingGroups
 
 -- |
@@ -55,9 +56,11 @@ import Language.PureScript.Sugar.BindingGroups
 desugar :: [Module] -> SupplyT (Either ErrorStack) [Module]
 desugar = {- map removeSignedLiterals
           >>> mapM desugarDoModule
-          >=> desugarCasesModule
+          >=> -} desugarCasesModule
+          {-
           >=> lift . (desugarTypeDeclarationsModule
                       >=> desugarImports
                       >=> rebracket)
-          >=> desugarTypeClasses
-          >=> -} lift <<< createBindingGroupsModule
+          >=> desugarTypeClasses 
+          -}
+          >=>  lift <<< createBindingGroupsModule

@@ -166,7 +166,7 @@ foreign import theImpossibleHappened
 --
 foreign import error 
   "function error(msg) {\
-  \  var explode = function() {;\
+  \  var explode = function() {\
   \    this.__defineGetter__('ctor', function() {\
   \      throw new Error(msg);\
   \    });\
