@@ -28,7 +28,6 @@ import Language.PureScript.Supply
 
 {-
 import Language.PureScript.Sugar.Operators
-import Language.PureScript.Sugar.TypeDeclarations
 import Language.PureScript.Sugar.TypeClasses
 import Language.PureScript.Sugar.Names
 -}
@@ -36,6 +35,7 @@ import Language.PureScript.Sugar.Names
 import Language.PureScript.Sugar.CaseDeclarations
 import Language.PureScript.Sugar.BindingGroups
 import Language.PureScript.Sugar.DoNotation
+import Language.PureScript.Sugar.TypeDeclarations
 
 -- |
 -- The desugaring pipeline proceeds as follows:
@@ -59,10 +59,9 @@ desugar = {- map removeSignedLiterals
           >>> -}
           traverse desugarDoModule
           >=> desugarCasesModule
-          {-
-          >=> lift . (desugarTypeDeclarationsModule
-                      >=> desugarImports
-                      >=> rebracket)
-          >=> desugarTypeClasses 
+          >=> lift <<< (desugarTypeDeclarationsModule
+                      {- >=> desugarImports
+                      >=> rebracket -})
+          {- >=> desugarTypeClasses 
           -}
           >=>  lift <<< createBindingGroupsModule
