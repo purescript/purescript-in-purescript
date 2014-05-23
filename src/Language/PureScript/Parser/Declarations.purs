@@ -23,6 +23,7 @@ module Language.PureScript.Parser.Declarations (
     parseBinderNoParens
   ) where
 
+import Data.Array (map)
 import Data.Tuple
 import Data.Maybe
 import Data.Either
@@ -68,7 +69,7 @@ parseTypeSynonymDeclaration =
 parseValueDeclaration :: {} -> P.Parser TokenStream Declaration
 parseValueDeclaration _ = do
   name <- ident
-  binders <- P.many parseBinderNoParens
+  binders <- P.many (parseBinderNoParens {})
   guard <- P.optionMaybe (parseGuard {})
   value <- equals *> parseValue {}
   whereClause <- P.optionMaybe $ do
@@ -240,7 +241,7 @@ parseIdentifierAndValue _ = Tuple <$> ((identifier <|> stringLiteral) <* colon)
 parseAbs :: {} -> P.Parser TokenStream Value
 parseAbs _ = do
   symbol' "\\"
-  args <- P.many1 (Abs <$> (Left <$> P.try ident <|> Right <$> parseBinderNoParens))
+  args <- P.many1 (Abs <$> (Left <$> P.try ident <|> Right <$> parseBinderNoParens {}))
   rarrow
   value <- parseValue {}
   return $ toFunction args value
@@ -259,7 +260,7 @@ parseCase _ = Case <$> P.between (P.try (reserved "case")) (reserved "of") (retu
                    <*> P.many (parseCaseAlternative {})
                  
 parseCaseAlternative :: {} -> P.Parser TokenStream CaseAlternative
-parseCaseAlternative _ = mkCaseAlternative <$> (return <$> parseBinder)
+parseCaseAlternative _ = mkCaseAlternative <$> (return <$> parseBinder {})
                                            <*> P.optionMaybe (parseGuard {})
                                            <*> (rarrow *> parseValue {})
                                            P.<?> "case alternative"
@@ -278,7 +279,7 @@ parseDoNotationLet :: {} -> P.Parser TokenStream DoNotationElement
 parseDoNotationLet _ = DoNotationLet <$> (reserved "let" *> P.many1 (parseLocalDeclaration {}))
 
 parseDoNotationBind :: {} -> P.Parser TokenStream DoNotationElement
-parseDoNotationBind _ = DoNotationBind <$> parseBinder <*> (larrow *> parseValue {})
+parseDoNotationBind _ = DoNotationBind <$> parseBinder {} <*> (larrow *> parseValue {})
 
 parseDoNotationElement :: {} -> P.Parser TokenStream DoNotationElement
 parseDoNotationElement _ = P.choice
@@ -351,8 +352,84 @@ parseValue _ = P.fix $ \parseValue' ->
 parseGuard :: {} -> P.Parser TokenStream Guard
 parseGuard _ = pipe *> parseValue {}
 
-parseBinder :: P.Parser TokenStream Binder
-parseBinder = P.fail "Not implemented"       
+parseStringBinder :: P.Parser TokenStream Binder
+parseStringBinder = StringBinder <$> stringLiteral
 
-parseBinderNoParens :: P.Parser TokenStream Binder
-parseBinderNoParens = P.fail "Not implemented"     
+parseBooleanBinder :: P.Parser TokenStream Binder
+parseBooleanBinder = BooleanBinder <$> booleanLiteral
+
+parseNumberBinder :: P.Parser TokenStream Binder
+parseNumberBinder = NumberBinder <$> natural
+
+parseVarBinder :: P.Parser TokenStream Binder
+parseVarBinder = VarBinder <$> ident
+
+parseNullaryConstructorBinder :: P.Parser TokenStream Binder
+parseNullaryConstructorBinder = ConstructorBinder <$> parseQualified properName <*> pure []
+
+parseConstructorBinder :: {} -> P.Parser TokenStream Binder
+parseConstructorBinder _ = do 
+  ctor <- parseQualified properName
+  binders <- P.many (parseBinderNoParens {})
+  return $ ConstructorBinder ctor binders
+
+parseObjectBinder :: {} -> P.Parser TokenStream Binder
+parseObjectBinder _ = ObjectBinder <$> braces (commaSep (parseIdentifierAndBinder {}))
+
+parseArrayBinder :: {} -> P.Parser TokenStream Binder
+parseArrayBinder _ = squares $ ArrayBinder <$> commaSep (parseBinder {})
+
+parseNamedBinder :: {} -> P.Parser TokenStream Binder
+parseNamedBinder _ = do
+  name <- ident
+  at
+  binder <- parseBinder {}
+  return $ NamedBinder name binder
+
+parseNullBinder :: P.Parser TokenStream Binder
+parseNullBinder = reserved "_" *> return NullBinder
+
+parseIdentifierAndBinder :: {} -> P.Parser TokenStream (Tuple String Binder)
+parseIdentifierAndBinder _ = do
+  name <- identifier <|> stringLiteral
+  equals
+  binder <- parseBinder {}
+  return (Tuple name binder)
+
+-- |
+-- Parse a binder
+--
+parseBinder :: {} -> P.Parser TokenStream Binder
+parseBinder _ = P.fix $ \p -> 
+  let
+    parseBinderAtom :: P.Parser TokenStream Binder
+    parseBinderAtom = P.choice (map P.try
+                      [ parseNullBinder
+                      , parseStringBinder
+                      , parseBooleanBinder
+                      , parseNumberBinder
+                      , parseNamedBinder {}
+                      , parseVarBinder
+                      , parseConstructorBinder {}
+                      , parseObjectBinder {}
+                      , parseArrayBinder {}
+                      , parens p ]) P.<?> "binder"
+  in PositionedBinder <$> sourcePos <*> (P.buildExprParser operators parseBinderAtom P.<?> "expression")
+  where
+  operators = [ [ P.Infix (colon *> return ConsBinder) P.AssocRight ] ]
+
+-- |
+-- Parse a binder as it would appear in a top level declaration
+--
+parseBinderNoParens :: {} -> P.Parser TokenStream Binder
+parseBinderNoParens _ = P.choice (map P.try
+                  [ parseNullBinder
+                  , parseStringBinder
+                  , parseBooleanBinder
+                  , parseNumberBinder
+                  , parseNamedBinder {}
+                  , parseVarBinder
+                  , parseNullaryConstructorBinder
+                  , parseObjectBinder {}
+                  , parseArrayBinder {}
+                  , parens (parseBinder {}) ]) P.<?> "binder"

@@ -152,6 +152,9 @@ comma = match Comma
 semi :: Parser TokenStream {}
 semi = match Semi
 
+at :: Parser TokenStream {}
+at = match At
+
 semiSep :: forall a. Parser TokenStream a -> Parser TokenStream [a]
 semiSep p = sepBy p semi
 

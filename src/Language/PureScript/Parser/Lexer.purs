@@ -31,6 +31,7 @@ data Token
   | Dot
   | Comma
   | Semi
+  | At
   
   | LName String
   | UName String
@@ -67,6 +68,7 @@ instance showToken :: Show Token where
   show Dot                   = "Dot"
   show Comma                 = "Comma"
   show Semi                  = "Semi"
+  show At                    = "At"
   show (Newline n)           = "Newline (" ++ show n ++ ")"
   show (ShouldIndent n)      = "ShouldIndent (" ++ show n ++ ")"
   show (LName s)             = "LName (" ++ show s ++ ")"
@@ -101,6 +103,7 @@ instance eqToken :: Eq Token where
   (==) Dot                 Dot                 = true
   (==) Comma               Comma               = true
   (==) Semi                Semi                = true
+  (==) At                  At                  = true
   (==) (Newline n1)        (Newline n2)        = n1 == n2
   (==) (ShouldIndent n1)   (ShouldIndent n2)   = n1 == n2
   (==) (LName s1)          (LName s2)          = s1 == s2
@@ -169,6 +172,7 @@ lex input = do
   go line col i ts | charAt i input == ":" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (Colon : ts)
   go line col i ts | charAt i input == "=" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (Equals : ts)
   go line col i ts | charAt i input == "|" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (Pipe : ts)
+  go line col i ts | charAt i input == "@" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (At : ts)
   go line col i ts | charAt i input == "`" = go line (col + 1) (i + 1) (Tick : ts)
   go line col i ts | charAt i input == "," = go line (col + 1) (i + 1) (Comma : ts)
   go line col i ts | charAt i input == ";" = go line (col + 1) (i + 1) (Semi : ts)
