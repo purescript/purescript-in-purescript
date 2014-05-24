@@ -29,9 +29,9 @@ import Language.PureScript.Supply
 {-
 import Language.PureScript.Sugar.Operators
 import Language.PureScript.Sugar.TypeClasses
-import Language.PureScript.Sugar.Names
 -}
 
+import Language.PureScript.Sugar.Names
 import Language.PureScript.Sugar.CaseDeclarations
 import Language.PureScript.Sugar.BindingGroups
 import Language.PureScript.Sugar.DoNotation
@@ -60,7 +60,7 @@ desugar = {- map removeSignedLiterals
           traverse desugarDoModule
           >=> desugarCasesModule
           >=> lift <<< (desugarTypeDeclarationsModule
-                      {- >=> desugarImports
+                        >=> desugarImports {-
                       >=> rebracket -})
           {- >=> desugarTypeClasses 
           -}
