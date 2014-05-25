@@ -171,6 +171,12 @@ modifyEnv :: forall m. (Monad m, MonadState CheckState m) => (Environment -> Env
 modifyEnv f = modify (\(CheckState st) -> CheckState $ st { env = f st.env })
 
 -- |
+-- Get the current module name
+--
+getCurrentModule :: forall m. (Monad m, MonadState CheckState m) => m (Maybe ModuleName)
+getCurrentModule = (\(CheckState st) -> st.currentModule) <$> get
+
+-- |
 -- Run a computation in the Check monad, starting with an empty @Environment@
 --
 runCheck :: forall a. Options -> Check a -> Either String (Tuple a Environment)

@@ -136,7 +136,7 @@ infer ty = rethrow (\x -> mkErrorStack "Error inferring type of value" (Just (Ty
 
 infer' :: Type -> UnifyT Kind Check Kind
 infer' (TypeVar v) = do
-  Just moduleName <- (\(CheckState st) -> st.currentModule) <$> get
+  Just moduleName <- getCurrentModule
   UnifyT $ lift $ lookupTypeVariable unifyError moduleName (Qualified Nothing (ProperName v))
 infer' c@(TypeConstructor v) = do
   Environment env <- liftCheck getEnv
@@ -151,7 +151,7 @@ infer' (TypeApp t1 t2) = do
   return k0
 infer' (ForAll ident ty _) = do
   k1 <- fresh
-  Just moduleName <- (\(CheckState st) -> st.currentModule) <$> get
+  Just moduleName <- getCurrentModule
   k2 <- bindLocalTypeVariables moduleName [Tuple (ProperName ident) k1] $ infer ty
   k2 =?= Star
   return Star
