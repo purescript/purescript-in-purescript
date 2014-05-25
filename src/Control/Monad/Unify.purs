@@ -68,7 +68,9 @@ instance monoidSubstitution :: (Partial t) => Monoid (Substitution t) where
 -- |
 -- State required for type checking
 --
-data UnifyState t = UnifyState {
+data UnifyState t = UnifyState (UnifyStateObj t)
+
+type UnifyStateObj t = {
   -- |
   -- The next fresh unification variable
   --
@@ -78,6 +80,9 @@ data UnifyState t = UnifyState {
   --
   , unifyCurrentSubstitution :: Substitution t
   }
+  
+unifyStateObj :: forall t. UnifyState t -> UnifyStateObj t
+unifyStateObj (UnifyState o) = o
 
 -- |
 -- An empty @UnifyState@
