@@ -21,7 +21,7 @@ module Language.PureScript.TypeChecker.Types {-(typesOf)-} where
 
 import Data.Array (length, map, nub, sort, sortBy)
 import Data.Either
-import Data.Foldable (foldl)
+import Data.Foldable (all, foldl)
 import Data.Function (on)
 import Data.Maybe
 import Data.Monoid
@@ -220,11 +220,11 @@ typeForBindingGroupElement moduleName e@(_, (val, _)) dict untypedDict = do
       TypedValue _ val'' ty <- bindNames dict' $ infer val'
       ty =?= fromMaybe (error "name not found in dictionary") (lookup ident untypedDict)
       return (ident, (TypedValue true val'' ty, ty))
-
+-}
 -- |
 -- Check if a value introduces a function
 --
-isFunction :: Value -> Bool
+isFunction :: Value -> Boolean
 isFunction (Abs _ _) = true
 isFunction (TypedValue _ val _) = isFunction val
 isFunction (PositionedValue _ val) = isFunction val
@@ -233,34 +233,32 @@ isFunction _ = false
 -- |
 -- Check if a value contains a type annotation
 --
-isTyped :: (Ident, Value) -> (Ident, (Value, Maybe (Type, Bool)))
-isTyped (name, TypedValue checkType value ty) = (name, (value, Just (ty, checkType)))
-isTyped (name, value) = (name, (value, Nothing))
+isTyped :: Tuple Ident Value -> Tuple Ident (Tuple Value (Maybe (Tuple Type Boolean)))
+isTyped (Tuple name (TypedValue checkType value ty)) = Tuple name (Tuple value (Just $ Tuple ty checkType))
+isTyped (Tuple name value) = Tuple name (Tuple value Nothing)
 
 -- |
 -- Map a function over type annotations appearing inside a value
 --
 overTypes :: (Type -> Type) -> Value -> Value
-overTypes f = let (_, f', _) = everywhereOnValues id g id in f'
+overTypes f = case everywhereOnValues id g id of Tuple3 _ f' _ -> f'
   where
   g :: Value -> Value
   g (TypedValue checkTy val t) = TypedValue checkTy val (f t)
-  g (TypeClassDictionary b (nm, tys) sco) = TypeClassDictionary b (nm, map f tys) sco
+  g (TypeClassDictionary b (Tuple nm tys) sco) = TypeClassDictionary b (Tuple nm (map f tys)) sco
   g other = other
-
+{-
 -- |
 -- Replace type class dictionary placeholders with inferred type class dictionaries
 --
 replaceTypeClassDictionaries :: ModuleName -> Value -> Check Value
-replaceTypeClassDictionaries mn =
-  let (_, f, _) = everywhereOnValuesTopDownM return go return
-  in f
+replaceTypeClassDictionaries mn = case everywhereOnValuesTopDownM return go return of Tuple3 _ f _ -> f
   where
   go (TypeClassDictionary trySuperclasses constraint dicts) = do
     env <- getEnv
     entails env mn dicts constraint trySuperclasses
   go other = return other
-
+-}
 -- |
 -- A simplified representation of expressions which are used to represent type
 -- class dictionaries at runtime, which can be compared for equality
@@ -281,9 +279,42 @@ data DictionaryValue
   -- |
   -- A subclass dictionary
   --
-  | SubclassDictionaryValue DictionaryValue (Qualified ProperName) Integer
-  deriving (Show, Ord, Eq)
+  | SubclassDictionaryValue DictionaryValue (Qualified ProperName) Number
+  
+instance eqDictionaryValue :: Eq DictionaryValue where
+  (==) (LocalDictionaryValue q1) (LocalDictionaryValue q2) = q1 == q2
+  (==) (GlobalDictionaryValue q1) (GlobalDictionaryValue q2) = q1 == q2
+  (==) (DependentDictionaryValue q1 xs) (DependentDictionaryValue q2 ys) = q1 == q2 && xs == ys
+  (==) (SubclassDictionaryValue d1 q1 n1) (SubclassDictionaryValue d2 q2 n2) = d1 == d2 && q1 == q2 && n1 == n2
+  (==) _ _ = false
+  (/=) x y = not (x == y)
+  
+instance ordDictionaryValue :: Ord DictionaryValue where
+  compare (LocalDictionaryValue q1) (LocalDictionaryValue q2) = compare q1 q2
+  compare (LocalDictionaryValue _) _ = LT
+  compare (GlobalDictionaryValue q1) (GlobalDictionaryValue q2) = compare q1 q2
+  compare (GlobalDictionaryValue _) (LocalDictionaryValue _) = GT
+  compare (GlobalDictionaryValue _) _ = LT
+  compare (DependentDictionaryValue q1 xs) (DependentDictionaryValue q2 ys) = case compare q1 q2 of
+    EQ -> compare xs ys
+    other -> other
+  compare (DependentDictionaryValue _ _) (LocalDictionaryValue _) = GT
+  compare (DependentDictionaryValue _ _) (GlobalDictionaryValue _) = GT
+  compare (DependentDictionaryValue _ _) _ = LT
+  compare (SubclassDictionaryValue d1 q1 n1) (SubclassDictionaryValue d2 q2 n2) = case compare d1 d2 of
+    EQ -> case compare q1 q2 of
+      EQ -> compare n1 n2
+      other' -> other'
+    other -> other
+  compare (SubclassDictionaryValue _ _ _) _ = GT
+  
+instance showDictionaryValue :: Show DictionaryValue where
+  show (LocalDictionaryValue q) = "LocalDictionaryValue (" ++ show q ++ ")"
+  show (GlobalDictionaryValue q) = "GlobalDictionaryValue (" ++ show q ++ ")"
+  show (DependentDictionaryValue q xs) = "DependentDictionaryValue (" ++ show q ++ ") (" ++ show xs ++ ")"
+  show (SubclassDictionaryValue d q n) = "SubclassDictionaryValue (" ++ show d ++ ") (" ++ show q ++ ") (" ++ show n ++ ")"
 
+{-
 -- |
 -- Check that the current set of type class dictionaries entail the specified type class goal, and, if so,
 -- return a type class dictionary reference.
@@ -384,11 +415,11 @@ entails env moduleName context = solve (sortedNubBy canonicalizeDictionary (filt
 	  dictTrace (DependentDictionaryValue fnName dicts) = DependentDictionaryValue fnName $ map dictTrace dicts
 	  dictTrace (SubclassDictionaryValue dict _ _) = dictTrace dict
 	  dictTrace other = other
-
+-}
 -- |
 -- Check all values in a list pairwise match a predicate
 --
-pairwise :: (a -> a -> Bool) -> [a] -> Bool
+pairwise :: forall a. (a -> a -> Boolean) -> [a] -> Boolean
 pairwise _ [] = true
 pairwise _ [_] = true
 pairwise p (x : xs) = all (p x) xs && pairwise p xs
@@ -396,7 +427,7 @@ pairwise p (x : xs) = all (p x) xs && pairwise p xs
 -- |
 -- Check that two types unify
 --
-unifiesWith :: Environment -> Type -> Type -> Bool
+unifiesWith :: Environment -> Type -> Type -> Boolean
 unifiesWith _ (TUnknown u1) (TUnknown u2) | u1 == u2 = true
 unifiesWith _ (Skolem _ s1 _) (Skolem _ s2 _) | s1 == s2 = true
 unifiesWith _ (TypeVar v1) (TypeVar v2) | v1 == v2 = true
@@ -413,16 +444,16 @@ unifiesWith _ _ _ = false
 -- Check whether the type heads of two types are equal (for the purposes of type class dictionary lookup),
 -- and return a substitution from type variables to types which makes the type heads unify.
 --
-typeHeadsAreEqual :: ModuleName -> Environment -> Type -> Type -> Maybe [(String, Type)]
+typeHeadsAreEqual :: ModuleName -> Environment -> Type -> Type -> Maybe [Tuple String Type]
 typeHeadsAreEqual _ _ (Skolem _ s1 _) (Skolem _ s2 _) | s1 == s2 = Just []
-typeHeadsAreEqual _ _ t (TypeVar v) = Just [(v, t)]
+typeHeadsAreEqual _ _ t (TypeVar v) = Just [Tuple v t]
 typeHeadsAreEqual _ _ (TypeConstructor c1) (TypeConstructor c2) | c1 == c2 = Just []
 typeHeadsAreEqual m e (TypeApp h1 t1) (TypeApp h2 t2) = (++) <$> typeHeadsAreEqual m e h1 h2 <*> typeHeadsAreEqual m e t1 t2
 typeHeadsAreEqual m e (SaturatedTypeSynonym name args) t2 = case expandTypeSynonym' e name args of
   Left  _  -> Nothing
   Right t1 -> typeHeadsAreEqual m e t1 t2
 typeHeadsAreEqual _ _ _ _ = Nothing
-
+{-
 -- |
 -- Ensure skolem variables do not escape their scope
 --
@@ -557,13 +588,15 @@ expandAllTypeSynonyms errorType = everywhereOnTypesTopDownM go
   where
   go (SaturatedTypeSynonym name args) = expandTypeSynonym errorType name args
   go other = return other
-{-
+
 -- |
 -- Ensure a set of property names and value does not contain duplicate labels
 --
-ensureNoDuplicateProperties :: (Error e, MonadError e m) => [(String, Value)] -> m {}
-ensureNoDuplicateProperties ps = guardWith (strMsg "Duplicate property names") $ length (nub <<< map fst $ ps) == length ps
-
+ensureNoDuplicateProperties :: forall e m. (Error e, Monad m, MonadError e m) => WithErrorType e -> [Tuple String Value] -> m {}
+ensureNoDuplicateProperties errorType ps = 
+  guardWith (withErrorType errorType $ strMsg "Duplicate property names") $ 
+    length (nub <<< map fst $ ps) == length ps
+{-
 -- |
 -- Infer a type for a value, rethrowing any error to provide a more useful error message
 --
