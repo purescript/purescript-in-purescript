@@ -16,6 +16,7 @@ import Data.Tuple
 
 import Control.Monad.Error
 import Control.Monad.Error.Class
+import Control.Monad.Error.Proxy
 import Control.Monad.State
 import Control.Monad.State.Class
 import Control.Monad.State.Trans
@@ -78,14 +79,6 @@ bindLocalVariables moduleName bindings =
 bindLocalTypeVariables :: forall m a. (Monad m, MonadState CheckState m) => ModuleName -> [Tuple ProperName Kind] -> m a -> m a
 bindLocalTypeVariables moduleName bindings =
   bindTypes (M.fromList $ flip map bindings $ \(Tuple pn kind) -> Tuple (Qualified (Just moduleName) pn) (Tuple kind LocalTypeVariable))
-
---
--- A proxy for the type variable a
---
-data WithErrorType e = WithErrorType
-
-withErrorType :: forall e. WithErrorType e -> e -> e
-withErrorType _ e = e
 
 -- |
 -- Lookup the type of a value by name in the @Environment@
