@@ -27,6 +27,7 @@ import Control.Monad.State.Trans
 import Control.Monad.State.Class
 import Control.Monad.Error
 import Control.Monad.Error.Class
+import Control.Monad.Error.Proxy
 
 -- |
 -- Untyped unification variables
@@ -137,12 +138,12 @@ substituteOne u t = Substitution $ Data.Map.singleton u t
 -- |
 -- Replace a unification variable with the specified value in the current substitution
 --
-(=:=) :: forall m t. (Monad m, MonadError String m, Partial t, Unifiable m t) => Unknown -> t -> UnifyT t m {}
-(=:=) u t' = do
+substitute :: forall e m t. (Error e, Monad m, MonadError e m, Partial t, Unifiable m t) => WithErrorType e -> Unknown -> t -> UnifyT t m {}
+substitute errorType u t' = do
   UnifyState st <- get
   let sub = st.unifyCurrentSubstitution
   let t = sub $? t'
-  occursCheck u t
+  occursCheck errorType u t
   let current = sub $? unknown u
   case isUnknown current of
     Just u1 | u1 == u -> return {}
@@ -157,10 +158,10 @@ data Proxy e = Proxy
 -- |
 -- Perform the occurs check, to make sure a unification variable does not occur inside a value
 --
-occursCheck :: forall m t. (Monad m, MonadError String m, Partial t) => Unknown -> t -> UnifyT t m {}
-occursCheck u t =
+occursCheck :: forall e m t. (Error e, Monad m, MonadError e m, Partial t) => WithErrorType e -> Unknown -> t -> UnifyT t m {}
+occursCheck errorType u t =
   case isUnknown t of
-    Nothing | u `elem` unknowns t -> UnifyT (lift (throwError "Occurs check fails"))
+    Nothing | u `elem` unknowns t -> UnifyT $ lift $ throwError $ withErrorType errorType $ strMsg $ "Occurs check fails"
     _ -> return {}
 	
 -- |
