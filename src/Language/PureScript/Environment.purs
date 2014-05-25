@@ -15,7 +15,9 @@ import qualified Data.Map as M
 -- |
 -- The @Environment@ defines all values and types which are currently in scope:
 --
-data Environment = Environment {
+data Environment = Environment EnvironmentObj
+
+type EnvironmentObj = {
   -- |
   -- Value names currently in scope
   --
@@ -35,12 +37,15 @@ data Environment = Environment {
   -- |
   -- Available type class dictionaries
   --
-  , typeClassDictionaries :: [TypeClassDictionaryInScope]
+  , typeClassDictionaries :: M.Map (Tuple (Qualified Ident) (Maybe ModuleName)) TypeClassDictionaryInScope
   -- |
   -- Type classes
   --
   , typeClasses :: M.Map (Qualified ProperName) (Tuple3 [String] [Tuple Ident Type] [Tuple (Qualified ProperName) [Type]])
   }
+  
+envObj :: Environment -> EnvironmentObj
+envObj (Environment o) = o
   
 instance showEnv :: Show Environment where
   show (Environment o) = "Environment {" ++ 
@@ -60,7 +65,7 @@ initEnvironment = Environment { names: M.empty
                               , types: primTypes
                               , dataConstructors: M.empty
                               , typeSynonyms: M.empty
-                              , typeClassDictionaries: []
+                              , typeClassDictionaries: M.empty
                               , typeClasses: M.empty
                               }
 

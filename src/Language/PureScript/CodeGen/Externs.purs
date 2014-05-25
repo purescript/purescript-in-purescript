@@ -76,8 +76,8 @@ moduleToPs (Module moduleName ds (Just exts)) (Environment env) = joinWith "\n" 
           for_ (filter (isValueExported <<< fst) members) $ \(Tuple member ty) ->
             tell [ "  " ++ show member ++ " :: " ++ prettyPrintType ty ]
 
-    exportToPs (TypeInstanceRef ident) =
-      case find (((==) (Qualified (Just moduleName) ident)) <<< (\(TypeClassDictionaryInScope tcd) -> tcd.name)) env.typeClassDictionaries of
+    exportToPs (TypeInstanceRef ident) = do
+      case find (((==) (Qualified (Just moduleName) ident)) <<< (\(TypeClassDictionaryInScope tcd) -> tcd.name)) $ M.values env.typeClassDictionaries of
         Nothing -> theImpossibleHappened "Type class instance has no dictionary in exportToPs"
         Just (TypeClassDictionaryInScope tcd) -> do
           let constraintsText = case fromMaybe [] tcd.dependencies of
