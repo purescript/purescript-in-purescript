@@ -17,6 +17,7 @@ module Language.PureScript.Sugar (desugar) where
 
 import Data.Either
 import Data.Traversable (traverse)
+import Data.Array (map)
 
 import Control.Bind ((>=>))
 import Control.Monad
@@ -27,7 +28,6 @@ import Language.PureScript.Errors
 import Language.PureScript.Supply
 
 {-
-import Language.PureScript.Sugar.Operators
 import Language.PureScript.Sugar.TypeClasses
 -}
 
@@ -36,6 +36,7 @@ import Language.PureScript.Sugar.CaseDeclarations
 import Language.PureScript.Sugar.BindingGroups
 import Language.PureScript.Sugar.DoNotation
 import Language.PureScript.Sugar.TypeDeclarations
+import Language.PureScript.Sugar.Operators
 
 -- |
 -- The desugaring pipeline proceeds as follows:
@@ -55,13 +56,11 @@ import Language.PureScript.Sugar.TypeDeclarations
 --  * Qualify any unqualified names and types
 --
 desugar :: [Module] -> SupplyT (Either ErrorStack) [Module]
-desugar = {- map removeSignedLiterals
-          >>> -}
-          traverse desugarDoModule
+desugar = map removeSignedLiterals
+          >>> traverse desugarDoModule
           >=> desugarCasesModule
           >=> lift <<< (desugarTypeDeclarationsModule
-                        >=> desugarImports {-
-                      >=> rebracket -})
-          {- >=> desugarTypeClasses 
-          -}
+                        >=> desugarImports
+                        >=> rebracket)
+          {- >=> desugarTypeClasses -}
           >=>  lift <<< createBindingGroupsModule
