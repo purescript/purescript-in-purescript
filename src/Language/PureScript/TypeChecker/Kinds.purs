@@ -45,9 +45,6 @@ instance partialKind :: Partial Kind where
                           Nothing -> t
                           Just t' -> t'
     go other = other
-    
-
-unifyError = WithErrorType :: WithErrorType ErrorStack
 
 instance unifiableCheckKind :: Unifiable Check Kind where
   (=?=) (KUnknown u1) (KUnknown u2) | u1 == u2 = return {}

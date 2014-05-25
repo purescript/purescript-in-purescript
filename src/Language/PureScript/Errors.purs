@@ -26,6 +26,7 @@ import Data.Foldable (mconcat)
 
 import Control.Monad.Error
 import Control.Monad.Error.Class
+import Control.Monad.Error.Proxy
 
 import Language.PureScript.Pos
 import Language.PureScript.Declarations
@@ -101,6 +102,9 @@ instance monoidErrorStack :: Monoid ErrorStack where
 instance errorErrorStack :: Error ErrorStack where
   strMsg s = ErrorStack [mkCompileError s Nothing Nothing]
   noMsg = ErrorStack []
+  
+unifyError :: WithErrorType ErrorStack
+unifyError = WithErrorType
 
 prettyPrintErrorStack :: Boolean -> ErrorStack -> String
 prettyPrintErrorStack printFullStack (ErrorStack es) =
