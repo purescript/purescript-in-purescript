@@ -19,14 +19,16 @@ module Language.PureScript.TypeChecker.Types {-(typesOf)-} where
       Check a type subsumes another type
 -}
 
-import Data.Array (length, map, nub, sort, sortBy)
+import Data.Array ((\\), length, map, nub, sort, sortBy)
 import Data.Either
 import Data.Foldable (all, foldl)
 import Data.Function (on)
 import Data.Maybe
 import Data.Monoid
+import Data.Monoid.First
 import Data.Tuple
 import Data.Tuple3
+import Data.Tuple5
 
 import Language.PureScript.Declarations
 import Language.PureScript.Types
@@ -54,6 +56,8 @@ import Control.Arrow (first)
 
 import qualified Data.Map as M
 
+foreign import undefined :: forall a. a
+
 instance partialType :: Partial Type where
   unknown = TUnknown
   isUnknown (TUnknown u) = Just u
@@ -67,10 +71,10 @@ instance partialType :: Partial Type where
     go t@(TUnknown u) = fromMaybe t $ M.lookup u (runSubstitution sub)
     go other = other
 
-{-
 instance unifiableCheckType :: Unifiable Check Type where
-  (=?=) = unifyTypes
+  (=?=) = undefined -- unifyTypes
 
+{-
 -- |
 -- Unify two types, updating the current substitution
 --
@@ -453,47 +457,48 @@ typeHeadsAreEqual m e (SaturatedTypeSynonym name args) t2 = case expandTypeSynon
   Left  _  -> Nothing
   Right t1 -> typeHeadsAreEqual m e t1 t2
 typeHeadsAreEqual _ _ _ _ = Nothing
-{-
+
 -- |
 -- Ensure skolem variables do not escape their scope
 --
 skolemEscapeCheck :: Value -> Check {}
 skolemEscapeCheck (TypedValue false _ _) = return {}
-skolemEscapeCheck root@TypedValue{} =
+skolemEscapeCheck root@(TypedValue _ _ _) =
   -- Every skolem variable is created when a ForAll type is skolemized.
   -- This determines the scope of that skolem variable, which is copied from the SkolemScope
   -- field of the ForAll constructor.
   -- We traverse the tree top-down, and collect any SkolemScopes introduced by ForAlls.
   -- If a Skolem is encountered whose SkolemScope is not in the current list, we have found
   -- an escaped skolem variable.
-  let (_, f, _, _, _) = everythingWithContextOnValues [] [] (++) def go def def def
-  in case f root of
+  case everythingWithContextOnValues [] [] (++) def go def def def of
+    Tuple5 _ f _ _ _ -> case f root of
        [] -> return {}
-       ((binding, val) : _) -> throwError $ mkErrorStack ("Rigid/skolem type variable " ++ maybe "" (("bound by " ++) <<< prettyPrintValue) binding ++ " has escaped.") (Just (ValueError val))
+       ((Tuple binding val) : _) -> throwError $ mkErrorStack ("Rigid/skolem type variable " ++ maybe "" (\x -> "bound by " ++ prettyPrintValue x) binding ++ " has escaped.") (Just (ValueError val))
   where
-  def s _ = (s, [])
+  def :: forall a. [Tuple SkolemScope Value] -> a -> Tuple [Tuple SkolemScope Value] [Tuple (Maybe Value) Value]
+  def s _ = Tuple s []
 
-  go :: [(SkolemScope, Value)] -> Value -> ([(SkolemScope, Value)], [(Maybe Value, Value)])
-  go scos val@(TypedValue _ _ (ForAll _ _ (Just sco))) = ((sco, val) : scos, [])
+  go :: [Tuple SkolemScope Value] -> Value -> (Tuple [Tuple SkolemScope Value] [Tuple (Maybe Value) Value])
+  go scos val@(TypedValue _ _ (ForAll _ _ (Just sco))) = Tuple ((Tuple sco val) : scos) []
   go scos val@(TypedValue _ _ ty) = case collectSkolems ty \\ map fst scos of
-                                      (sco : _) -> (scos, [(findBindingScope sco, val)])
-                                      _ -> (scos, [])
+                                      (sco : _) -> Tuple scos [Tuple (findBindingScope sco) val]
+                                      _ -> Tuple scos []
     where
     collectSkolems :: Type -> [SkolemScope]
     collectSkolems = nub <<< everythingOnTypes (++) collect
       where
       collect (Skolem _ _ scope) = [scope]
       collect _ = []
-  go scos _ = (scos, [])
+  go scos _ = Tuple scos []
+  
   findBindingScope :: SkolemScope -> Maybe Value
-  findBindingScope sco =
-    let (_, f, _, _, _) = everythingOnValues mappend (const mempty) go' (const mempty) (const mempty) (const mempty)
-    in getFirst $ f root
+  findBindingScope sco = case everythingOnValues (<>) (const mempty) go' (const mempty) (const mempty) (const mempty) of
+    Tuple5 _ f _ _ _ -> runFirst $ f root
     where
     go' val@(TypedValue _ _ (ForAll _ _ (Just sco'))) | sco == sco' = First (Just val)
     go' _ = mempty
 skolemEscapeCheck val = throwError $ mkErrorStack "Untyped value passed to skolemEscapeCheck" (Just (ValueError val))
--}
+
 -- |
 -- Ensure a row contains no duplicate labels
 --
@@ -1067,7 +1072,6 @@ checkFunctionApplication' _ fnTy arg _ = throwError <<< strMsg $ "Cannot apply a
   ++ " to argument " ++ prettyPrintValue arg
 -}
 
-{-
 -- |
 -- Check whether one type subsumes another, rethrowing errors to provide a better error message
 --
@@ -1092,7 +1096,7 @@ subsumes' val ty1 (ForAll ident ty2 sco) =
       sko <- newSkolemConstant
       let sk = skolemize ident sko sco' ty2
       subsumes val ty1 sk
-    Nothing -> throwError <<< strMsg $ "Skolem variable scope is unspecified"
+    Nothing -> throwError $ withErrorType unifyError $ strMsg $ "Skolem variable scope is unspecified"
 subsumes' val (TypeApp (TypeApp f1 arg1) ret1) (TypeApp (TypeApp f2 arg2) ret2) | f1 == tyFunction && f2 == tyFunction = do
   _ <- subsumes Nothing arg2 arg1
   _ <- subsumes Nothing ret1 ret2
@@ -1134,4 +1138,3 @@ subsumes' val ty1 ty2@(TypeApp obj _) | obj == tyObject = subsumes val ty2 ty1
 subsumes' val ty1 ty2 = do
   ty1 =?= ty2
   return val
--}
