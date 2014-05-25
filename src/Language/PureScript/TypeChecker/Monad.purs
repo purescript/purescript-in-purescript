@@ -79,27 +79,34 @@ bindLocalTypeVariables :: forall m a. (Monad m, MonadState CheckState m) => Modu
 bindLocalTypeVariables moduleName bindings =
   bindTypes (M.fromList $ flip map bindings $ \(Tuple pn kind) -> Tuple (Qualified (Just moduleName) pn) (Tuple kind LocalTypeVariable))
 
-{-
+--
+-- A proxy for the type variable a
+--
+data WithErrorType e = WithErrorType
+
+withErrorType :: forall e. WithErrorType e -> e -> e
+withErrorType _ e = e
+
 -- |
 -- Lookup the type of a value by name in the @Environment@
 --
-lookupVariable :: forall e m. (Error e, Monad m, MonadState CheckState m, MonadError e m) => ModuleName -> Qualified Ident -> m Type
-lookupVariable currentModule (Qualified moduleName var) = do
+lookupVariable :: forall e m. (Error e, Monad m, MonadState CheckState m, MonadError e m) => WithErrorType e -> ModuleName -> Qualified Ident -> m Type
+lookupVariable errorType currentModule (Qualified moduleName var) = do
   Environment env <- getEnv
   case M.lookup (Tuple (fromMaybe currentModule moduleName) var) env.names of
-    Nothing -> throwError $ strMsg $ show var ++ " is undefined"
+    Nothing -> throwError $ withErrorType errorType $ strMsg $ show var ++ " is undefined"
     Just (Tuple ty _) -> return ty
 
 -- |
 -- Lookup the kind of a type by name in the @Environment@
 --
-lookupTypeVariable :: forall e m. (Error e, Monad m, MonadState CheckState m, MonadError e m) => ModuleName -> Qualified ProperName -> m Kind
-lookupTypeVariable currentModule (Qualified moduleName name) = do
-  env <- getEnv
-  case M.lookup (Qualified (Just $ fromMaybe currentModule moduleName) name) (types env) of
-    Nothing -> throwError $ strMsg $ "Type variable " ++ show name ++ " is undefined"
+lookupTypeVariable :: forall e m. (Error e, Monad m, MonadState CheckState m, MonadError e m) => WithErrorType e -> ModuleName -> Qualified ProperName -> m Kind
+lookupTypeVariable errorType currentModule (Qualified moduleName name) = do
+  Environment env <- getEnv
+  case M.lookup (Qualified (Just $ fromMaybe currentModule moduleName) name) env.types of
+    Nothing -> throwError $ withErrorType errorType $ strMsg $ "Type variable " ++ show name ++ " is undefined"
     Just (Tuple k _) -> return k
--}
+    
 -- |
 -- State required for type checking:
 --
