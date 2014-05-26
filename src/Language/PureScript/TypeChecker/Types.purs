@@ -1,4 +1,4 @@
-module Language.PureScript.TypeChecker.Types {-(typesOf)-} where
+module Language.PureScript.TypeChecker.Types (typesOf) where
 
 {-
   The following functions represent the corresponding type checking judgements:
@@ -984,16 +984,16 @@ check' (ObjectLiteral ps) t@(TypeApp obj row) | obj == tyObject = do
   ensureNoDuplicateProperties unifyError ps
   ps' <- checkProperties ps row false
   return $ TypedValue true (ObjectLiteral ps') t
-{-check' (ObjectUpdate obj ps) t@(TypeApp o row) | o == tyObject = do
+check' (ObjectUpdate obj ps) t@(TypeApp o row) | o == tyObject = do
   ensureNoDuplicateProperties unifyError ps
   us <- zip (map fst ps) <$> replicateM (length ps) fresh
-  return $ case rowToList row of
-    Tuple propsToCheck rest -> do
-      let propsToRemove = map fst ps
-          remainingProps = filter (\(Tuple p _) -> p `notElem` propsToRemove) propsToCheck
-      obj' <- check obj (TypeApp tyObject (rowFromList (Tuple (us ++ remainingProps) rest)))
-      ps' <- checkProperties ps row true
-      TypedValue true (ObjectUpdate obj' ps') t-}
+  case rowToList row of
+    Tuple propsToCheck rest -> 
+      do let propsToRemove = map fst ps
+         let remainingProps = filter (\(Tuple p _) -> notElem p propsToRemove) propsToCheck
+         obj' <- check obj (TypeApp tyObject (rowFromList (Tuple (us ++ remainingProps) rest)))
+         ps' <- checkProperties ps row true
+         return (TypedValue true (ObjectUpdate obj' ps') t)
 check' (Accessor prop val) ty = do
   rest <- fresh
   val' <- check val (TypeApp tyObject (RCons prop ty rest))
