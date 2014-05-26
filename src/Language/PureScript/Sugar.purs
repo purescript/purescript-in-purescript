@@ -27,10 +27,7 @@ import Language.PureScript.Declarations
 import Language.PureScript.Errors
 import Language.PureScript.Supply
 
-{-
 import Language.PureScript.Sugar.TypeClasses
--}
-
 import Language.PureScript.Sugar.Names
 import Language.PureScript.Sugar.CaseDeclarations
 import Language.PureScript.Sugar.BindingGroups
@@ -62,5 +59,5 @@ desugar = map removeSignedLiterals
           >=> lift <<< (desugarTypeDeclarationsModule
                         >=> desugarImports
                         >=> rebracket)
-          {- >=> desugarTypeClasses -}
+          >=> desugarTypeClasses
           >=>  lift <<< createBindingGroupsModule
