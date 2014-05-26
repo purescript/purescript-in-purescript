@@ -19,9 +19,9 @@ module Language.PureScript.TypeChecker.Types {-(typesOf)-} where
       Check a type subsumes another type
 -}
 
-import Data.Array ((\\), delete, length, filter, map, nub, sort, sortBy, zipWith)
+import Data.Array ((\\), delete, length, filter, map, mapMaybe, nub, sort, sortBy, zipWith)
 import Data.Either
-import Data.Foldable (all, for_, foldl, foldr, notElem, lookup)
+import Data.Foldable (all, for_, foldl, foldr, notElem, lookup, find)
 import Data.Traversable (for, traverse, zipWithA)
 import Data.Function (on)
 import Data.Maybe
@@ -129,32 +129,32 @@ unifyTypes t1 t2 = rethrow (\x -> mkErrorStack ("Error unifying type " ++ pretty
 -- error.
 --
 unifyRows :: Type -> Type -> UnifyT Type Check {}
-unifyRows = undefined 
-{-
 unifyRows r1 r2 =
   case Tuple (rowToList r1) (rowToList r2) of
     Tuple (Tuple s1 r1') (Tuple s2 r2') -> 
-      let int = [ (t1, t2) | (name, t1) <- s1, (name', t2) <- s2, name == name' ]
-          sd1 = [ (name, t1) | (name, t1) <- s1, name `notElem` map fst s2 ]
-          sd2 = [ (name, t2) | (name, t2) <- s2, name `notElem` map fst s1 ]
+      let int = flip mapMaybe s1 $ \(Tuple name t1) -> (Tuple t1 <<< snd) <$> (flip find s2 $ \(Tuple name' t2) -> name == name')
+          sd1 = flip filter s1 $ \(Tuple name _) -> name `notElem` map fst s2
+          sd2 = flip filter s2 $ \(Tuple name _) -> name `notElem` map fst s1
       in do
         for_ int (uncurry (=?=))
         unifyRows' sd1 r1' sd2 r2'
   where
-  unifyRows' :: [(String, Type)] -> Type -> [(String, Type)] -> Type -> UnifyT Type Check {}
-  unifyRows' [] (TUnknown u) sd r = u =:= rowFromList (sd, r)
-  unifyRows' sd r [] (TUnknown u) = u =:= rowFromList (sd, r)
-  unifyRows' ((name, ty):row) r others u@(TUnknown un) = do
-    occursCheck un ty
-    for_ row $ \(_, t) -> occursCheck un t
+  unifyRows' :: [Tuple String Type] -> Type -> [Tuple String Type] -> Type -> UnifyT Type Check {}
+  unifyRows' [] (TUnknown u) sd r = substitute unifyError u (rowFromList $ Tuple sd r)
+  unifyRows' sd r [] (TUnknown u) = substitute unifyError u (rowFromList $ Tuple sd r)
+  unifyRows' ((Tuple name ty):row) r others u@(TUnknown un) = do
+    occursCheck unifyError un ty
+    for_ row $ \(Tuple _ t) -> occursCheck unifyError un t
     u' <- fresh
     u =?= RCons name ty u'
     unifyRows' row r others u'
   unifyRows' [] REmpty [] REmpty = return {}
   unifyRows' [] (TypeVar v1) [] (TypeVar v2) | v1 == v2 = return {}
   unifyRows' [] (Skolem _ s1 _) [] (Skolem _ s2 _) | s1 == s2 = return {}
-  unifyRows' sd3 r3 sd4 r4 = throwError $ withErrorType unifyError $ strMsg $ "Cannot unify (" ++ prettyPrintRow (rowFromList (sd3, r3)) ++ ") with (" ++ prettyPrintRow (rowFromList (sd4, r4)) ++ ")"
--}
+  unifyRows' sd3 r3 sd4 r4 = throwError $ withErrorType unifyError $ strMsg $ 
+    "Cannot unify (" ++ prettyPrintRow (rowFromList $ Tuple sd3 r3) ++ 
+    ") with (" ++ prettyPrintRow (rowFromList $ Tuple sd4 r4) ++ ")"
+
 -- |
 -- Infer the types of multiple mutually-recursive values, and return elaborated values including
 -- type class dictionaries and type annotations.
