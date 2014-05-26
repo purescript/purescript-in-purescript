@@ -21,7 +21,7 @@ module Language.PureScript.TypeChecker.Types {-(typesOf)-} where
 
 import Data.Array ((\\), delete, length, filter, map, nub, sort, sortBy, zipWith)
 import Data.Either
-import Data.Foldable (all, foldl, foldr, notElem, lookup)
+import Data.Foldable (all, for_, foldl, foldr, notElem, lookup)
 import Data.Traversable (for, traverse, zipWithA)
 import Data.Function (on)
 import Data.Maybe
@@ -46,7 +46,8 @@ import Language.PureScript.Environment
 import Language.PureScript.Errors
 import qualified Language.PureScript.Constants as C
 
-import Control.Bind ((<=<))
+import Control.Apply
+import Control.Bind
 import Control.Monad (replicateM)
 import Control.Monad.State
 import Control.Monad.State.Class
@@ -75,9 +76,8 @@ instance partialType :: Partial Type where
     go other = other
 
 instance unifiableCheckType :: Unifiable Check Type where
-  (=?=) = undefined -- unifyTypes
+  (=?=) = unifyTypes
 
-{-
 -- |
 -- Unify two types, updating the current substitution
 --
@@ -86,10 +86,10 @@ unifyTypes t1 t2 = rethrow (\x -> mkErrorStack ("Error unifying type " ++ pretty
   unifyTypes' t1 t2
   where
   unifyTypes' (TUnknown u1) (TUnknown u2) | u1 == u2 = return {}
-  unifyTypes' (TUnknown u) t = u =:= t
-  unifyTypes' t (TUnknown u) = u =:= t
+  unifyTypes' (TUnknown u) t = substitute unifyError u t
+  unifyTypes' t (TUnknown u) = substitute unifyError u t
   unifyTypes' (SaturatedTypeSynonym name args) ty = do
-    ty1 <- introduceSkolemScope <=< expandTypeSynonym name $ args
+    ty1 <- introduceSkolemScope <=< expandTypeSynonym unifyError name $ args
     ty1 `unifyTypes` ty
   unifyTypes' ty s@(SaturatedTypeSynonym _ _) = s `unifyTypes` ty
   unifyTypes' (ForAll ident1 ty1 sc1) (ForAll ident2 ty2 sc2) =
@@ -99,27 +99,27 @@ unifyTypes t1 t2 = rethrow (\x -> mkErrorStack ("Error unifying type " ++ pretty
         let sk1 = skolemize ident1 sko sc1' ty1
         let sk2 = skolemize ident2 sko sc2' ty2
         sk1 `unifyTypes` sk2
-      _ -> error "Skolemized type variable was not given a scope"
+      _ -> theImpossibleHappened "Skolemized type variable was not given a scope"
   unifyTypes' (ForAll ident ty1 (Just sc)) ty2 = do
     sko <- newSkolemConstant
     let sk = skolemize ident sko sc ty1
     sk `unifyTypes` ty2
-  unifyTypes' ForAll{} _ = throwError <<< strMsg $ "Skolem variable scope is unspecified"
-  unifyTypes' ty f@ForAll{} = f `unifyTypes` ty
+  unifyTypes' (ForAll _ _ _) _ = throwError $ withErrorType unifyError $ strMsg $ "Skolem variable scope is unspecified"
+  unifyTypes' ty f@(ForAll _ _ _) = f `unifyTypes` ty
   unifyTypes' (TypeVar v1) (TypeVar v2) | v1 == v2 = return {}
   unifyTypes' (TypeConstructor c1) (TypeConstructor c2) =
-    guardWith (strMsg ("Cannot unify " ++ show c1 ++ " with " ++ show c2 ++ ".")) (c1 == c2)
+    guardWith (withErrorType unifyError $ strMsg ("Cannot unify " ++ show c1 ++ " with " ++ show c2 ++ ".")) (c1 == c2)
   unifyTypes' (TypeApp t3 t4) (TypeApp t5 t6) = do
     t3 `unifyTypes` t5
     t4 `unifyTypes` t6
   unifyTypes' (Skolem _ s1 _) (Skolem _ s2 _) | s1 == s2 = return {}
-  unifyTypes' r1@RCons{} r2 = unifyRows r1 r2
-  unifyTypes' r1 r2@RCons{} = unifyRows r1 r2
-  unifyTypes' r1@REmpty r2 = unifyRows r1 r2
-  unifyTypes' r1 r2@REmpty = unifyRows r1 r2
-  unifyTypes' t@(ConstrainedType _ _) _ = throwError <<< strMsg $ "Attempted to unify a constrained type " ++ prettyPrintType t ++ " with another type."
+  unifyTypes' r1@(RCons _ _ _) r2 = unifyRows r1 r2
+  unifyTypes' r1 r2@(RCons _ _ _) = unifyRows r1 r2
+  unifyTypes' REmpty r2 = unifyRows REmpty r2
+  unifyTypes' r1 REmpty = unifyRows r1 REmpty
+  unifyTypes' t@(ConstrainedType _ _) _ = throwError $ withErrorType unifyError $ strMsg $ "Attempted to unify a constrained type " ++ prettyPrintType t ++ " with another type."
   unifyTypes' t3 t4@(ConstrainedType _ _) = unifyTypes' t4 t3
-  unifyTypes' t3 t4 = throwError <<< strMsg $ "Cannot unify " ++ prettyPrintType t3 ++ " with " ++ prettyPrintType t4 ++ "."
+  unifyTypes' t3 t4 = throwError $ withErrorType unifyError $ strMsg $ "Cannot unify " ++ prettyPrintType t3 ++ " with " ++ prettyPrintType t4 ++ "."
 
 -- |
 -- Unify two rows, updating the current substitution
@@ -129,6 +129,8 @@ unifyTypes t1 t2 = rethrow (\x -> mkErrorStack ("Error unifying type " ++ pretty
 -- error.
 --
 unifyRows :: Type -> Type -> UnifyT Type Check {}
+unifyRows = undefined 
+{-
 unifyRows r1 r2 =
   case Tuple (rowToList r1) (rowToList r2) of
     Tuple (Tuple s1 r1') (Tuple s2 r2') -> 
@@ -151,25 +153,27 @@ unifyRows r1 r2 =
   unifyRows' [] REmpty [] REmpty = return {}
   unifyRows' [] (TypeVar v1) [] (TypeVar v2) | v1 == v2 = return {}
   unifyRows' [] (Skolem _ s1 _) [] (Skolem _ s2 _) | s1 == s2 = return {}
-  unifyRows' sd3 r3 sd4 r4 = throwError <<< strMsg $ "Cannot unify (" ++ prettyPrintRow (rowFromList (sd3, r3)) ++ ") with (" ++ prettyPrintRow (rowFromList (sd4, r4)) ++ ")"
-
+  unifyRows' sd3 r3 sd4 r4 = throwError $ withErrorType unifyError $ strMsg $ "Cannot unify (" ++ prettyPrintRow (rowFromList (sd3, r3)) ++ ") with (" ++ prettyPrintRow (rowFromList (sd4, r4)) ++ ")"
+-}
 -- |
 -- Infer the types of multiple mutually-recursive values, and return elaborated values including
 -- type class dictionaries and type annotations.
 --
-typesOf :: Maybe ModuleName -> ModuleName -> [(Ident, Value)] -> Check [(Ident, (Value, Type))]
+typesOf :: Maybe ModuleName -> ModuleName -> [Tuple Ident Value] -> Check [Tuple Ident (Tuple Value Type)]
 typesOf mainModuleName moduleName vals = do
-  tys <- fmap tidyUp <<< liftUnify $ do
-    (es, dict, untypedDict) <- typeDictionaryForBindingGroup moduleName vals
+  tys <- (<$>) tidyUp <<< liftUnify $ do
+    Tuple3 es dict untypedDict <- typeDictionaryForBindingGroup moduleName vals
     for es $ \e -> do
-      triple@(_, (_, ty)) <- typeForBindingGroupElement moduleName e dict untypedDict
+      triple@(Tuple _ (Tuple _ ty)) <- typeForBindingGroupElement moduleName e dict untypedDict
       -- If --main is enabled, need to check that `main` has type Eff eff a for some eff, a
-      when (Just moduleName == mainModuleName && fst e == Ident C.main) $ do
-        [eff, a] <- replicateM 2 fresh
-        ty =?= TypeApp (TypeApp (TypeConstructor (Qualified (Just (ModuleName [ProperName "Control", ProperName "Monad", ProperName "Eff"])) (ProperName "Eff"))) eff) a
-      return triple
+      if (Just moduleName == mainModuleName && fst e == Ident C.main)
+        then do
+          [eff, a] <- replicateM 2 fresh
+          ty =?= TypeApp (TypeApp (TypeConstructor (Qualified (Just (ModuleName [ProperName "Control", ProperName "Monad", ProperName "Eff"])) (ProperName "Eff"))) eff) a
+          return triple
+        else return triple
 
-  for tys $ \(ident, (val, ty)) -> do
+  for tys $ \(Tuple ident (Tuple val ty)) -> do
     -- Replace type class dictionary placeholders with actual dictionaries
     val' <- replaceTypeClassDictionaries moduleName val
     -- Check skolem variables did not escape their scope
@@ -178,12 +182,16 @@ typesOf mainModuleName moduleName vals = do
     -- top-level unification variables with named type variables.
     let val'' = overTypes (desaturateAllTypeSynonyms <<< setifyAll) val'
         ty' = varIfUnknown <<< desaturateAllTypeSynonyms <<< setifyAll $ ty
-    return (ident, (val'', ty'))
+    return (Tuple ident (Tuple val'' ty'))
   where
   -- Apply the substitution that was returned from runUnify to both types and (type-annotated) values
-  tidyUp (ts, sub) = map (\(i, (val, ty)) -> (i, (overTypes (sub $?) val, sub $? ty))) ts
+  tidyUp (Tuple ts sub) = map (\(Tuple i (Tuple val ty)) -> (Tuple i (Tuple (overTypes (($?) sub) val) (sub $? ty)))) ts
 
-typeDictionaryForBindingGroup :: ModuleName -> [(Ident, Value)] -> UnifyT Type Check ([(Ident, (Value, Maybe (Type, Bool)))], M.Map (ModuleName, Ident) (Type, NameKind), [(Ident, Type)])
+typeDictionaryForBindingGroup :: ModuleName 
+                              -> [Tuple Ident Value] 
+                              -> UnifyT Type Check (Tuple3 [Tuple Ident (Tuple Value (Maybe (Tuple Type Boolean)))]
+                                                           (M.Map (Tuple ModuleName Ident) (Tuple Type NameKind))
+                                                           [Tuple Ident Type])
 typeDictionaryForBindingGroup moduleName vals = do
   let
     -- Map each declaration to a name/value pair, with an optional type, if the declaration is typed
@@ -192,7 +200,7 @@ typeDictionaryForBindingGroup moduleName vals = do
     typed = filter (isJust <<< snd <<< snd) es
     untyped = filter (isNothing <<< snd <<< snd) es
     -- Make a map of names to typed declarations
-    typedDict = map (\(ident, (_, Just (ty, _))) -> (ident, ty)) typed
+    typedDict = map (\(Tuple ident (Tuple _ (Just (Tuple ty _)))) -> Tuple ident ty) typed
 
   -- Create fresh unification variables for the types of untyped declarations
   untypedNames <- replicateM (length untyped) fresh
@@ -201,17 +209,23 @@ typeDictionaryForBindingGroup moduleName vals = do
     -- Make a map of names to the unification variables of untyped declarations
     untypedDict = zip (map fst untyped) untypedNames
     -- Create the dictionary of all name/type pairs, which will be added to the environment during type checking
-    dict = M.fromList (map (\(ident, ty) -> ((moduleName, ident), (ty, LocalVariable))) $ typedDict ++ untypedDict)
-  return (es, dict, untypedDict)
+    dict = M.fromList (map (\(Tuple ident ty) -> (Tuple (Tuple moduleName ident) (Tuple ty LocalVariable))) $ typedDict ++ untypedDict)
+  return $ Tuple3 es dict untypedDict
 
-typeForBindingGroupElement :: ModuleName -> (Ident, (Value, Maybe (Type, Bool))) -> M.Map (ModuleName, Ident) (Type, NameKind) -> [(Ident, Type)] -> UnifyT Type Check (Ident, (Value, Type))
-typeForBindingGroupElement moduleName e@(_, (val, _)) dict untypedDict = do
+typeForBindingGroupElement :: ModuleName 
+                           -> (Tuple Ident (Tuple Value (Maybe (Tuple Type Boolean))))
+                           -> M.Map (Tuple ModuleName Ident) (Tuple Type NameKind) 
+                           -> [Tuple Ident Type] 
+                           -> UnifyT Type Check (Tuple Ident (Tuple Value Type))
+typeForBindingGroupElement = undefined
+{-
+typeForBindingGroupElement moduleName e@(Tuple _ (Tuple val _)) dict untypedDict =
   -- If the declaration is a function, it has access to other values in the binding group.
   -- If not, the generated code might fail at runtime since those values might be undefined.
   let dict' = if isFunction val then dict else M.empty
-  case e of
+  in case e of
     -- Typed declarations
-    (ident, (val', Just (ty, checkType))) -> do
+    Tuple ident (Tuple val' (Just (Tuple ty checkType))) -> do
       -- Kind check
       kind <- liftCheck $ kindOf moduleName ty
       guardWith (strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
@@ -220,13 +234,13 @@ typeForBindingGroupElement moduleName e@(_, (val, _)) dict untypedDict = do
       val'' <- bindNames dict' $ if checkType
                                then TypedValue true <$> check val' ty' <*> pure ty'
                                else return (TypedValue false val' ty')
-      return (ident, (val'', ty'))
+      return $ Tuple ident (Tuple val'' ty')
     -- Untyped declarations
-    (ident, (val', Nothing)) -> do
+    Tuple ident (Tuple val' Nothing) -> do
       -- Infer the type with the new names in scope
       TypedValue _ val'' ty <- bindNames dict' $ infer val'
       ty =?= fromMaybe (error "name not found in dictionary") (lookup ident untypedDict)
-      return (ident, (TypedValue true val'' ty, ty))
+      return $ Tuple ident (Tuple (TypedValue true val'' ty) ty)
 -}
 -- |
 -- Check if a value introduces a function
@@ -254,7 +268,7 @@ overTypes f = case everywhereOnValues id g id of Tuple3 _ f' _ -> f'
   g (TypedValue checkTy val t) = TypedValue checkTy val (f t)
   g (TypeClassDictionary b (Tuple nm tys) sco) = TypeClassDictionary b (Tuple nm (map f tys)) sco
   g other = other
-{-
+
 -- |
 -- Replace type class dictionary placeholders with inferred type class dictionaries
 --
@@ -265,7 +279,7 @@ replaceTypeClassDictionaries mn = case everywhereOnValuesTopDownM return go retu
     env <- getEnv
     entails env mn dicts constraint trySuperclasses
   go other = return other
--}
+
 -- |
 -- A simplified representation of expressions which are used to represent type
 -- class dictionaries at runtime, which can be compared for equality
@@ -321,12 +335,18 @@ instance showDictionaryValue :: Show DictionaryValue where
   show (DependentDictionaryValue q xs) = "DependentDictionaryValue (" ++ show q ++ ") (" ++ show xs ++ ")"
   show (SubclassDictionaryValue d q n) = "SubclassDictionaryValue (" ++ show d ++ ") (" ++ show q ++ ") (" ++ show n ++ ")"
 
-{-
 -- |
 -- Check that the current set of type class dictionaries entail the specified type class goal, and, if so,
 -- return a type class dictionary reference.
 --
-entails :: Environment -> ModuleName -> [TypeClassDictionaryInScope] -> (Qualified ProperName, [Type]) -> Bool -> Check Value
+entails :: Environment 
+        -> ModuleName 
+        -> [TypeClassDictionaryInScope] 
+        -> (Tuple (Qualified ProperName) [Type]) 
+        -> Boolean 
+        -> Check Value
+entails = undefined
+{-
 entails env moduleName context = solve (sortedNubBy canonicalizeDictionary (filter filterModule context))
   where
     sortedNubBy :: (Ord k) => (v -> k) -> [v] -> [v]
@@ -342,9 +362,9 @@ entails env moduleName context = solve (sortedNubBy canonicalizeDictionary (filt
       let
         dicts = go trySuperclasses className tys
       in case sortedNubBy dictTrace (chooseSimplestDictionaries dicts) of
-           [] -> throwError <<< strMsg $ "No instance found for " ++ show className ++ " " ++ unwords (map prettyPrintTypeAtom tys)
+           [] -> throwError $ withErrorType unifyError $ strMsg $ "No instance found for " ++ show className ++ " " ++ unwords (map prettyPrintTypeAtom tys)
            [_] -> return $ dictionaryValueToValue $ head dicts
-           _ -> throwError <<< strMsg $ "Overlapping instances found for " ++ show className ++ " " ++ unwords (map prettyPrintTypeAtom tys)
+           _ -> throwError $ withErrorType unifyError $ strMsg $ "Overlapping instances found for " ++ show className ++ " " ++ unwords (map prettyPrintTypeAtom tys)
       where
 	  go trySuperclasses' className' tys' =
 	    -- Look for regular type instances
@@ -609,9 +629,7 @@ ensureNoDuplicateProperties errorType ps =
 -- Infer a type for a value, rethrowing any error to provide a more useful error message
 --
 infer :: Value -> UnifyT Type Check Value
-infer = undefined
-{-
-infer val = rethrow (mkErrorStack "Error inferring type of value" (Just (ValueError val)) <>) $ infer' val
+infer val = rethrow (\x -> mkErrorStack "Error inferring type of value" (Just (ValueError val)) <> x) $ infer' val
 
 -- |
 -- Infer a type for a value
@@ -626,20 +644,20 @@ infer' (ArrayLiteral vals) = do
   for_ ts $ \(TypedValue _ _ t) -> els =?= TypeApp tyArray t
   return $ TypedValue true (ArrayLiteral ts) els
 infer' (ObjectLiteral ps) = do
-  ensureNoDuplicateProperties ps
+  ensureNoDuplicateProperties unifyError ps
   ts <- traverse (infer <<< snd) ps
-  let fields = zipWith (\name (TypedValue _ _ t) -> (name, t)) (map fst ps) ts
-      ty = TypeApp tyObject $ rowFromList (fields, REmpty)
+  let fields = zipWith (\name (TypedValue _ _ t) -> Tuple name t) (map fst ps) ts
+      ty = TypeApp tyObject $ rowFromList (Tuple fields REmpty)
   return $ TypedValue true (ObjectLiteral (zip (map fst ps) ts)) ty
 infer' (ObjectUpdate o ps) = do
-  ensureNoDuplicateProperties ps
+  ensureNoDuplicateProperties unifyError ps
   row <- fresh
-  newVals <- zipWith (\(name, _) t -> (name, t)) ps <$> traverse (infer <<< snd) ps
-  let newTys = map (\(name, TypedValue _ _ ty) -> (name, ty)) newVals
+  newVals <- zipWith (\(Tuple name _) t -> Tuple name t) ps <$> traverse (infer <<< snd) ps
+  let newTys = map (\(Tuple name (TypedValue _ _ ty)) -> Tuple name ty) newVals
   oldTys <- zip (map fst ps) <$> replicateM (length ps) fresh
-  let oldTy = TypeApp tyObject $ rowFromList (oldTys, row)
+  let oldTy = TypeApp tyObject $ rowFromList (Tuple oldTys row)
   o' <- TypedValue true <$> check o oldTy <*> pure oldTy
-  return $ TypedValue true (ObjectUpdate o' newVals) $ TypeApp tyObject $ rowFromList (newTys, row)
+  return $ TypedValue true (ObjectUpdate o' newVals) $ TypeApp tyObject $ rowFromList (Tuple newTys row)
 infer' (Accessor prop val) = do
   typed@(TypedValue _ _ objTy) <- infer val
   propTy <- inferProperty objTy prop
@@ -653,28 +671,29 @@ infer' (Accessor prop val) = do
 infer' (Abs (Left arg) ret) = do
   ty <- fresh
   Just moduleName <- getCurrentModule
-  bindLocalVariables moduleName [(arg, ty)] $ do
+  bindLocalVariables moduleName [Tuple arg ty] $ do
     body@(TypedValue _ _ bodyTy) <- infer' ret
     return $ TypedValue true (Abs (Left arg) body) $ function ty bodyTy
-infer' (Abs (Right _) _) = error "Binder was not desugared"
+infer' (Abs (Right _) _) = theImpossibleHappened "Binder was not desugared"
 infer' (App f arg) = do
   f'@(TypedValue _ _ ft) <- infer f
-  (ret, app) <- checkFunctionApplication f' ft arg Nothing
+  Tuple ret app <- checkFunctionApplication f' ft arg Nothing
   return $ TypedValue true app ret
 infer' (Var var) = do
   Just moduleName <- getCurrentModule
-  ty <- introduceSkolemScope <=< replaceAllTypeSynonyms <=< lookupVariable moduleName $ var
+  ty <- introduceSkolemScope <=< replaceAllTypeSynonyms unifyError <=< lookupVariable unifyError moduleName $ var
   case ty of
     ConstrainedType constraints ty' -> do
       dicts <- getTypeClassDictionaries
       return $ TypedValue true (foldl App (Var var) (map (flip (TypeClassDictionary true) dicts) constraints)) ty'
     _ -> return $ TypedValue true (Var var) ty
 infer' v@(Constructor c) = do
-  env <- getEnv
-  case M.lookup c (dataConstructors env) of
-    Nothing -> throwError <<< strMsg $ "Constructor " ++ show c ++ " is undefined"
-    Just (_, ty) -> do ty' <- introduceSkolemScope <=< replaceAllTypeSynonyms $ ty
-                       return $ TypedValue true v ty'
+  Environment e <- getEnv
+  case M.lookup c e.dataConstructors of
+    Nothing -> throwError $ withErrorType unifyError $ strMsg $ "Constructor " ++ show c ++ " is undefined"
+    Just (Tuple _ ty) -> do
+      ty' <- introduceSkolemScope <=< replaceAllTypeSynonyms unifyError $ ty
+      return $ TypedValue true v ty'
 infer' (Case vals binders) = do
   ts <- traverse infer vals
   ret <- fresh
@@ -687,85 +706,82 @@ infer' (IfThenElse cond th el) = do
   t2 =?= t3
   return $ TypedValue true (IfThenElse cond' v2 v3) t2
 infer' (Let ds val) = do
-  (ds', val'@(TypedValue _ _ valTy)) <- inferLetBinding [] ds val infer
+  Tuple ds' val'@(TypedValue _ _ valTy) <- inferLetBinding [] ds val infer
   return $ TypedValue true (Let ds' val') valTy
 infer' (SuperClassDictionary className tys) = do
   dicts <- getTypeClassDictionaries
-  return $ TypeClassDictionary false (className, tys) dicts
+  return $ TypeClassDictionary false (Tuple className tys) dicts
 infer' (TypedValue checkType val ty) = do
   Just moduleName <- getCurrentModule
   kind <- liftCheck $ kindOf moduleName ty
-  guardWith (strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
-  ty' <- introduceSkolemScope <=< replaceAllTypeSynonyms $ ty
+  guardWith (withErrorType unifyError $ strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
+  ty' <- introduceSkolemScope <=< replaceAllTypeSynonyms unifyError $ ty
   val' <- if checkType then check val ty' else return val
   return $ TypedValue true val' ty'
 infer' (PositionedValue pos val) = rethrowWithPosition pos $ infer' val
 infer' _ = error "Invalid argument to infer"
--}
 
 inferLetBinding :: [Declaration] -> [Declaration] -> Value -> (Value -> UnifyT Type Check Value) -> UnifyT Type Check (Tuple [Declaration] Value)
 inferLetBinding = undefined
-{-
-inferLetBinding seen [] ret j = (,) seen <$> j ret
+{-inferLetBinding seen [] ret j = Tuple seen <$> j ret
 inferLetBinding seen (ValueDeclaration ident nameKind [] Nothing tv@(TypedValue checkType val ty) : rest) ret j = do
   Just moduleName <- getCurrentModule
   kind <- liftCheck $ kindOf moduleName ty
-  guardWith (strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
-  let dict = if isFunction val then M.singleton (moduleName, ident) (ty, nameKind) else M.empty
+  guardWith (withErrorType unifyError $ strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
+  let dict = if isFunction val then M.singleton (Tuple moduleName ident) (Tuple ty nameKind) else M.empty
   ty' <- introduceSkolemScope <=< replaceAllTypeSynonyms $ ty
   TypedValue _ val' ty'' <- if checkType then bindNames dict (check val ty') else return tv
-  bindNames (M.singleton (moduleName, ident) (ty'', nameKind)) $ inferLetBinding (seen ++ [ValueDeclaration ident nameKind [] Nothing (TypedValue checkType val' ty'')]) rest ret j
+  bindNames (M.singleton (Tuple moduleName ident) (Tuple ty'' nameKind)) $ inferLetBinding (seen ++ [ValueDeclaration ident nameKind [] Nothing (TypedValue checkType val' ty'')]) rest ret j
 inferLetBinding seen (ValueDeclaration ident nameKind [] Nothing val : rest) ret j = do
   valTy <- fresh
   Just moduleName <- getCurrentModule
-  let dict = if isFunction val then M.singleton (moduleName, ident) (valTy, nameKind) else M.empty
+  let dict = if isFunction val 
+             then M.singleton (Tuple moduleName ident) (Tuple valTy nameKind) 
+             else M.empty
   TypedValue _ val' valTy' <- bindNames dict $ infer val
   valTy =?= valTy'
-  bindNames (M.singleton (moduleName, ident) (valTy', nameKind)) $ inferLetBinding (seen ++ [ValueDeclaration ident nameKind [] Nothing val']) rest ret j
+  bindNames (M.singleton (Tuple moduleName ident) (Tuple valTy' nameKind)) $ inferLetBinding (seen ++ [ValueDeclaration ident nameKind [] Nothing val']) rest ret j
 inferLetBinding seen (BindingGroupDeclaration ds : rest) ret j = do
   Just moduleName <- getCurrentModule
-  (es, dict, untypedDict) <- typeDictionaryForBindingGroup moduleName (map (\(i, _, v) -> (i, v)) ds)
+  Tuple3 es dict untypedDict <- typeDictionaryForBindingGroup moduleName (map (\(Tuple3 i _ v) -> Tuple i v) ds)
   ds' <- for es $ \e -> do
-    (ident, (val', _)) <- typeForBindingGroupElement moduleName e dict untypedDict
-    return $ (ident, LocalVariable, val')
+    Tuple ident (Tuple val' _) <- typeForBindingGroupElement moduleName e dict untypedDict
+    return $ Tuple3 ident LocalVariable val'
   bindNames dict $ inferLetBinding (seen ++ [BindingGroupDeclaration ds']) rest ret j
 inferLetBinding seen (PositionedDeclaration pos d : ds) ret j = rethrowWithPosition pos $ do
-  ((d' : ds'), val') <- inferLetBinding seen (d : ds) ret j
-  return (PositionedDeclaration pos d' : ds', val')
-inferLetBinding _ _ _ _ = error "Invalid argument to inferLetBinding"
+  Tuple (d' : ds') val' <- inferLetBinding seen (d : ds) ret j
+  return $ Tuple (PositionedDeclaration pos d' : ds') val'
+inferLetBinding _ _ _ _ = error "Invalid argument to inferLetBinding"-}
 
 -- |
 -- Infer the type of a property inside a record with a given type
 --
 inferProperty :: Type -> String -> UnifyT Type Check (Maybe Type)
-inferProperty (TypeApp obj row) prop | obj == tyObject = do
-  let (props, _) = rowToList row
-  return $ lookup prop props
+inferProperty (TypeApp obj row) prop | obj == tyObject = case rowToList row of
+  Tuple props _ -> return $ lookup prop props
 inferProperty (SaturatedTypeSynonym name args) prop = do
-  replaced <- introduceSkolemScope <=< expandTypeSynonym name $ args
+  replaced <- introduceSkolemScope <=< expandTypeSynonym unifyError name $ args
   inferProperty replaced prop
 inferProperty (ForAll ident ty _) prop = do
   replaced <- replaceVarWithUnknown ident ty
   inferProperty replaced prop
 inferProperty _ _ = return Nothing
--}
+
 -- |
 -- Infer the types of variables brought into scope by a binder
 --
 inferBinder :: Type -> Binder -> UnifyT Type Check (M.Map Ident Type)
-inferBinder = undefined
-{-
 inferBinder _ NullBinder = return M.empty
-inferBinder val (StringBinder _) = val =?= tyString >> return M.empty
-inferBinder val (NumberBinder _) = val =?= tyNumber >> return M.empty
-inferBinder val (BooleanBinder _) = val =?= tyBoolean >> return M.empty
+inferBinder val (StringBinder _) = (val =?= tyString) *> return M.empty
+inferBinder val (NumberBinder _) = (val =?= tyNumber) *> return M.empty
+inferBinder val (BooleanBinder _) = (val =?= tyBoolean) *> return M.empty
 inferBinder val (VarBinder name) = return $ M.singleton name val
-inferBinder val (ConstructorBinder ctor binders) = do
-  env <- getEnv
-  case M.lookup ctor (dataConstructors env) of
-    Just (_, ty) -> do
-      (_, fn) <- instantiatePolyTypeWithUnknowns (error "Data constructor types cannot contain constraints") ty
-      fn' <- replaceAllTypeSynonyms fn
+inferBinder val (ConstructorBinder ctor binders) = getEnv >>= \(Environment e) ->
+  case M.lookup ctor e.dataConstructors of
+    Nothing -> throwError $ withErrorType unifyError $ strMsg $ "Constructor " ++ show ctor ++ " is not defined"
+    Just (Tuple _ ty) -> do
+      Tuple _ fn <- instantiatePolyTypeWithUnknowns (error "Data constructor types cannot contain constraints") ty
+      fn' <- replaceAllTypeSynonyms unifyError fn
       go binders fn'
         where
         go [] ty' = do
@@ -773,8 +789,7 @@ inferBinder val (ConstructorBinder ctor binders) = do
           return M.empty
         go (binder : binders') (TypeApp (TypeApp t obj) ret) | t == tyFunction =
           M.union <$> inferBinder obj binder <*> go binders' ret
-        go _ _ = throwError <<< strMsg $ "Wrong number of arguments to constructor " ++ show ctor
-    _ -> throwError <<< strMsg $ "Constructor " ++ show ctor ++ " is not defined"
+        go _ _ = throwError $ withErrorType unifyError $ strMsg $ "Wrong number of arguments to constructor " ++ show ctor
 inferBinder val (ObjectBinder props) = do
   row <- fresh
   rest <- fresh
@@ -782,9 +797,9 @@ inferBinder val (ObjectBinder props) = do
   val =?= TypeApp tyObject row
   return m1
   where
-  inferRowProperties :: Type -> Type -> [(String, Binder)] -> UnifyT Type Check (M.Map Ident Type)
-  inferRowProperties nrow row [] = nrow =?= row >> return M.empty
-  inferRowProperties nrow row ((name, binder):binders) = do
+  inferRowProperties :: Type -> Type -> [Tuple String Binder] -> UnifyT Type Check (M.Map Ident Type)
+  inferRowProperties nrow row [] = (nrow =?= row) *> return M.empty
+  inferRowProperties nrow row ((Tuple name binder):binders) = do
     propTy <- fresh
     m1 <- inferBinder propTy binder
     m2 <- inferRowProperties nrow (RCons name propTy row) binders
@@ -805,7 +820,6 @@ inferBinder val (NamedBinder name binder) = do
   return $ M.insert name val m
 inferBinder val (PositionedBinder pos binder) =
   rethrowWithPosition pos $ inferBinder val binder
--}
 
 -- |
 -- Generate a new skolem constant
