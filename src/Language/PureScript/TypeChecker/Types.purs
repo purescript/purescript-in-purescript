@@ -19,7 +19,7 @@ module Language.PureScript.TypeChecker.Types {-(typesOf)-} where
       Check a type subsumes another type
 -}
 
-import Data.Array ((\\), delete, length, filter, map, mapMaybe, nub, sort, sortBy, zipWith)
+import Data.Array ((\\), concat, delete, length, groupBy, filter, map, mapMaybe, range, nub, sort, sortBy, zipWith)
 import Data.Either
 import Data.Foldable (all, for_, foldl, foldr, notElem, lookup, find)
 import Data.Traversable (for, traverse, zipWithA)
@@ -30,6 +30,9 @@ import Data.Monoid.First
 import Data.Tuple
 import Data.Tuple3
 import Data.Tuple5
+import Data.String (joinWith)
+
+import qualified Data.Array.Unsafe as Unsafe
 
 import Language.PureScript.Declarations
 import Language.PureScript.Types
@@ -59,8 +62,6 @@ import Control.Monad.Unify
 import Control.Arrow (first)
 
 import qualified Data.Map as M
-
-foreign import undefined :: forall a. a
 
 instance partialType :: Partial Type where
   unknown = TUnknown
@@ -340,107 +341,123 @@ instance showDictionaryValue :: Show DictionaryValue where
 entails :: Environment 
         -> ModuleName 
         -> [TypeClassDictionaryInScope] 
-        -> (Tuple (Qualified ProperName) [Type]) 
+        -> Tuple (Qualified ProperName) [Type]
         -> Boolean 
         -> Check Value
-entails = undefined
-{-
-entails env moduleName context = solve (sortedNubBy canonicalizeDictionary (filter filterModule context))
+entails env@(Environment envo) moduleName context = solve (sortedNubBy canonicalizeDictionary (filter filterModule context))
   where
-    sortedNubBy :: (Ord k) => (v -> k) -> [v] -> [v]
-    sortedNubBy f vs = M.elems (M.fromList (map (f &&& id) vs))
+  sortedNubBy :: forall k v. (Ord k) => (v -> k) -> [v] -> [v]
+  sortedNubBy f vs = M.values (M.fromList (map (\v -> Tuple (f v) v) vs))
 
-    -- Filter out type dictionaries which are in scope in the current module
-    filterModule :: TypeClassDictionaryInScope -> Bool
-    filterModule (TypeClassDictionaryInScope { tcdName = Qualified (Just mn) _ }) | mn == moduleName = true
-    filterModule (TypeClassDictionaryInScope { tcdName = Qualified Nothing _ }) = true
-    filterModule _ = false
+  -- Filter out type dictionaries which are in scope in the current module
+  filterModule :: TypeClassDictionaryInScope -> Boolean
+  filterModule (TypeClassDictionaryInScope { name = Qualified (Just mn) _ }) | mn == moduleName = true
+  filterModule (TypeClassDictionaryInScope { name = Qualified Nothing _ }) = true
+  filterModule _ = false
 	
-    solve context' (className, tys) trySuperclasses =
-      let
-        dicts = go trySuperclasses className tys
-      in case sortedNubBy dictTrace (chooseSimplestDictionaries dicts) of
-           [] -> throwError $ withErrorType unifyError $ strMsg $ "No instance found for " ++ show className ++ " " ++ unwords (map prettyPrintTypeAtom tys)
-           [_] -> return $ dictionaryValueToValue $ head dicts
-           _ -> throwError $ withErrorType unifyError $ strMsg $ "Overlapping instances found for " ++ show className ++ " " ++ unwords (map prettyPrintTypeAtom tys)
-      where
-	  go trySuperclasses' className' tys' =
-	    -- Look for regular type instances
-	    [ mkDictionary (canonicalizeDictionary tcd) args
-	    | tcd <- context'
-	    -- Make sure the type class name matches the one we are trying to satisfy
-	    , className' == tcdClassName tcd
-	    -- Make sure the type unifies with the type in the type instance definition
-	    , subst <- maybeToList <<< (>>= verifySubstitution) <<< fmap concat $ zipWithA (typeHeadsAreEqual moduleName env) tys' (tcdInstanceTypes tcd)
-	    -- Solve any necessary subgoals
-	    , args <- solveSubgoals subst (tcdDependencies tcd) ] ++
-	
-	    -- Look for implementations via superclasses
-	    [ SubclassDictionaryValue suDict superclass index
-	    | trySuperclasses'
-	    , (subclassName, (args, _, implies)) <- M.toList (typeClasses env)
-	    -- Try each superclass
-	    , (index, (superclass, suTyArgs)) <- zip [0..] implies
-	    -- Make sure the type class name matches the superclass name
-	    , className' == superclass
-	    -- Make sure the types unify with the types in the superclass implication
-	    , subst <- maybeToList <<< (>>= verifySubstitution) <<< fmap concat $ zipWithA (typeHeadsAreEqual moduleName env) tys' suTyArgs
-	    -- Finally, satisfy the subclass constraint
-	    , args' <- maybeToList $ traverse (flip lookup subst) args
-	    , suDict <- go true subclassName args' ]
-	
-	  -- Create dictionaries for subgoals which still need to be solved by calling go recursively
-	  -- E.g. the goal (Show a, Show b) => Show (Either a b) can be satisfied if the current type
-	  -- unifies with Either a b, and we can satisfy the subgoals Show a and Show b recursively.
-	  solveSubgoals :: [(String, Type)] -> Maybe [(Qualified ProperName, [Type])] -> [Maybe [DictionaryValue]]
-	  solveSubgoals _ Nothing = return Nothing
-	  solveSubgoals subst (Just subgoals) = do
-	    dict <- traverse (uncurry (go true) <<< second (map (replaceAllTypeVars subst))) subgoals
-	    return $ Just dict
-	  -- Make a dictionary from subgoal dictionaries by applying the correct function
-	  mkDictionary :: Qualified Ident -> Maybe [DictionaryValue] -> DictionaryValue
-	  mkDictionary fnName Nothing = LocalDictionaryValue fnName
-	  mkDictionary fnName (Just []) = GlobalDictionaryValue fnName
-	  mkDictionary fnName (Just dicts) = DependentDictionaryValue fnName dicts
-	  -- Turn a DictionaryValue into a Value
-	  dictionaryValueToValue :: DictionaryValue -> Value
-	  dictionaryValueToValue (LocalDictionaryValue fnName) = Var fnName
-	  dictionaryValueToValue (GlobalDictionaryValue fnName) = App (Var fnName) (ObjectLiteral [])
-	  dictionaryValueToValue (DependentDictionaryValue fnName dicts) = foldl App (Var fnName) (map dictionaryValueToValue dicts)
-	  dictionaryValueToValue (SubclassDictionaryValue dict superclassName index) =
-	    App (Accessor (show superclassName ++ "_" ++ show index)
-	                  (Accessor C.__superclasses (dictionaryValueToValue dict)))
-	        (ObjectLiteral [])
-	  -- Ensure that a substitution is valid
-	  verifySubstitution :: [(String, Type)] -> Maybe [(String, Type)]
-	  verifySubstitution subst = do
-	    let grps = groupBy ((==) `on` fst) subst
-	    guard (all (pairwise (unifiesWith env) <<< map snd) grps)
-	    return $ map head grps
-	  -- Choose the simplest DictionaryValues from a list of candidates
-	  -- The reason for this function is as follows:
-	  -- When considering overlapping instances, we don't want to consider the same dictionary
-	  -- to be an overlap of itself when obtained as a superclass of another class.
-	  -- Observing that we probably don't want to select a superclass instance when an instance
-	  -- is available directly, and that there is no way for a superclass instance to actually
-	  -- introduce an overlap that wouldn't have been there already, we simply remove dictionaries
-	  -- obtained as superclass instances if there are simpler instances available.
-	  chooseSimplestDictionaries :: [DictionaryValue] -> [DictionaryValue]
-	  chooseSimplestDictionaries ds = case filter isSimpleDictionaryValue ds of
-	                                    [] -> ds
-	                                    simple -> simple
-	  isSimpleDictionaryValue SubclassDictionaryValue{} = false
-	  isSimpleDictionaryValue (DependentDictionaryValue _ ds) = all isSimpleDictionaryValue ds
-	  isSimpleDictionaryValue _ = true
-	  -- |
-	  -- Get the "trace" of a DictionaryValue - that is, remove all SubclassDictionaryValue
-	  -- data constructors
-	  --
-	  dictTrace :: DictionaryValue -> DictionaryValue
-	  dictTrace (DependentDictionaryValue fnName dicts) = DependentDictionaryValue fnName $ map dictTrace dicts
-	  dictTrace (SubclassDictionaryValue dict _ _) = dictTrace dict
-	  dictTrace other = other
--}
+  go :: [TypeClassDictionaryInScope] -> Boolean -> Qualified ProperName -> [Type] -> [DictionaryValue]
+  go context' trySuperclasses' className' tys' = regularInstances ++ superclassInstances
+    where
+    -- Look for regular type instances
+    regularInstances = do
+      tcd@(TypeClassDictionaryInScope tcdo) <- context'
+      -- Make sure the type class name matches the one we are trying to satisfy
+      guardArray $ className' == tcdo.className
+      -- Make sure the type unifies with the type in the type instance definition
+      subst <- maybeToList $ do
+        substAll <- concat <$> zipWithA (typeHeadsAreEqual moduleName env) tys' tcdo.instanceTypes
+        verifySubstitution substAll
+      -- Solve any necessary subgoals
+      args <- solveSubgoals context' subst tcdo.dependencies
+      return (mkDictionary (canonicalizeDictionary tcd) args)
+  
+    -- Look for implementations via superclasses
+    superclassInstances | trySuperclasses' = do
+      (Tuple subclassName (Tuple3 args _ implies)) <- M.toList envo.typeClasses
+      -- Try each superclass
+      (Tuple index (Tuple superclass suTyArgs)) <- zip (range 0 (length implies - 1)) implies
+      -- Make sure the type class name matches the superclass name
+      guardArray $ className' == superclass
+      -- Make sure the types unify with the types in the superclass implication
+      subst <- maybeToList $ do
+        substAll <- concat <$> zipWithA (typeHeadsAreEqual moduleName env) tys' suTyArgs
+        verifySubstitution substAll
+      -- Finally, satisfy the subclass constraint
+      args' <- maybeToList $ traverse (flip lookup subst) args
+      suDict <- go context' true subclassName args'
+      return (SubclassDictionaryValue suDict superclass index)
+    superclassInstances = []
+  
+    -- Ensure that a substitution is valid
+    verifySubstitution :: [Tuple String Type] -> Maybe [Tuple String Type]
+    verifySubstitution subst = do
+      let grps = groupBy ((==) `on` fst) subst
+      if all (pairwise (unifiesWith env) <<< map snd) grps 
+        then Just (map Unsafe.head grps)
+        else Nothing
+  
+  solveSubgoals :: [TypeClassDictionaryInScope] -> [Tuple String Type] -> Maybe [Tuple (Qualified ProperName) [Type]] -> [Maybe [DictionaryValue]]
+  solveSubgoals _ _ Nothing = return Nothing
+  solveSubgoals context' subst (Just subgoals) = do
+    dict <- traverse (\(Tuple className ts) -> go context' true className (map (replaceAllTypeVars subst) ts)) subgoals
+    return $ Just dict
+  
+  solve :: [TypeClassDictionaryInScope] -> Tuple (Qualified ProperName) [Type] -> Boolean -> Check Value
+  solve context' (Tuple className tys) trySuperclasses =
+    case sortedNubBy dictTrace (chooseSimplestDictionaries (go context' trySuperclasses className tys)) of
+      [] -> throwError $ withErrorType unifyError $ strMsg $ "No instance found for " ++ show className ++ " " ++ joinWith " " (map prettyPrintTypeAtom tys)
+      [dict] -> return $ dictionaryValueToValue dict
+      _ -> throwError $ withErrorType unifyError $ strMsg $ "Overlapping instances found for " ++ show className ++ " " ++ joinWith " " (map prettyPrintTypeAtom tys)
+    
+guardArray :: Boolean -> [Unit]
+guardArray true = [unit]
+guardArray false = []
+
+maybeToList :: forall a. Maybe a -> [a]
+maybeToList Nothing = []
+maybeToList (Just a) = [a]
+
+-- Make a dictionary from subgoal dictionaries by applying the correct function
+mkDictionary :: Qualified Ident -> Maybe [DictionaryValue] -> DictionaryValue
+mkDictionary fnName Nothing = LocalDictionaryValue fnName
+mkDictionary fnName (Just []) = GlobalDictionaryValue fnName
+mkDictionary fnName (Just dicts) = DependentDictionaryValue fnName dicts
+
+-- Turn a DictionaryValue into a Value
+dictionaryValueToValue :: DictionaryValue -> Value
+dictionaryValueToValue (LocalDictionaryValue fnName) = Var fnName
+dictionaryValueToValue (GlobalDictionaryValue fnName) = App (Var fnName) (ObjectLiteral [])
+dictionaryValueToValue (DependentDictionaryValue fnName dicts) = foldl App (Var fnName) (map dictionaryValueToValue dicts)
+dictionaryValueToValue (SubclassDictionaryValue dict superclassName index) =
+  App (Accessor (show superclassName ++ "_" ++ show index)
+                (Accessor C.__superclasses (dictionaryValueToValue dict)))
+      (ObjectLiteral [])
+
+-- Choose the simplest DictionaryValues from a list of candidates
+-- The reason for this function is as follows:
+-- When considering overlapping instances, we don't want to consider the same dictionary
+-- to be an overlap of itself when obtained as a superclass of another class.
+-- Observing that we probably don't want to select a superclass instance when an instance
+-- is available directly, and that there is no way for a superclass instance to actually
+-- introduce an overlap that wouldn't have been there already, we simply remove dictionaries
+-- obtained as superclass instances if there are simpler instances available.
+chooseSimplestDictionaries :: [DictionaryValue] -> [DictionaryValue]
+chooseSimplestDictionaries ds = case filter isSimpleDictionaryValue ds of
+                                  [] -> ds
+                                  simple -> simple
+isSimpleDictionaryValue (SubclassDictionaryValue _ _ _) = false
+isSimpleDictionaryValue (DependentDictionaryValue _ ds) = all isSimpleDictionaryValue ds
+isSimpleDictionaryValue _ = true
+
+-- |
+-- Get the "trace" of a DictionaryValue - that is, remove all SubclassDictionaryValue
+-- data constructors
+--
+dictTrace :: DictionaryValue -> DictionaryValue
+dictTrace (DependentDictionaryValue fnName dicts) = DependentDictionaryValue fnName $ map dictTrace dicts
+dictTrace (SubclassDictionaryValue dict _ _) = dictTrace dict
+dictTrace other = other
+
 -- |
 -- Check all values in a list pairwise match a predicate
 --
@@ -720,7 +737,7 @@ infer' (PositionedValue pos val) = rethrowWithPosition pos $ infer' val
 infer' _ = error "Invalid argument to infer"
 
 inferLetBinding :: [Declaration] -> [Declaration] -> Value -> (Value -> UnifyT Type Check Value) -> UnifyT Type Check (Tuple [Declaration] Value)
-inferLetBinding = undefined
+inferLetBinding = theImpossibleHappened "inferLetBinding not implemented"
 {-inferLetBinding seen [] ret j = Tuple seen <$> j ret
 inferLetBinding seen (ValueDeclaration ident nameKind [] Nothing tv@(TypedValue checkType val ty) : rest) ret j = do
   Just moduleName <- getCurrentModule
