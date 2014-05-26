@@ -217,31 +217,29 @@ typeForBindingGroupElement :: ModuleName
                            -> M.Map (Tuple ModuleName Ident) (Tuple Type NameKind) 
                            -> [Tuple Ident Type] 
                            -> UnifyT Type Check (Tuple Ident (Tuple Value Type))
-typeForBindingGroupElement = undefined
-{-
-typeForBindingGroupElement moduleName e@(Tuple _ (Tuple val _)) dict untypedDict =
+typeForBindingGroupElement moduleName (Tuple ident (Tuple val t)) dict untypedDict =
   -- If the declaration is a function, it has access to other values in the binding group.
   -- If not, the generated code might fail at runtime since those values might be undefined.
-  let dict' = if isFunction val then dict else M.empty
-  in case e of
+  let dict' = if isFunction val then dict else M.empty :: M.Map (Tuple ModuleName Ident) (Tuple Type NameKind)
+  in case t of
     -- Typed declarations
-    Tuple ident (Tuple val' (Just (Tuple ty checkType))) -> do
+    Just (Tuple ty checkType) -> do
       -- Kind check
       kind <- liftCheck $ kindOf moduleName ty
-      guardWith (strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
+      guardWith (withErrorType unifyError $ strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
       -- Check the type with the new names in scope
-      ty' <- introduceSkolemScope <=< replaceAllTypeSynonyms $ ty
-      val'' <- bindNames dict' $ if checkType
-                               then TypedValue true <$> check val' ty' <*> pure ty'
-                               else return (TypedValue false val' ty')
-      return $ Tuple ident (Tuple val'' ty')
+      ty' <- introduceSkolemScope <=< replaceAllTypeSynonyms unifyError $ ty
+      val' <- bindNames dict' $ if checkType
+                                then TypedValue true <$> check val ty' <*> pure ty'
+                                else return (TypedValue false val ty')
+      return $ Tuple ident (Tuple val' ty')
     -- Untyped declarations
-    Tuple ident (Tuple val' Nothing) -> do
+    Nothing -> do
       -- Infer the type with the new names in scope
-      TypedValue _ val'' ty <- bindNames dict' $ infer val'
+      TypedValue _ val' ty <- bindNames dict' $ infer val
       ty =?= fromMaybe (error "name not found in dictionary") (lookup ident untypedDict)
-      return $ Tuple ident (Tuple (TypedValue true val'' ty) ty)
--}
+      return $ Tuple ident (Tuple (TypedValue true val' ty) ty)
+
 -- |
 -- Check if a value introduces a function
 --
