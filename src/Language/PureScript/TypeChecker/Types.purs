@@ -1,4 +1,7 @@
-module Language.PureScript.TypeChecker.Types (typesOf) where
+module Language.PureScript.TypeChecker.Types (
+    typesOf
+  , DictionaryValue()
+  ) where
 
 {-
   The following functions represent the corresponding type checking judgements:
