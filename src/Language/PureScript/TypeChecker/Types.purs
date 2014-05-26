@@ -32,6 +32,7 @@ import Data.Tuple3
 import Data.Tuple5
 import Data.String (joinWith)
 
+import qualified Data.Maybe.Unsafe as Unsafe
 import qualified Data.Array.Unsafe as Unsafe
 
 import Language.PureScript.Declarations
@@ -238,7 +239,7 @@ typeForBindingGroupElement moduleName (Tuple ident (Tuple val t)) dict untypedDi
     Nothing -> do
       -- Infer the type with the new names in scope
       TypedValue _ val' ty <- bindNames dict' $ infer val
-      ty =?= fromMaybe (error "name not found in dictionary") (lookup ident untypedDict)
+      ty =?= Unsafe.fromJust (lookup ident untypedDict)
       return $ Tuple ident (Tuple (TypedValue true val' ty) ty)
 
 -- |
@@ -734,7 +735,7 @@ infer' (TypedValue checkType val ty) = do
   val' <- if checkType then check val ty' else return val
   return $ TypedValue true val' ty'
 infer' (PositionedValue pos val) = rethrowWithPosition pos $ infer' val
-infer' _ = error "Invalid argument to infer"
+infer' _ = theImpossibleHappened "Invalid argument to infer"
 
 inferLetBinding :: [Declaration] -> [Declaration] -> Value -> (Value -> UnifyT Type Check Value) -> UnifyT Type Check (Tuple [Declaration] Value)
 inferLetBinding = theImpossibleHappened "inferLetBinding not implemented"
@@ -766,7 +767,7 @@ inferLetBinding seen (BindingGroupDeclaration ds : rest) ret j = do
 inferLetBinding seen (PositionedDeclaration pos d : ds) ret j = rethrowWithPosition pos $ do
   Tuple (d' : ds') val' <- inferLetBinding seen (d : ds) ret j
   return $ Tuple (PositionedDeclaration pos d' : ds') val'
-inferLetBinding _ _ _ _ = error "Invalid argument to inferLetBinding"-}
+inferLetBinding _ _ _ _ = theImpossibleHappened "Invalid argument to inferLetBinding"-}
 
 -- |
 -- Infer the type of a property inside a record with a given type
@@ -929,7 +930,7 @@ check' (Abs (Left arg) ret) ty@(TypeApp (TypeApp t argTy) retTy) | t == tyFuncti
   Just moduleName <- getCurrentModule
   ret' <- bindLocalVariables moduleName [Tuple arg argTy] $ check ret retTy
   return $ TypedValue true (Abs (Left arg) ret') ty
-check' (Abs (Right _) _) _ = error "Binder was not desugared"
+check' (Abs (Right _) _) _ = theImpossibleHappened "Binder was not desugared"
 check' (App f arg) ret = do
   f'@(TypedValue _ _ ft) <- infer f
   Tuple _ app <- checkFunctionApplication f' ft arg (Just ret)
