@@ -22,13 +22,16 @@ import Data.Tuple
 import Data.Array
 import Data.Maybe
 import Data.Either
+import Data.Foldable (foldl, lookup)
 import Data.Traversable (traverse)
+import Data.String (joinWith)
 
 import qualified Data.Map as M
 
 import Control.Apply
 import Control.Arrow (first, second)
 
+import Control.Monad.Trans
 import Control.Monad.Error
 import Control.Monad.Error.Class
 import Control.Monad.State
@@ -115,20 +118,18 @@ desugarModule _ = theImpossibleHappened "Exports should have been elaborated in 
 --     sub: ""
 --   }
 -}
-foreign import desugarDecl :: ModuleName -> Declaration -> Desugar (Tuple (Maybe DeclarationRef) [Declaration])
-{-
+desugarDecl :: ModuleName -> Declaration -> Desugar (Tuple (Maybe DeclarationRef) [Declaration])
 desugarDecl mn d@(TypeClassDeclaration name args implies members) = do
-  modify (M.insert (mn, name) d)
-  return $ (Nothing, d : typeClassDictionaryDeclaration name args implies members : map (typeClassMemberToDictionaryAccessor mn name args) members)
+  modify (M.insert (Tuple mn name) d)
+  return $ (Tuple Nothing (d : typeClassDictionaryDeclaration name args implies members : map (typeClassMemberToDictionaryAccessor mn name args) members))
 desugarDecl mn d@(TypeInstanceDeclaration name deps className ty members) = do
   desugared <- lift $ desugarCases members
   dictDecl <- typeInstanceDictionaryDeclaration name mn deps className ty desugared
-  return $ (Just $ TypeInstanceRef name, [d, dictDecl])
+  return $ (Tuple (Just (TypeInstanceRef name)) [d, dictDecl])
 desugarDecl mn (PositionedDeclaration pos d) = do
-  (dr, ds) <- rethrowWithPosition pos $ desugarDecl mn d
-  return (dr, map (PositionedDeclaration pos) ds)
-desugarDecl _ other = return (Nothing, [other])
--}
+  (Tuple dr ds) <- rethrowWithPosition pos $ desugarDecl mn d
+  return (Tuple dr (map (PositionedDeclaration pos) ds))
+desugarDecl _ other = return (Tuple Nothing [other])
 
 memberToNameAndType :: Declaration -> (Tuple Ident Type)
 memberToNameAndType (TypeDeclaration ident ty) = (Tuple ident ty)
@@ -139,26 +140,24 @@ identToProperty :: Ident -> String
 identToProperty (Ident name) = name
 identToProperty (Op op) = op
 
-foreign import typeClassDictionaryDeclaration :: ProperName -> [String] -> [Tuple (Qualified ProperName) [Type]] -> [Declaration] -> Declaration
-{-
+typeClassDictionaryDeclaration :: ProperName -> [String] -> [Tuple (Qualified ProperName) [Type]] -> [Declaration] -> Declaration
 typeClassDictionaryDeclaration name args implies members =
-  let superclassesType = TypeApp tyObject (rowFromList ([ (fieldName, function unit tySynApp)
-                                                        | (index, (superclass, tyArgs)) <- zip [0..] implies
-                                                        , let tySynApp = foldl TypeApp (TypeConstructor superclass) tyArgs
-                                                        , let fieldName = mkSuperclassDictionaryName superclass index
-                                                        ], REmpty))
-
-  in TypeSynonymDeclaration name args (TypeApp tyObject $ rowFromList ((C.__superclasses, superclassesType) : map (first identToProperty . memberToNameAndType) members, REmpty))
+  let rowProperties = 
+    do Tuple index (Tuple superclass tyArgs) <- zip (range 0 (length implies - 1)) implies
+       let tySynApp = foldl TypeApp (TypeConstructor superclass) tyArgs
+       let fieldName = mkSuperclassDictionaryName superclass index
+       return (Tuple fieldName (function unitType tySynApp)) in
+  let superclassesType = TypeApp tyObject (rowFromList (Tuple rowProperties REmpty))
+  in TypeSynonymDeclaration name args (TypeApp tyObject $ rowFromList (Tuple ((Tuple C.__superclasses superclassesType) : map (first identToProperty <<< memberToNameAndType) members) REmpty))
 
 typeClassMemberToDictionaryAccessor :: ModuleName -> ProperName -> [String] -> Declaration -> Declaration
 typeClassMemberToDictionaryAccessor mn name args (TypeDeclaration ident ty) =
   ValueDeclaration ident TypeClassAccessorImport [] Nothing $
-    TypedValue False (Abs (Left $ Ident "dict") (Accessor (runIdent ident) (Var $ Qualified Nothing (Ident "dict")))) $
-    moveQuantifiersToFront (quantify (ConstrainedType [(Qualified (Just mn) name, map TypeVar args)] ty))
+    TypedValue false (Abs (Left $ Ident "dict") (Accessor (runIdent ident) (Var $ Qualified Nothing (Ident "dict")))) $
+    moveQuantifiersToFront (quantify (ConstrainedType [Tuple (Qualified (Just mn) name) (map TypeVar args)] ty))
 typeClassMemberToDictionaryAccessor mn name args (PositionedDeclaration pos d) =
   PositionedDeclaration pos $ typeClassMemberToDictionaryAccessor mn name args d
-typeClassMemberToDictionaryAccessor _ _ _ _ = error "Invalid declaration in type class definition"
--}
+typeClassMemberToDictionaryAccessor _ _ _ _ = theImpossibleHappened "Invalid declaration in type class definition"
 
 mkSuperclassDictionaryName :: Qualified ProperName -> Number -> String
 mkSuperclassDictionaryName pn index = show pn ++ "_" ++ show index
@@ -166,9 +165,9 @@ mkSuperclassDictionaryName pn index = show pn ++ "_" ++ show index
 unitType :: Type
 unitType = TypeApp tyObject REmpty
 
-foreign import typeInstanceDictionaryDeclaration :: Ident -> ModuleName -> [Tuple (Qualified ProperName) [Type]] -> Qualified ProperName -> [Type] -> [Declaration] -> Desugar Declaration
-{-typeInstanceDictionaryDeclaration name mn deps className tys decls =
-  rethrow (\e -> strMsg ("Error in type class instance " ++ show className ++ " " ++ unwords (map prettyPrintTypeAtom tys) ++ ":") <> (e :: ErrorStack)) $ do
+typeInstanceDictionaryDeclaration :: Ident -> ModuleName -> [Tuple (Qualified ProperName) [Type]] -> Qualified ProperName -> [Type] -> [Declaration] -> Desugar Declaration
+typeInstanceDictionaryDeclaration name mn deps className tys decls =
+  rethrow (\e -> strMsg ("Error in type class instance " ++ show className ++ " " ++ joinWith " " (map prettyPrintTypeAtom tys) ++ ": ") <> (e :: ErrorStack)) $ do
   m <- get
 
   -- Lookup the type arguments and member types for the type class
@@ -185,25 +184,24 @@ foreign import typeInstanceDictionaryDeclaration :: Ident -> ModuleName -> [Tupl
       -- Replace the type arguments with the appropriate types in the member types
       let memberTypes = map (second (replaceAllTypeVars (zip args tys))) instanceTys
       -- Create values for the type instance members
-      memberNames <- map (first identToProperty) <$> mapM (memberToNameAndValue memberTypes) decls
+      memberNames <- map (first identToProperty) <$> traverse (memberToNameAndValue memberTypes) decls
       -- Create the type of the dictionary
       -- The type is an object type, but depending on type instance dependencies, may be constrained.
       -- The dictionary itself is an object literal, but for reasons related to recursion, the dictionary
       -- must be guarded by at least one function abstraction. For that reason, if the dictionary has no
       -- dependencies, we introduce an unnamed function parameter.
-      let superclasses = ObjectLiteral
-            [ (fieldName, Abs (Left (Ident "_")) (SuperClassDictionary superclass tyArgs))
-            | (index, (superclass, suTyArgs)) <- zip [0..] implies
-            , let tyArgs = map (replaceAllTypeVars (zip args tys)) suTyArgs
-            , let fieldName = mkSuperclassDictionaryName superclass index
-            ]
+      let superclasses = ObjectLiteral $ 
+        do (Tuple index (Tuple superclass suTyArgs)) <- zip (range 0 (length implies - 1)) implies
+           let tyArgs = map (replaceAllTypeVars (zip args tys)) suTyArgs
+           let fieldName = mkSuperclassDictionaryName superclass index
+           return (Tuple fieldName (Abs (Left (Ident "_")) (SuperClassDictionary superclass tyArgs)))
 
-      let memberNames' = (C.__superclasses, superclasses) : memberNames
+      let memberNames' = (Tuple C.__superclasses superclasses) : memberNames
           dictTy = foldl TypeApp (TypeConstructor className) tys
-          constrainedTy = quantify (if null deps then function unit dictTy else ConstrainedType deps dictTy)
+          constrainedTy = quantify (if null deps then function unitType dictTy else ConstrainedType deps dictTy)
           dict = if null deps then Abs (Left (Ident "_")) (ObjectLiteral memberNames') else ObjectLiteral memberNames'
 
-      return $ ValueDeclaration name TypeInstanceDictionaryValue [] Nothing (TypedValue True dict constrainedTy)
+      return $ ValueDeclaration name TypeInstanceDictionaryValue [] Nothing (TypedValue true dict constrainedTy)
 
   where
 
@@ -213,18 +211,18 @@ foreign import typeInstanceDictionaryDeclaration :: Ident -> ModuleName -> [Tupl
   declName (TypeDeclaration ident _) = Just ident
   declName _ = Nothing
 
-  memberToNameAndValue :: [(Ident, Type)] -> Declaration -> Desugar (Ident, Value)
+  memberToNameAndValue :: [Tuple Ident Type] -> Declaration -> Desugar (Tuple Ident Value)
   memberToNameAndValue tys' d@(ValueDeclaration ident _ _ _ _) = do
-    _ <- lift . lift . maybe (Left $ mkErrorStack ("Type class does not define member '" ++ show ident ++ "'") Nothing) Right $ lookup ident tys'
+    lift <<< lift <<< maybe (Left $ mkErrorStack ("Type class does not define member '" ++ show ident ++ "'") Nothing) Right $ lookup ident tys'
     let memberValue = typeInstanceDictionaryEntryValue d
-    return (ident, memberValue)
+    return (Tuple ident memberValue)
   memberToNameAndValue tys' (PositionedDeclaration pos d) = rethrowWithPosition pos $ do
-    (ident, val) <- memberToNameAndValue tys' d
-    return (ident, PositionedValue pos val)
-  memberToNameAndValue _ _ = error "Invalid declaration in type instance definition"
+    (Tuple ident val) <- memberToNameAndValue tys' d
+    return (Tuple ident (PositionedValue pos val))
+  memberToNameAndValue _ _ = theImpossibleHappened "Invalid declaration in type instance definition"
 
   typeInstanceDictionaryEntryValue :: Declaration -> Value
   typeInstanceDictionaryEntryValue (ValueDeclaration _ _ [] _ val) = val
   typeInstanceDictionaryEntryValue (PositionedDeclaration pos d) = PositionedValue pos (typeInstanceDictionaryEntryValue d)
-  typeInstanceDictionaryEntryValue _ = error "Invalid declaration in type instance definition"
--}
+  typeInstanceDictionaryEntryValue _ = theImpossibleHappened "Invalid declaration in type instance definition"
+  
