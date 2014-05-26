@@ -30,6 +30,14 @@ instance showUnaryOperator :: Show UnaryOperator where
   show Not = "Not"
   show BitwiseNot = "BitwiseNot"
   show Positive = "Positive"
+  
+instance eqUnaryOperator :: Eq UnaryOperator where
+  (==) Negate     Negate     = true
+  (==) Not        Not        = true
+  (==) BitwiseNot BitwiseNot = true
+  (==) Positive   Positive   = true
+  (==) _          _          = false
+  (/=) u1         u2         = not (u1 == u2)
 
 -- |
 -- Built-in binary operators
@@ -132,6 +140,30 @@ instance showBinaryOperator :: Show BinaryOperator where
   show ShiftLeft             = "ShiftLeft"
   show ShiftRight            = "ShiftRight"
   show ZeroFillShiftRight    = "ZeroFillShiftRight"
+
+instance eqBinaryOperator :: Eq BinaryOperator where
+  (==) Add                  Add                  = true
+  (==) Subtract             Subtract             = true
+  (==) Multiply             Multiply             = true
+  (==) Divide               Divide               = true
+  (==) Modulus              Modulus              = true
+  (==) EqualTo              EqualTo              = true
+  (==) NotEqualTo           NotEqualTo           = true
+  (==) LessThan             LessThan             = true
+  (==) LessThanOrEqualTo    LessThanOrEqualTo    = true
+  (==) GreaterThan          GreaterThan          = true
+  (==) GreaterThanOrEqualTo GreaterThanOrEqualTo = true
+  (==) And                  And                  = true
+  (==) Or                   Or                   = true
+  (==) BitwiseAnd           BitwiseAnd           = true
+  (==) BitwiseOr            BitwiseOr            = true
+  (==) BitwiseXor           BitwiseXor           = true
+  (==) ShiftLeft            ShiftLeft            = true
+  (==) ShiftRight           ShiftRight           = true
+  (==) ZeroFillShiftRight   ZeroFillShiftRight   = true
+  (==) _                    _                    = false
+  (/=) b1                   b2                   = not (b1 == b2)
+  
 
 -- |
 -- Data type for simplified Javascript expressions
