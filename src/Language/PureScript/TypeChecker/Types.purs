@@ -738,22 +738,25 @@ infer' (PositionedValue pos val) = rethrowWithPosition pos $ infer' val
 infer' _ = theImpossibleHappened "Invalid argument to infer"
 
 inferLetBinding :: [Declaration] -> [Declaration] -> Value -> (Value -> UnifyT Type Check Value) -> UnifyT Type Check (Tuple [Declaration] Value)
-inferLetBinding = theImpossibleHappened "inferLetBinding not implemented"
-{-inferLetBinding seen [] ret j = Tuple seen <$> j ret
-inferLetBinding seen (ValueDeclaration ident nameKind [] Nothing tv@(TypedValue checkType val ty) : rest) ret j = do
+inferLetBinding seen [] ret j = Tuple seen <$> j ret
+inferLetBinding seen (ValueDeclaration ident nameKind [] Nothing (tv@(TypedValue checkType val ty)) : rest) ret j = do
   Just moduleName <- getCurrentModule
   kind <- liftCheck $ kindOf moduleName ty
   guardWith (withErrorType unifyError $ strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
-  let dict = if isFunction val then M.singleton (Tuple moduleName ident) (Tuple ty nameKind) else M.empty
-  ty' <- introduceSkolemScope <=< replaceAllTypeSynonyms $ ty
+  let 
+    dict :: M.Map (Tuple ModuleName Ident) (Tuple Type NameKind)
+    dict | isFunction val = M.singleton (Tuple moduleName ident) (Tuple ty nameKind) 
+    dict = M.empty
+  ty' <- introduceSkolemScope <=< replaceAllTypeSynonyms unifyError $ ty
   TypedValue _ val' ty'' <- if checkType then bindNames dict (check val ty') else return tv
   bindNames (M.singleton (Tuple moduleName ident) (Tuple ty'' nameKind)) $ inferLetBinding (seen ++ [ValueDeclaration ident nameKind [] Nothing (TypedValue checkType val' ty'')]) rest ret j
 inferLetBinding seen (ValueDeclaration ident nameKind [] Nothing val : rest) ret j = do
   valTy <- fresh
   Just moduleName <- getCurrentModule
-  let dict = if isFunction val 
-             then M.singleton (Tuple moduleName ident) (Tuple valTy nameKind) 
-             else M.empty
+  let 
+    dict :: M.Map (Tuple ModuleName Ident) (Tuple Type NameKind)
+    dict | isFunction val = M.singleton (Tuple moduleName ident) (Tuple valTy nameKind) 
+    dict = M.empty
   TypedValue _ val' valTy' <- bindNames dict $ infer val
   valTy =?= valTy'
   bindNames (M.singleton (Tuple moduleName ident) (Tuple valTy' nameKind)) $ inferLetBinding (seen ++ [ValueDeclaration ident nameKind [] Nothing val']) rest ret j
@@ -767,7 +770,7 @@ inferLetBinding seen (BindingGroupDeclaration ds : rest) ret j = do
 inferLetBinding seen (PositionedDeclaration pos d : ds) ret j = rethrowWithPosition pos $ do
   Tuple (d' : ds') val' <- inferLetBinding seen (d : ds) ret j
   return $ Tuple (PositionedDeclaration pos d' : ds') val'
-inferLetBinding _ _ _ _ = theImpossibleHappened "Invalid argument to inferLetBinding"-}
+inferLetBinding _ _ _ _ = theImpossibleHappened "Invalid argument to inferLetBinding"
 
 -- |
 -- Infer the type of a property inside a record with a given type
