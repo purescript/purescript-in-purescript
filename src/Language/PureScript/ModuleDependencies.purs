@@ -24,12 +24,13 @@ import Data.Tuple5
 import Data.Either
 import Data.Array (concatMap, map, nub, mapMaybe)
 import Data.Maybe
-import Data.Foldable (elem)
+import Data.Foldable (elem, find)
 import Data.Traversable (traverse)
 
 import Language.PureScript.Declarations
 import Language.PureScript.Names
 import Language.PureScript.Types
+import Language.PureScript.Errors
 
 -- |
 -- A list of modules with their dependencies
@@ -41,14 +42,18 @@ type ModuleGraph = [Tuple ModuleName [ModuleName]]
 --
 -- Reports an error if the module graph contains a cycle.
 --
-sortModules :: [Module] -> Either String (Tuple [ModuleName] ModuleGraph)
+sortModules :: [Module] -> Either String (Tuple [Module] ModuleGraph)
 sortModules ms = do
-  let moduleGraph = map (\(m@(Module mn ds _)) -> Tuple mn (nub (concatMap usedModules ds))) ms
-  let verts = map fst moduleGraph
-  let edges = do Tuple mn mns <- moduleGraph
-                 mn' <- mns
-                 return $ Edge mn mn'
-  ms' <- traverse toModule $ scc $ Graph verts edges
+  let
+    moduleGraph = map (\(m@(Module mn ds _)) -> Tuple mn (nub (concatMap usedModules ds))) ms
+    edges = do Tuple mn mns <- moduleGraph
+               mn' <- mns
+               return $ Edge mn mn'
+    moduleNamed mn =
+      case find (\m -> getModuleName m == mn) ms of
+        Just m -> m
+        Nothing -> theImpossibleHappened ("Module '" ++ show mn ++ "' was not found")
+  ms' <- traverse toModule $ scc' getModuleName moduleNamed $ Graph ms edges
   return $ Tuple ms' moduleGraph
 
 -- |
@@ -80,6 +85,6 @@ getModuleName (Module mn _ _) = mn
 -- |
 -- Convert a strongly connected component of the module graph to a module
 --
-toModule :: [ModuleName] -> Either String ModuleName
+toModule :: [Module] -> Either String Module
 toModule [m] = return m
 toModule ms = Left $ "Cycle in module dependencies: " ++ show ms

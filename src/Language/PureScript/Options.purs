@@ -3,65 +3,65 @@ module Language.PureScript.Options where
 import Data.Maybe
 
 -- |
--- The data type of compiler options
+-- The data type of compiler 
 --
 data Options = Options {
     -- |
     -- Disable inclusion of the built in Prelude
     --
-    optionsNoPrelude :: Boolean
+    noPrelude :: Boolean
     -- |
     -- Disable tail-call elimination
     --
-  , optionsNoTco :: Boolean
+  , noTco :: Boolean
     -- |
     -- Perform type checks at runtime
     --
-  , optionsPerformRuntimeTypeChecks :: Boolean
+  , performRuntimeTypeChecks :: Boolean
     -- |
     -- Disable inlining of calls to return and bind for the Eff monad
     --
-  , optionsNoMagicDo :: Boolean
+  , noMagicDo :: Boolean
     -- |
     -- When specified, checks the type of `main` in the module, and generate a call to run main
     -- after the module definitions.
     --
-  , optionsMain :: Maybe String
+  , main :: Maybe String
     -- |
     -- Skip all optimizations
     --
-  , optionsNoOptimizations :: Boolean
+  , noOptimizations :: Boolean
     -- |
     -- Specify the namespace that PureScript modules will be exported to when running in the
     -- browser.
     --
-  , optionsBrowserNamespace :: Maybe String
+  , browserNamespace :: Maybe String
     -- |
     -- The modules to keep while enabling dead code elimination
     --
-  , optionsModules :: [String]
+  , modules :: [String]
     -- |
     -- The modules to code gen
     --
-  , optionsCodeGenModules :: [String]
+  , codeGenModules :: [String]
     -- |
     -- Verbose error message
     --
-  , optionsVerboseErrors :: Boolean
+  , verboseErrors :: Boolean
   }
 
 -- |
--- Default compiler options
+-- Default compiler 
 --
 defaultOptions :: Options
-defaultOptions = Options { optionsNoPrelude: false
-                         , optionsNoTco: false
-                         , optionsPerformRuntimeTypeChecks: false
-                         , optionsNoMagicDo: false
-                         , optionsMain: Nothing
-                         , optionsNoOptimizations: false
-                         , optionsBrowserNamespace: Nothing
-                         , optionsModules: []
-                         , optionsCodeGenModules: []
-                         , optionsVerboseErrors: false
+defaultOptions = Options { noPrelude: false
+                         , noTco: false
+                         , performRuntimeTypeChecks: false
+                         , noMagicDo: false
+                         , main: Nothing
+                         , noOptimizations: false
+                         , browserNamespace: Nothing
+                         , modules: []
+                         , codeGenModules: []
+                         , verboseErrors: false
                          }

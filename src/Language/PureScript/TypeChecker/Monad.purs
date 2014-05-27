@@ -186,7 +186,7 @@ runCheck opts = runCheck' opts initEnvironment
 -- Run a computation in the Check monad, failing with an error, or succeeding with a return value and the final @Environment@.
 --
 runCheck' :: forall a. Options -> Environment -> Check a -> Either String (Tuple a Environment)
-runCheck' (Options o) env c = stringifyErrorStack o.optionsVerboseErrors $ do
+runCheck' (Options o) env c = stringifyErrorStack o.verboseErrors $ do
   (Tuple a (CheckState st)) <- flip runStateT (CheckState { env: env, nextVar: 0, nextDictName: 0, currentModule: Nothing }) $ unCheck c
   return $ Tuple a (st.env)
 

@@ -53,9 +53,9 @@ moduleToJs mt opts@(Options o) (Module name decls (Just exps)) env = do
   return $ case mt of
     CommonJS -> moduleBody ++ [JSAssignment (JSAccessor "exports" (JSVar "module")) moduleExports]
     Globals | not isModuleEmpty ->
-      [ JSVariableIntroduction (fromJust (o.optionsBrowserNamespace))
-                               (Just (JSBinary Or (JSVar (fromJust (o.optionsBrowserNamespace))) (JSObjectLiteral [])) )
-      , JSAssignment (JSAccessor (moduleNameToJs name) (JSVar (fromJust (o.optionsBrowserNamespace))))
+      [ JSVariableIntroduction (fromJust o.browserNamespace)
+                               (Just (JSBinary Or (JSVar (fromJust o.browserNamespace)) (JSObjectLiteral [])) )
+      , JSAssignment (JSAccessor (moduleNameToJs name) (JSVar (fromJust o.browserNamespace)))
                      (JSApp (JSFunction Nothing [] (JSBlock (moduleBody ++ [JSReturn moduleExports]))) [])
       ]
     _ -> []
@@ -66,7 +66,7 @@ importToJs mt (Options opts) mn = JSVariableIntroduction (moduleNameToJs mn) (Ju
   where
   moduleBody = case mt of
     CommonJS -> JSApp (JSVar "require") [JSStringLiteral (runModuleName mn)]
-    Globals -> JSAccessor (moduleNameToJs mn) (JSVar (fromJust (opts.optionsBrowserNamespace)))
+    Globals -> JSAccessor (moduleNameToJs mn) (JSVar (fromJust opts.browserNamespace))
 
 imports :: Declaration -> [ModuleName]
 imports =
@@ -164,7 +164,7 @@ valueToJs opts m e (Let ds val) = do
 valueToJs opts m e (Abs (Left arg) val) = do
   ret <- valueToJs opts m e val
   return $ JSFunction Nothing [identToJs arg] (JSBlock [JSReturn ret])
-valueToJs opts@(Options o) m e (TypedValue _ (Abs (Left arg) val) ty) | o.optionsPerformRuntimeTypeChecks = do
+valueToJs opts@(Options o) m e (TypedValue _ (Abs (Left arg) val) ty) | o.performRuntimeTypeChecks = do
   let arg' = identToJs arg
   ret <- valueToJs opts m e val
   return $ JSFunction Nothing [arg'] (JSBlock $ runtimeTypeChecks arg' ty ++ [JSReturn ret])

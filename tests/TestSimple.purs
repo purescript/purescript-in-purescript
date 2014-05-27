@@ -10,17 +10,9 @@ import Control.Apply
 import Control.Monad.Identity
 import Control.Monad.State.Class
 
+import Language.PureScript
 import Language.PureScript.Declarations
-import Language.PureScript.Supply
-import Language.PureScript.Sugar
-import Language.PureScript.TypeChecker
-import Language.PureScript.TypeChecker.Monad
-import Language.PureScript.Environment
 import Language.PureScript.Options
-import Language.PureScript.CodeGen.JS
-import Language.PureScript.Supply
-import Language.PureScript.Names
-import Language.PureScript.Pretty.JS
 
 import qualified Language.PureScript.Parser.Lexer as P
 import qualified Language.PureScript.Parser.Common as P
@@ -45,24 +37,8 @@ main = do
         Left err -> trace err
         Right mod -> do
           trace $ "Module: " ++ show mod
-          trace "Desugaring module"
-          case evalSupplyT 0 (desugar [mod]) of
+          trace "Compiling module"
+          case compile defaultOptions [mod] of
             Left err -> print err
-            Right [mod'@(Module mn ds exps)] -> do
-              trace $ "Desugared: " ++ show mod'
-              trace "Type checking and elaborating terms"
-              case runCheck defaultOptions (typeCheckModule mn ds) of
-                Left err -> print err
-                Right (Tuple ds' env) -> do
-                  trace $ "Elaborated: "++ show ds'
-                  trace "Generating code"
-                  case runIdentity (evalSupplyT 0 (moduleToJs CommonJS defaultOptions (Module mn ds' exps) env)) of
-                    jss -> do
-                      trace $ "Generated JS: " 
-                      trace $ prettyPrintJS jss
-
-typeCheckModule :: ModuleName -> [Declaration] -> Check [Declaration]
-typeCheckModule mn ds = do
-  modify (\(CheckState st) -> CheckState (st { currentModule = Just mn }))
-  typeCheckAll Nothing mn ds
-                    
+            Right tup3 -> do
+              trace $ "Compiled: " ++ show tup3
