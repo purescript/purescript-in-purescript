@@ -18,7 +18,6 @@ import Text.Pretty.PatternArrows
 
 import Language.PureScript.Names
 import Language.PureScript.Declarations
-import Language.PureScript.Errors (theImpossibleHappened)
 import Language.PureScript.Pretty.Common
 import Language.PureScript.Pretty.Types (prettyPrintType)
 
@@ -78,7 +77,6 @@ prettyPrintDeclaration (ValueDeclaration ident _ [] Nothing val) = joinWith "" <
   , prettyPrintValue' val
   ]
 prettyPrintDeclaration (PositionedDeclaration _ d) = prettyPrintDeclaration d
-prettyPrintDeclaration _ = theImpossibleHappened "Invalid argument to prettyPrintDeclaration"
 
 prettyPrintCaseAlternative :: CaseAlternative -> StateT PrinterState Maybe String
 prettyPrintCaseAlternative (CaseAlternative { binders = binders, guard = grd, result = val }) =

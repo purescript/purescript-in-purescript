@@ -30,7 +30,8 @@ import Control.Monad.Error.Proxy
 
 import Language.PureScript.Pos
 import Language.PureScript.Declarations
-{- import Language.PureScript.Pretty -}
+import Language.PureScript.Pretty.Values
+import Language.PureScript.Pretty.Types
 import Language.PureScript.Types
 
 -- |
@@ -134,8 +135,8 @@ isErrorNonEmpty _ = true
 
 showError :: CompileError -> String
 showError (CompileError { compileErrorMessage = msg, compileErrorValue = Nothing }) = msg
-showError (CompileError { compileErrorMessage = msg, compileErrorValue = Just (ValueError val) }) = "Error in value " ++ {- prettyPrintValue -} show val ++ ":\n" ++ msg
-showError (CompileError { compileErrorMessage = msg, compileErrorValue = Just (TypeError ty) }) = "Error in type " ++ {- prettyPrintType -} show ty ++ ":\n" ++ msg
+showError (CompileError { compileErrorMessage = msg, compileErrorValue = Just (ValueError val) }) = "Error in value " ++ prettyPrintValue val ++ ":\n" ++ msg
+showError (CompileError { compileErrorMessage = msg, compileErrorValue = Just (TypeError ty) }) = "Error in type " ++ prettyPrintType ty ++ ":\n" ++ msg
 
 mkErrorStack :: String -> Maybe ErrorSource -> ErrorStack
 mkErrorStack msg t = ErrorStack [mkCompileError msg t Nothing]

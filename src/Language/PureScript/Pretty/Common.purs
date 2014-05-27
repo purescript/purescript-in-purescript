@@ -9,7 +9,6 @@ import Data.Monoid
 import Data.Traversable (traverse)
 import Data.String (charAt, joinWith)
 
-import Language.PureScript.Errors (theImpossibleHappened)
 import Language.PureScript.Keywords
 
 -- |
@@ -77,4 +76,3 @@ prettyPrintObjectKey s = s
 runPretty :: forall a b. (a -> Maybe b) -> a -> b
 runPretty p x = case p x of
   Just x -> x
-  Nothing -> theImpossibleHappened "Incomplete pattern"

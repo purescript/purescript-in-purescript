@@ -31,17 +31,18 @@ main = do
   case P.lex example of
     Left err -> trace err
     Right tokens -> do
-      trace $ "Tokens: " ++ show tokens 
+      print tokens 
       trace "Parsing module"
       case P.runTokenParser (P.parseModule <* P.eof) tokens of
         Left err -> trace err
         Right mod -> do
-          trace $ "Module: " ++ show mod
+          print mod
           trace "Compiling module"
           case compile options [mod] of
-            Left err -> print err
-            Right tup3 -> do
-              trace $ "Compiled: " ++ show tup3
+            Left err -> trace err
+            Right (Data.Tuple3.Tuple3 js exts _) -> do
+              trace js
+              trace exts
               
 options :: Options
 options = Options { noPrelude: true
