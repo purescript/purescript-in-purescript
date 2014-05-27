@@ -18,8 +18,8 @@ import Language.PureScript.Names
 --
 identToJs :: Ident -> String
 identToJs (Ident name) | nameIsJsReserved name = "$$" ++ name
-identToJs (Ident name) = foldMap identCharToString (split name "")
-identToJs (Op op) = foldMap identCharToString (split op "")
+identToJs (Ident name) = foldMap identCharToString (split "" name)
+identToJs (Op op) = foldMap identCharToString (split "" op)
 
 -- |
 -- Attempts to find a human-readable name for a symbol, if none has been specified returns the
@@ -131,4 +131,4 @@ rxAlphaNum :: Regex
 rxAlphaNum = regex "[a-z0-9]" "i"
 
 rxIdent :: Regex
-rxIdent = regex "^[a-z][a-z0-9]+$" "i"
+rxIdent = regex "^[a-z][a-z0-9]*$" "i"
