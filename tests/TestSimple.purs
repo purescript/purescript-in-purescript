@@ -38,7 +38,20 @@ main = do
         Right mod -> do
           trace $ "Module: " ++ show mod
           trace "Compiling module"
-          case compile defaultOptions [mod] of
+          case compile options [mod] of
             Left err -> print err
             Right tup3 -> do
               trace $ "Compiled: " ++ show tup3
+              
+options :: Options
+options = Options { noPrelude: true
+                  , noTco: false
+                  , performRuntimeTypeChecks: false
+                  , noMagicDo: false
+                  , main: Nothing
+                  , noOptimizations: false
+                  , browserNamespace: Just "PS"
+                  , modules: []
+                  , codeGenModules: []
+                  , verboseErrors: true
+                  }
