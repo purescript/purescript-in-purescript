@@ -166,7 +166,7 @@ parseTypeInstanceDeclaration = do
   ty <- P.many parseTypeAtom
   members <- P.option [] $ do
     reserved "where"
-    P.many (positioned (parseValueDeclaration {}))
+    braces (semiSep1 (positioned (parseValueDeclaration {})))
   return $ TypeInstanceDeclaration name (fromMaybe [] deps) className ty members
   
 positioned :: P.Parser TokenStream Declaration -> P.Parser TokenStream Declaration
@@ -257,7 +257,7 @@ parseConstructor = Constructor <$> parseQualified properName
 
 parseCase :: {} -> P.Parser TokenStream Value
 parseCase _ = Case <$> P.between (P.try (reserved "case")) (reserved "of") (return <$> parseValue {})
-                   <*> P.many (parseCaseAlternative {})
+                   <*> braces (semiSep (parseCaseAlternative {}))
                  
 parseCaseAlternative :: {} -> P.Parser TokenStream CaseAlternative
 parseCaseAlternative _ = mkCaseAlternative <$> (return <$> parseBinder {})
@@ -273,10 +273,10 @@ parseIfThenElse _ = IfThenElse <$> (P.try (reserved "if") *> parseValue {})
 parseDo :: {} -> P.Parser TokenStream Value
 parseDo _ = do
   reserved "do"
-  Do <$> P.many (parseDoNotationElement {})
+  Do <$> braces (semiSep1 (parseDoNotationElement {}))
 
 parseDoNotationLet :: {} -> P.Parser TokenStream DoNotationElement
-parseDoNotationLet _ = DoNotationLet <$> (reserved "let" *> P.many1 (parseLocalDeclaration {}))
+parseDoNotationLet _ = DoNotationLet <$> (reserved "let" *> braces (semiSep1 (parseLocalDeclaration {})))
 
 parseDoNotationBind :: {} -> P.Parser TokenStream DoNotationElement
 parseDoNotationBind _ = DoNotationBind <$> parseBinder {} <*> (larrow *> parseValue {})
@@ -290,7 +290,7 @@ parseDoNotationElement _ = P.choice
 parseLet :: {} -> P.Parser TokenStream Value
 parseLet _ = do
   reserved "let"
-  ds <- P.many1 (parseLocalDeclaration {})
+  ds <- braces (semiSep1 (parseLocalDeclaration {}))
   reserved "in"
   result <- parseValue {}
   return $ Let ds result
