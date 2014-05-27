@@ -162,7 +162,7 @@ valueToJs opts m e (Let ds val) = do
   ret <- valueToJs opts m e val
   return $ JSApp (JSFunction Nothing [] (JSBlock (decls ++ [JSReturn ret]))) []
 valueToJs opts m e (Abs (Left arg) val) = do
-  ret <- valueToJs opts m (bindName m arg e) val
+  ret <- valueToJs opts m e val
   return $ JSFunction Nothing [identToJs arg] (JSBlock [JSReturn ret])
 valueToJs opts@(Options o) m e (TypedValue _ (Abs (Left arg) val) ty) | o.optionsPerformRuntimeTypeChecks = do
   let arg' = identToJs arg
@@ -192,24 +192,6 @@ extendObj obj sts = do
     stToAssign (Tuple s js) = JSAssignment (JSAccessor s jsNewObj) js
     extend = map stToAssign sts
   return $ JSApp (JSFunction Nothing [] block) []
-
--- |
--- Temporarily extends the environment with a single local variable name
---
-bindName :: ModuleName -> Ident -> Environment -> Environment
-bindName m ident = bindNames m [ident]
-
--- |
--- Temporarily extends the environment to include local variable names introduced by lambda
--- abstractions or case statements
---
-bindNames :: ModuleName -> [Ident] -> Environment -> Environment
-bindNames m idents (Environment env) = Environment $ env {
-    names = M.fromList (flip map idents (\ident -> Tuple (Tuple m ident) (Tuple noType LocalVariable))) `M.union` env.names
-  }
-  where
-  noType :: Type 
-  noType = error "Temporary lambda variable type was read"
 
 -- |
 -- Generate code in the simplified Javascript intermediate representation for runtime type checks.
@@ -266,7 +248,7 @@ bindersToJs opts m e binders vals = do
   valNames <- replicateM (length vals) freshName
   let assignments = zipWith JSVariableIntroduction valNames (map Just vals)
   jss <- for binders $ \(CaseAlternative { binders = bs, guard = grd, result = result }) -> do
-    ret <- valueToJs opts m (bindNames m (concatMap binderNames bs) e) result
+    ret <- valueToJs opts m e result
     go valNames [JSReturn ret] bs grd
   return $ JSApp (JSFunction Nothing [] (JSBlock (assignments ++ concat jss ++ [JSThrow (JSStringLiteral "Failed pattern match")])))
                  []
