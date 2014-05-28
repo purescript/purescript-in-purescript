@@ -35,12 +35,12 @@ import Language.PureScript.Parser.Lexer
 import Language.PureScript.Names
 import Language.PureScript.Keywords
 
-data TokenStream = TokenStream { tokens :: [Token], position :: Number }
+data TokenStream = TokenStream { tokens :: [PositionedToken], position :: Number }
 
-toTokenStream :: [Token] -> TokenStream
+toTokenStream :: [PositionedToken] -> TokenStream
 toTokenStream ts = TokenStream { tokens: ts, position: 0 }
 
-unconsStream :: TokenStream -> Maybe { head :: Token, tail :: TokenStream }
+unconsStream :: TokenStream -> Maybe { head :: PositionedToken, tail :: TokenStream }
 unconsStream (TokenStream o) | o.position < length o.tokens = 
   Just { head: o.tokens `unsafeIndex` o.position
        , tail: TokenStream { tokens: o.tokens
@@ -49,7 +49,7 @@ unconsStream (TokenStream o) | o.position < length o.tokens =
        }
 unconsStream _ = Nothing
 
-runTokenParser :: forall a. Parser TokenStream a -> [Token] -> Either String a
+runTokenParser :: forall a. Parser TokenStream a -> [PositionedToken] -> Either String a
 runTokenParser p ts = case runParser (toTokenStream ts) p of
   Left (ParseError o) -> Left o.message
   Right a -> Right a
@@ -59,19 +59,19 @@ eof = do
   ts <- get
   case unconsStream ts of
     Nothing -> return {}
-    _ -> fail "Expected EOF"
+    Just cons -> fail $ "Expected EOF at line " ++ show cons.head.line ++ ", column " ++ show cons.head.column 
     
 token :: forall a. String -> (Token -> String) -> (Token -> Maybe a) -> Parser TokenStream a
 token exp sh p = do
   ts <- get
   case unconsStream ts of
     Just cons -> 
-      case p cons.head of
+      case p cons.head.token of
         Just a -> do
           put (Consumed true)
           put cons.tail
           return a
-        Nothing -> fail $ "Expected " ++ exp ++ ", found " ++ sh cons.head
+        Nothing -> fail $ "Expected " ++ exp ++ ", found " ++ sh cons.head.token ++ " at line " ++ show cons.head.line ++ ", column " ++ show cons.head.column 
     _ -> fail $ "Expected " ++ exp ++ ", found EOF"
     
 token' :: forall a. String -> (Token -> Maybe a) -> Parser TokenStream a
@@ -330,7 +330,11 @@ parseQualified parser = part []
   qual path = if null path then Nothing else Just $ ModuleName path
   
 -- |
--- TODO: A parser which returns the current source position
+-- A parser which returns the current source position
 --
 sourcePos :: Parser TokenStream SourcePos
-sourcePos = return $ mkSourcePos "" 0 0
+sourcePos = do
+  ts <- get
+  case unconsStream ts of
+    Nothing -> return $ mkSourcePos "" 0 0
+    Just cons -> return $ mkSourcePos "" cons.head.line cons.head.column

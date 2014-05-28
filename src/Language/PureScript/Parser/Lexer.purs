@@ -3,7 +3,7 @@ module Language.PureScript.Parser.Lexer where
 import Data.Either
 import Data.String
 
-import Language.PureScript.Keywords (opCharsString)
+import Language.PureScript.Keywords (opCharsString)  
   
 data Token
   = LParen
@@ -124,7 +124,16 @@ type Indentation = Number
 type Line = Number
 type Column = Number 
     
-type Position = Number    
+type Position = Number  
+  
+type PositionedToken = 
+  { line :: Line
+  , column :: Column
+  , token :: Token
+  }
+  
+mkPositionedToken :: Line -> Column -> Token -> PositionedToken
+mkPositionedToken line column token = { line: line, column: column, token: token }
     
 foreign import unEscape 
   "function unEscape(s) {\
@@ -139,13 +148,13 @@ foreign import unEscape
   \  };\
   \}" :: forall r. String -> (String -> r) -> r -> r
       
-lex :: String -> Either String [Token]
+lex :: String -> Either String [PositionedToken]
 lex input = do
   let wh = eatWhitespace 0 []
   ts <- go 1 (wh.next + 1) wh.next []
   removeWhitespace [] ts []
   where
-  go :: Line -> Column -> Position -> [Token] -> Either String [Token]
+  go :: Line -> Column -> Position -> [PositionedToken] -> Either String [PositionedToken]
   go _    _   i ts | i >= length input = Right (Data.Array.reverse ts)
   go line col i ts | charAt i input == " " = go line (col + 1) (i + 1) ts
   go line col i ts | charAt i input == "\r" = go line (col + 1) (i + 1) ts
@@ -155,37 +164,37 @@ lex input = do
 
   go line col i ts | charAt i input == "-" && charAt (i + 1) input == "-" && lookaheadChar (i + 2) (not <<< isSymbolChar) = 
     let tok = eatWhile (i + 2) (\s -> s /= "\n")
-    in go line (col + length tok.str) tok.next (LineComment tok.str : ts)
+    in go line (col + length tok.str) tok.next (mkPositionedToken line col (LineComment tok.str) : ts)
   go line col i ts | charAt i input == "{" && charAt (i + 1) input == "-" = 
     let tok = eatWhile' (i + 2) (\j -> j < length input && ((charAt j input /= "-") || (charAt (j + 1) input /= "}")))
-    in go line (col + length tok.str + 2) (tok.next + 2) (BlockComment tok.str : ts)
+    in go line (col + length tok.str + 2) (tok.next + 2) (mkPositionedToken line col (BlockComment tok.str) : ts)
       
-  go line col i ts | charAt i input == "(" = go line (col + 1) (i + 1) (LParen : ts)
-  go line col i ts | charAt i input == ")" = go line (col + 1) (i + 1) (RParen : ts)
-  go line col i ts | charAt i input == "{" = go line (col + 1) (i + 1) (LBrace : ts)
-  go line col i ts | charAt i input == "}" = go line (col + 1) (i + 1) (RBrace : ts)
-  go line col i ts | charAt i input == "[" = go line (col + 1) (i + 1) (LSquare : ts)
-  go line col i ts | charAt i input == "]" = go line (col + 1) (i + 1) (RSquare : ts)
-  go line col i ts | charAt i input == "." && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (Dot : ts)
-  go line col i ts | charAt i input == "<" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (LAngle : ts)
-  go line col i ts | charAt i input == ">" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (RAngle : ts)
-  go line col i ts | charAt i input == ":" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (Colon : ts)
-  go line col i ts | charAt i input == "=" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (Equals : ts)
-  go line col i ts | charAt i input == "|" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (Pipe : ts)
-  go line col i ts | charAt i input == "@" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (At : ts)
-  go line col i ts | charAt i input == "`" = go line (col + 1) (i + 1) (Tick : ts)
-  go line col i ts | charAt i input == "," = go line (col + 1) (i + 1) (Comma : ts)
-  go line col i ts | charAt i input == ";" = go line (col + 1) (i + 1) (Semi : ts)
+  go line col i ts | charAt i input == "(" = go line (col + 1) (i + 1) (mkPositionedToken line col LParen : ts)
+  go line col i ts | charAt i input == ")" = go line (col + 1) (i + 1) (mkPositionedToken line col RParen : ts)
+  go line col i ts | charAt i input == "{" = go line (col + 1) (i + 1) (mkPositionedToken line col LBrace : ts)
+  go line col i ts | charAt i input == "}" = go line (col + 1) (i + 1) (mkPositionedToken line col RBrace : ts)
+  go line col i ts | charAt i input == "[" = go line (col + 1) (i + 1) (mkPositionedToken line col LSquare : ts)
+  go line col i ts | charAt i input == "]" = go line (col + 1) (i + 1) (mkPositionedToken line col RSquare : ts)
+  go line col i ts | charAt i input == "." && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (mkPositionedToken line col Dot : ts)
+  go line col i ts | charAt i input == "<" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (mkPositionedToken line col LAngle : ts)
+  go line col i ts | charAt i input == ">" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (mkPositionedToken line col RAngle : ts)
+  go line col i ts | charAt i input == ":" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (mkPositionedToken line col Colon : ts)
+  go line col i ts | charAt i input == "=" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (mkPositionedToken line col Equals : ts)
+  go line col i ts | charAt i input == "|" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (mkPositionedToken line col Pipe : ts)
+  go line col i ts | charAt i input == "@" && lookaheadChar (i + 1) (not <<< isSymbolChar) = go line (col + 1) (i + 1) (mkPositionedToken line col At : ts)
+  go line col i ts | charAt i input == "`" = go line (col + 1) (i + 1) (mkPositionedToken line col Tick : ts)
+  go line col i ts | charAt i input == "," = go line (col + 1) (i + 1) (mkPositionedToken line col Comma : ts)
+  go line col i ts | charAt i input == ";" = go line (col + 1) (i + 1) (mkPositionedToken line col Semi : ts)
   
-  go line col i ts | charAt i input == ":" && charAt (i + 1) input == ":" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) (DoubleColon : ts)
-  go line col i ts | charAt i input == "<" && charAt (i + 1) input == "-" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) (LArrow : ts)
-  go line col i ts | charAt i input == "-" && charAt (i + 1) input == ">" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) (RArrow : ts)
-  go line col i ts | charAt i input == "<" && charAt (i + 1) input == "=" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) (LFatArrow : ts)
-  go line col i ts | charAt i input == "=" && charAt (i + 1) input == ">" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) (RFatArrow : ts)
+  go line col i ts | charAt i input == ":" && charAt (i + 1) input == ":" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) (mkPositionedToken line col DoubleColon : ts)
+  go line col i ts | charAt i input == "<" && charAt (i + 1) input == "-" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) (mkPositionedToken line col LArrow : ts)
+  go line col i ts | charAt i input == "-" && charAt (i + 1) input == ">" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) (mkPositionedToken line col RArrow : ts)
+  go line col i ts | charAt i input == "<" && charAt (i + 1) input == "=" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) (mkPositionedToken line col LFatArrow : ts)
+  go line col i ts | charAt i input == "=" && charAt (i + 1) input == ">" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) (mkPositionedToken line col RFatArrow : ts)
   
   go line col i ts | isNumeric (charAt i input) =
     let ns = eatWhile i isNumeric 
-    in go line (col + length ns.str) ns.next (Natural (buildNat ns.str 0 0) : ts)
+    in go line (col + length ns.str) ns.next (mkPositionedToken line col (Natural (buildNat ns.str 0 0)) : ts)
     where
     buildNat :: String -> Number -> Number -> Number
     buildNat s i acc | i >= length s = acc
@@ -208,54 +217,54 @@ lex input = do
         col' = col + length tok.str
     in case tok.str of
       s | shouldIndent tok.str -> 
-        let lme = nextLexeme line col' tok.next ts
+        let lme = nextLexeme line col' tok.next
         in case {} of
-          _ | charAt lme.next input == "{" -> go line col' tok.next (LName tok.str : ts)
-          _ ->  go lme.line lme.col lme.next (ShouldIndent lme.col : LName tok.str : ts)
-      s -> go line col' tok.next (LName tok.str : ts)
+          _ | charAt lme.next input == "{" -> go line col' tok.next (mkPositionedToken line col (LName tok.str) : ts)
+          _ ->  go lme.line lme.col lme.next (mkPositionedToken line col (ShouldIndent lme.col) : mkPositionedToken line col (LName tok.str) : ts)
+      s -> go line col' tok.next (mkPositionedToken line col (LName tok.str) : ts)
     
   go line col i ts | isUpper (charAt i input) = 
     let tok = eatWhile i isIdentChar
-    in go line (col + length tok.str) tok.next (UName tok.str : ts)
+    in go line (col + length tok.str) tok.next (mkPositionedToken line col (UName tok.str) : ts)
   go line col i ts | isSymbolChar (charAt i input) = 
     let tok = eatWhile i isSymbolChar
-    in go line (col + length tok.str) tok.next (Symbol tok.str : ts)
+    in go line (col + length tok.str) tok.next (mkPositionedToken line col (Symbol tok.str) : ts)
     
   go line col i ts | charAt i input == "\"" =
     case readStringLiteral (i + 1) of
       Left err -> Left err
-      Right tok -> go line (col + tok.count) tok.next (StringLiteral tok.str : ts)
+      Right tok -> go line (col + tok.count) tok.next (mkPositionedToken line col (StringLiteral tok.str) : ts)
     
   go line col _ _ = Left $ "Lexer error at line " ++ show line ++ ", column " ++ show col
   
-  removeWhitespace :: [Indentation] -> [Token] -> [Token] -> Either String [Token]
-  removeWhitespace (m : ms) (Newline n : ts)      acc | m == n = removeWhitespace (m : ms) ts (Semi : acc)
-  removeWhitespace (m : ms) (Newline n : ts)      acc | n < m = removeWhitespace ms ts (RBrace : acc)
-  removeWhitespace ms       (Newline n : ts)      acc = removeWhitespace ms ts acc
-  removeWhitespace (m : ms) (ShouldIndent n : ts) acc | n > m = removeWhitespace (n : m : ms) ts (LBrace : acc)
-  removeWhitespace []       (ShouldIndent n : ts) acc | n > 1 = removeWhitespace [n] ts (LBrace : acc)
-  removeWhitespace ms       (ShouldIndent n : ts) acc = removeWhitespace ms (Newline n : ts) (RBrace : LBrace : acc)
-  removeWhitespace (1 : ms) (RBrace : ts)         acc = removeWhitespace ms ts (RBrace : acc)
-  removeWhitespace _        (RBrace : ts)         acc = Left "Unexpected }"
-  removeWhitespace ms       (LBrace : ts)         acc = removeWhitespace (1 : ms) ts (LBrace : acc)
-  removeWhitespace ms       (t : ts)              acc = removeWhitespace ms ts (t : acc)
-  removeWhitespace []       []                    acc = return (Data.Array.reverse acc)
-  removeWhitespace (m : ms) []                    acc | m > 1 = removeWhitespace ms [] (RBrace : acc)
+  removeWhitespace :: [Indentation] -> [PositionedToken] -> [PositionedToken] -> Either String [PositionedToken]
+  removeWhitespace (m : ms) ((t@{ token = Newline n })      : ts) acc | m == n = removeWhitespace (m : ms) ts (mkPositionedToken t.line t.column Semi : acc)
+  removeWhitespace (m : ms) ((t@{ token = Newline n })      : ts) acc | n < m = removeWhitespace ms ts (mkPositionedToken t.line t.column RBrace : acc)
+  removeWhitespace ms       ((t@{ token = Newline n })      : ts) acc = removeWhitespace ms ts acc
+  removeWhitespace (m : ms) ((t@{ token = ShouldIndent n }) : ts) acc | n > m = removeWhitespace (n : m : ms) ts (mkPositionedToken t.line t.column LBrace : acc)
+  removeWhitespace []       ((t@{ token = ShouldIndent n }) : ts) acc | n > 1 = removeWhitespace [n] ts (mkPositionedToken t.line t.column LBrace : acc)
+  removeWhitespace ms       ((t@{ token = ShouldIndent n }) : ts) acc = removeWhitespace ms (mkPositionedToken t.line t.column (Newline n) : ts) (mkPositionedToken t.line t.column RBrace : mkPositionedToken t.line t.column LBrace : acc)
+  removeWhitespace (1 : ms) ((t@{ token = RBrace })         : ts) acc = removeWhitespace ms ts (mkPositionedToken t.line t.column RBrace : acc)
+  removeWhitespace _        ((t@{ token = RBrace })         : ts) acc = Left "Unexpected }"
+  removeWhitespace ms       ((t@{ token = LBrace })         : ts) acc = removeWhitespace (1 : ms) ts (mkPositionedToken t.line t.column LBrace : acc)
+  removeWhitespace ms       (t : ts)                              acc = removeWhitespace ms ts (t : acc)
+  removeWhitespace []       []                                    acc = return (Data.Array.reverse acc)
+  removeWhitespace (m : ms) []                                    acc | m > 1 = removeWhitespace ms [] (mkPositionedToken 0 0 RBrace : acc)
   
-  nextLexeme :: Line -> Column -> Position -> [Token] -> { line :: Line, col :: Column, next :: Position }
+  nextLexeme :: Line -> Column -> Position -> { line :: Line, col :: Column, next :: Position }
   nextLexeme = eat
     where
-    eat line col i ts | charAt i input == " " = eat line (col + 1) (i + 1) ts
-    eat line col i ts | charAt i input == "\r" = eat line col (i + 1) ts
-    eat line col i ts | charAt i input == "\n" = eat (line + 1) 1 (i + 1) ts
-    eat line col i ts = { line: line, col: col, next: i }
+    eat line col i | charAt i input == " "  = eat line (col + 1) (i + 1)
+    eat line col i | charAt i input == "\r" = eat line col (i + 1)
+    eat line col i | charAt i input == "\n" = eat (line + 1) 1 (i + 1)
+    eat line col i = { line: line, col: col, next: i }
   
-  eatWhitespace :: Position -> [Token] -> { len :: Number, count :: Number, next :: Position, toks :: [Token] }
+  eatWhitespace :: Position -> [PositionedToken] -> { len :: Number, count :: Number, next :: Position, toks :: [PositionedToken] }
   eatWhitespace = eat 0 0
     where
     eat len count i ts | charAt i input == " " = eat (len + 1) (count + 1) (i + 1) ts
     eat len count i ts | charAt i input == "\r" = eat len (count + 1) (i + 1) ts
-    eat len count i ts = { len: len, count: count, next: i, toks: Newline (len + 1) : ts }
+    eat len count i ts = { len: len, count: count, next: i, toks: mkPositionedToken 0 0 (Newline (len + 1)) : ts }
     
   eatWhile :: Position -> (String -> Boolean) -> { next :: Position, str :: String }
   eatWhile start p = eatWhile' start (\i -> p (charAt i input))
