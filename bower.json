@@ -4,6 +4,7 @@
   "dependencies": {
     "purescript-arrows": "*",
     "purescript-node-readline": "*",
+    "purescript-node-args": "*",
     "purescript-maps": "*",
     "purescript-transformers": "*",
     "purescript-pattern-arrows": "*",

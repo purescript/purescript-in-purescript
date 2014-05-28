@@ -50,6 +50,29 @@ data Options = Options {
   , verboseErrors :: Boolean
   }
 
+mkOptions :: Boolean -> Boolean -> Boolean -> Boolean -> Maybe String -> Boolean -> Maybe String -> [String] -> [String] -> Boolean -> Options
+mkOptions noPrelude 
+          noTco 
+          performRuntimeTypeChecks 
+          noMagicDo 
+          main 
+          noOptimizations 
+          browserNamespace 
+          modules 
+          codeGenModules 
+          verboseErrors = 
+  Options { noPrelude: noPrelude
+          , noTco: noTco
+          , performRuntimeTypeChecks: performRuntimeTypeChecks
+          , noMagicDo: noMagicDo
+          , main: main
+          , noOptimizations: noOptimizations
+          , browserNamespace: browserNamespace
+          , modules: modules
+          , codeGenModules: codeGenModules
+          , verboseErrors: verboseErrors
+          }
+
 -- |
 -- Default compiler 
 --
