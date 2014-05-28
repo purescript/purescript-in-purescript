@@ -61,7 +61,7 @@ createBindingGroups moduleName ds = do
   values <- traverse (createBindingGroupsForValue moduleName) $ filter isValueDecl ds
   let dataDecls = filter isDataDecl ds
       declNamed pn = 
-        case find (\d -> getProperName d == pn) ds of
+        case find (\d -> getProperName d == pn) dataDecls of
           Just d -> d
       dataVerts = map getProperName dataDecls
       dataEdges = do d1 <- dataDecls
