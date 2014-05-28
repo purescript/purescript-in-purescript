@@ -238,6 +238,7 @@ lex input = do
   go line col _ _ = Left $ "Lexer error at line " ++ show line ++ ", column " ++ show col
   
   removeWhitespace :: [Indentation] -> [PositionedToken] -> [PositionedToken] -> Either String [PositionedToken]
+  removeWhitespace ms       ({ token = Newline _ } : (t@{ token = Newline _ }) : ts) acc = removeWhitespace ms (t : ts) acc
   removeWhitespace (m : ms) ((t@{ token = Newline n })      : ts) acc | m == n = removeWhitespace (m : ms) ts (mkPositionedToken t.line t.column Semi : acc)
   removeWhitespace (m : ms) ((t@{ token = Newline n })      : ts) acc | n < m = removeWhitespace ms ts (mkPositionedToken t.line t.column RBrace : acc)
   removeWhitespace ms       ((t@{ token = Newline n })      : ts) acc = removeWhitespace ms ts acc
