@@ -25,9 +25,11 @@ import Data.Either
 import Data.Traversable (for)
 
 import Control.Monad.Eff
+import Control.Monad.Eff.Unsafe
 import Control.Monad.Eff.Exception
 
 import Control.Apply
+import Control.Monad.Trans
 import Control.Monad.Identity
 import Control.Monad.State.Class
 import Control.Monad.Error.Trans
@@ -69,14 +71,45 @@ foreign import readFile
   \    };\
   \  };\
   \}" :: forall eff r. String -> (String -> r) -> (String -> r) -> Eff (fs :: FS | eff) r
+  
+foreign import writeFile
+  "function writeFile(filename) {\
+  \  return function(data) {\
+  \    return function(k) {\
+  \      return function(fail) {\
+  \        return function() {\
+  \          try {\
+  \            return k(require('fs').writeFileSync(filename, data, 'utf8'));\
+  \          } catch(err) {\
+  \            return fail(err);\
+  \          }\
+  \        };\
+  \      };\
+  \    };\
+  \  };\
+  \}" :: forall eff r. String -> String -> ({} -> r) -> (String -> r) -> Eff (fs :: FS | eff) r
 
-type AppMonad eff = ErrorT String (Eff (fs :: FS | eff))
+type AppEffects = (fs :: FS, trace :: Trace, process :: Process)
 
-runAppMonad :: forall eff a. AppMonad eff a -> Eff (fs :: FS | eff) (Either String a)
-runAppMonad app = runErrorT app
+type AppMonad = ErrorT String (Eff AppEffects)
 
-readFileApp :: forall eff. String -> AppMonad eff String
+runAppMonad :: forall a. AppMonad a -> Eff AppEffects {}
+runAppMonad app = do
+  result <- runErrorT app
+  case result of
+    Left err -> do
+      trace err
+      exit 1
+    Right _ -> exit 0
+
+readFileApp :: String -> AppMonad String
 readFileApp filename = ErrorT $ readFile filename Right Left
+
+writeFileApp :: String -> String -> AppMonad {}
+writeFileApp filename text = ErrorT $ writeFile filename text Right Left
+
+eitherApp :: forall a. Either String a -> AppMonad a
+eitherApp e = ErrorT (return e)
 
 preludeFilename :: String
 preludeFilename = "prelude/prelude.purs"
@@ -86,7 +119,7 @@ modulesFromText text = do
   tokens <- P.lex text
   P.runTokenParser P.parseModules tokens
   
-readInput :: forall eff. [String] -> AppMonad eff [Module]
+readInput :: forall eff. [String] -> AppMonad [Module]
 readInput input = 
   concat <$> for input (\inputFile -> do
     text <- readFileApp inputFile
@@ -94,26 +127,16 @@ readInput input =
       Left err -> throwError err
       Right ms -> return ms)
 
-runCompiler :: forall eff. Options -> [String] -> Maybe String -> Maybe String -> Eff (trace :: Trace, fs :: FS, process :: Process | eff) {}
-runCompiler opts input output externs = do
-  modules <- runAppMonad (readInput input) 
-  case modules of
-    Left err -> do
-      trace err
-      exit 1
-    Right ms -> do
-      case compile opts ms of
-        Left err -> do
-          trace err
-          exit 1
-        Right (Tuple3 js exts _) -> do
-          case output of
-            Just path -> trace "Not implemented" -- mkdirp path >> U.writeFile path js
-            Nothing -> trace js
-          case externs of
-            Just path -> trace "Not implemented" -- mkdirp path >> U.writeFile path exts
-            Nothing -> return {}
-          exit 0
+runCompiler :: forall eff. Options -> [String] -> Maybe String -> Maybe String -> Eff AppEffects {}
+runCompiler opts input output externs = runAppMonad do
+  modules <- readInput input
+  Tuple3 js exts _ <- eitherApp $ compile opts modules
+  case output of
+    Just path -> writeFileApp path js
+    Nothing -> lift $ trace js
+  case externs of
+    Just path -> writeFileApp path exts
+    Nothing -> return {}
 
 flag :: String -> String -> Args Boolean
 flag shortForm longForm = maybe false (const true) <$> opt (flagOnly shortForm <|> flagOnly longForm)
@@ -178,7 +201,7 @@ inputFilesAndPrelude = combine <$> noPrelude <*> inputFiles
   combine true  input = input
   combine false input = preludeFilename : input
 
-term :: Args (Eff (trace :: Trace, fs :: FS, process :: Process) {})
+term :: Args (Eff AppEffects {})
 term = runCompiler <$> options <*> inputFilesAndPrelude <*> outputFile <*> externsFile
 
 main = catchException (\err -> print err) $ readArgs' term
