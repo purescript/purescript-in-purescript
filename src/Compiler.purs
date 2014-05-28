@@ -128,15 +128,18 @@ readInput input =
       Right ms -> return ms)
 
 runCompiler :: forall eff. Options -> [String] -> Maybe String -> Maybe String -> Eff AppEffects {}
-runCompiler opts input output externs = runAppMonad do
-  modules <- readInput input
+runCompiler opts@(Options optso) input output externs = runAppMonad do
+  modules <- readInput allInputFiles
   Tuple3 js exts _ <- eitherApp $ compile opts modules
   case output of
-    Just path -> writeFileApp path js
     Nothing -> lift $ trace js
-  case externs of
-    Just path -> writeFileApp path exts
-    Nothing -> return {}
+    Just path -> writeFileApp path js
+  for externs $ \path -> writeFileApp path exts
+  return {}
+  where
+  allInputFiles :: [String]
+  allInputFiles | optso.noPrelude = input
+  allInputFiles = preludeFilename : input
 
 flag :: String -> String -> Args Boolean
 flag shortForm longForm = maybe false (const true) <$> opt (flagOnly shortForm <|> flagOnly longForm)
@@ -195,13 +198,7 @@ options = mkOptions <$> noPrelude
                     <*> codeGenModules 
                     <*> verboseErrors
 
-inputFilesAndPrelude :: Args [String]
-inputFilesAndPrelude = combine <$> noPrelude <*> inputFiles
-  where
-  combine true  input = input
-  combine false input = preludeFilename : input
-
 term :: Args (Eff AppEffects {})
-term = runCompiler <$> options <*> inputFilesAndPrelude <*> outputFile <*> externsFile
+term = runCompiler <$> options <*> inputFiles <*> outputFile <*> externsFile
 
 main = catchException (\err -> print err) $ readArgs' term
