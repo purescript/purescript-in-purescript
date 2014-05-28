@@ -18,6 +18,8 @@ import Debug.Trace
 
 import Data.Maybe
 import Data.Tuple
+import Data.Tuple3
+import Data.Array (concat, map)
 import Data.Either
 
 import Data.Traversable (for)
@@ -28,6 +30,9 @@ import Control.Monad.Eff.Exception
 import Control.Apply
 import Control.Monad.Identity
 import Control.Monad.State.Class
+import Control.Monad.Error.Trans
+import Control.Monad.Error.Class
+import Control.Monad.Cont.Trans
 
 import Node.Args
 
@@ -39,7 +44,7 @@ import qualified Language.PureScript.Parser.Lexer as P
 import qualified Language.PureScript.Parser.Common as P
 import qualified Language.PureScript.Parser.Declarations as P
 
-foreign import data FS :: # ! -> !
+foreign import data FS :: !
 
 foreign import data Process :: !
 
@@ -57,15 +62,23 @@ foreign import readFile
   \      return function() {\
   \        require('fs').readFile(filename, 'utf8', function(err, data) {\
   \          if (err) {\
-  \            fail(err);\
+  \            fail(err)();\
   \          } else {\
-  \            k(data);\
+  \            k(data)();\
   \          }\
   \        });\
   \      };\
   \    };\
   \  };\
-  \}" :: forall eff rest. String -> (String -> Eff eff {}) -> (String -> Eff eff {}) -> Eff (fs :: FS eff | rest) {}
+  \}" :: forall eff. String -> (String -> Eff (fs :: FS | eff) {}) -> (String -> Eff (fs :: FS | eff) {}) -> Eff (fs :: FS | eff) {}
+
+type AppMonad eff = ErrorT String (ContT {} (Eff (fs :: FS | eff)))
+
+runAppMonad :: forall eff a. AppMonad eff a -> (Either String a -> Eff (fs :: FS | eff) {}) -> Eff (fs :: FS | eff) {}
+runAppMonad app = runContT (runErrorT app)
+
+readFileCont :: forall eff. String -> AppMonad eff String
+readFileCont filename = ErrorT $ ContT $ \k -> readFile filename (k <<< Right) (k <<< Left)
 
 preludeFilename :: String
 preludeFilename = "prelude/prelude.purs"
@@ -74,45 +87,34 @@ modulesFromText :: String -> Either String [Module]
 modulesFromText text = do
   tokens <- P.lex text
   P.runTokenParser P.parseModules tokens
-
-runCompiler :: Options -> [String] -> Maybe String -> Maybe String -> Eff (trace :: Trace) {}
-runCompiler _ _ _ _ = trace "Not implemented"
-
-{-
-readInput :: [String] -> Eff eff (Either ParseError [Tuple String Module])
+  
+readInput :: forall eff. [String] -> AppMonad eff [Module]
 readInput input = 
-  collect <$> for input $ \inputFile -> do
-    text <- readFile inputFile
-    let modules = modulesFromText text
-    return $ (Tuple inputFile modules)
-  where
-  collect :: [(FilePath, Either ParseError [P.Module])] -> Either ParseError [(FilePath, P.Module)]
-  collect = fmap concat . sequence . map (\(fp, e) -> fmap (map ((,) fp)) e)
+  concat <$> for input (\inputFile -> do
+    text <- readFileCont inputFile
+    case modulesFromText text of
+      Left err -> throwError err
+      Right ms -> return ms)
 
-compile :: Options -> [String] -> Maybe FilePath -> Maybe FilePath -> IO ()
-compile opts input output externs = do
-  modules <- readInput input
+runCompiler :: forall eff. Options -> [String] -> Maybe String -> Maybe String -> Eff (trace :: Trace, fs :: FS, process :: Process | eff) {}
+runCompiler opts input output externs = runAppMonad (readInput input) $ \modules ->
   case modules of
     Left err -> do
-      U.print err
-      exitFailure
+      trace err
+      exit 1
     Right ms -> do
-      case P.compile opts (map snd ms) of
+      case compile opts ms of
         Left err -> do
-          print err
+          trace err
           exit 1
         Right (Tuple3 js exts _) -> do
           case output of
-            Just path -> mkdirp path >> U.writeFile path js
-            Nothing -> U.putStrLn js
+            Just path -> trace "Not implemented" -- mkdirp path >> U.writeFile path js
+            Nothing -> trace js
           case externs of
-            Just path -> mkdirp path >> U.writeFile path exts
+            Just path -> trace "Not implemented" -- mkdirp path >> U.writeFile path exts
             Nothing -> return {}
           exit 0
-
-mkdirp :: FilePath -> IO ()
-mkdirp = createDirectoryIfMissing true . takeDirectory
--}
 
 flag :: String -> String -> Args Boolean
 flag shortForm longForm = maybe false (const true) <$> opt (flagOnly shortForm <|> flagOnly longForm)
@@ -172,12 +174,12 @@ options = mkOptions <$> noPrelude
                     <*> verboseErrors
 
 inputFilesAndPrelude :: Args [String]
-inputFilesAndPrelude = combine <$> (not <$> noPrelude) <*> inputFiles
+inputFilesAndPrelude = combine <$> noPrelude <*> inputFiles
   where
-  combine true  input = preludeFilename : input
-  combine false input = input
+  combine true  input = input
+  combine false input = preludeFilename : input
 
-term :: Args (Eff (trace :: Trace) {})
+term :: Args (Eff (trace :: Trace, fs :: FS, process :: Process) {})
 term = runCompiler <$> options <*> inputFilesAndPrelude <*> outputFile <*> externsFile
 
 main = catchException (\err -> print err) $ readArgs' term
