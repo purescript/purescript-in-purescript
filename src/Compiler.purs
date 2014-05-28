@@ -60,25 +60,23 @@ foreign import readFile
   \  return function(k) {\
   \    return function(fail) {\
   \      return function() {\
-  \        require('fs').readFile(filename, 'utf8', function(err, data) {\
-  \          if (err) {\
-  \            fail(err)();\
-  \          } else {\
-  \            k(data)();\
-  \          }\
-  \        });\
+  \        try {\
+  \          return k(require('fs').readFileSync(filename, 'utf8'));\
+  \        } catch(err) {\
+  \          return fail(err);\
+  \        }\
   \      };\
   \    };\
   \  };\
-  \}" :: forall eff. String -> (String -> Eff (fs :: FS | eff) {}) -> (String -> Eff (fs :: FS | eff) {}) -> Eff (fs :: FS | eff) {}
+  \}" :: forall eff r. String -> (String -> r) -> (String -> r) -> Eff (fs :: FS | eff) r
 
-type AppMonad eff = ErrorT String (ContT {} (Eff (fs :: FS | eff)))
+type AppMonad eff = ErrorT String (Eff (fs :: FS | eff))
 
-runAppMonad :: forall eff a. AppMonad eff a -> (Either String a -> Eff (fs :: FS | eff) {}) -> Eff (fs :: FS | eff) {}
-runAppMonad app = runContT (runErrorT app)
+runAppMonad :: forall eff a. AppMonad eff a -> Eff (fs :: FS | eff) (Either String a)
+runAppMonad app = runErrorT app
 
-readFileCont :: forall eff. String -> AppMonad eff String
-readFileCont filename = ErrorT $ ContT $ \k -> readFile filename (k <<< Right) (k <<< Left)
+readFileApp :: forall eff. String -> AppMonad eff String
+readFileApp filename = ErrorT $ readFile filename Right Left
 
 preludeFilename :: String
 preludeFilename = "prelude/prelude.purs"
@@ -91,13 +89,14 @@ modulesFromText text = do
 readInput :: forall eff. [String] -> AppMonad eff [Module]
 readInput input = 
   concat <$> for input (\inputFile -> do
-    text <- readFileCont inputFile
+    text <- readFileApp inputFile
     case modulesFromText text of
       Left err -> throwError err
       Right ms -> return ms)
 
 runCompiler :: forall eff. Options -> [String] -> Maybe String -> Maybe String -> Eff (trace :: Trace, fs :: FS, process :: Process | eff) {}
-runCompiler opts input output externs = runAppMonad (readInput input) $ \modules ->
+runCompiler opts input output externs = do
+  modules <- runAppMonad (readInput input) 
   case modules of
     Left err -> do
       trace err
