@@ -201,4 +201,9 @@ options = mkOptions <$> noPrelude
 term :: Args (Eff AppEffects {})
 term = runCompiler <$> options <*> inputFiles <*> outputFile <*> externsFile
 
-main = catchException (\err -> print err) $ readArgs' term
+main = do
+  result <- readArgs' term
+  case result of
+    Left err -> print err
+    _ -> return {}
+

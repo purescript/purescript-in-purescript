@@ -79,40 +79,38 @@ inlineOperator (Tuple m op) f = everywhereOnJS convert
 
 inlineCommonOperators :: JS -> JS
 inlineCommonOperators = applyAll
-  [ 
-    -- binary C.numNumber (C.+) Add
-  -- , binary C.numNumber (C.-) Subtract
-  -- , binary C.numNumber (C.*) Multiply
-  -- , binary C.numNumber (C./) Divide
-  -- , binary C.numNumber (C.%) Modulus
-  --, 
-  unary  C.numNumber C.negate Negate
+  [ binary         C.numNumber          C.(+)        Add
+  , binary         C.numNumber          C.(-)        Subtract
+  , binary         C.numNumber          C.(*)        Multiply
+  , binary         C.numNumber          C.(/)        Divide
+  , binary         C.numNumber          C.(%)        Modulus
+  , unary          C.numNumber          C.negate     Negate
+                  
+  , binary         C.ordNumber          C.(<)        LessThan
+  , binary         C.ordNumber          C.(>)        GreaterThan
+  , binary         C.ordNumber          C.(<=)       LessThanOrEqualTo
+  , binary         C.ordNumber          C.(>=)       GreaterThanOrEqualTo
+                  
+  , binary         C.eqNumber           C.(==)       EqualTo
+  , binary         C.eqNumber           C.(/=)       NotEqualTo
+  , binary         C.eqString           C.(==)       EqualTo
+  , binary         C.eqString           C.(/=)       NotEqualTo
+  , binary         C.eqBoolean          C.(==)       EqualTo
+  , binary         C.eqBoolean          C.(/=)       NotEqualTo
+                  
+  , binary         C.semigroupString    C.(++)       Add
 
-  -- , binary C.ordNumber (C.<) LessThan
-  -- , binary C.ordNumber (C.>) GreaterThan
-  -- , binary C.ordNumber (C.<=) LessThanOrEqualTo
-  -- , binary C.ordNumber (C.>=) GreaterThanOrEqualTo
+  , binaryFunction C.bitsNumber         C.shl        ShiftLeft
+  , binaryFunction C.bitsNumber         C.shr        ShiftRight
+  , binaryFunction C.bitsNumber         C.zshr       ZeroFillShiftRight
+  , binary         C.bitsNumber         C.(&)        BitwiseAnd
+  , binary         C.bitsNumber         C.bar        BitwiseOr
+  , binary         C.bitsNumber         C.(^)        BitwiseXor
+  , unary          C.bitsNumber         C.complement BitwiseNot
 
-  -- , binary C.eqNumber (C.==) EqualTo
-  -- , binary C.eqNumber (C./=) NotEqualTo
-  -- , binary C.eqString (C.==) EqualTo
-  -- , binary C.eqString (C./=) NotEqualTo
-  -- , binary C.eqBoolean (C.==) EqualTo
-  -- , binary C.eqBoolean (C./=) NotEqualTo
-
-  -- , binary C.semigroupString (C.++) Add
-
-  , binaryFunction C.bitsNumber C.shl ShiftLeft
-  , binaryFunction C.bitsNumber C.shr ShiftRight
-  , binaryFunction C.bitsNumber C.zshr ZeroFillShiftRight
-  -- , binary         C.bitsNumber (C.&) BitwiseAnd
-  , binary         C.bitsNumber C.bar BitwiseOr
-  -- , binary         C.bitsNumber (C.^) BitwiseXor
-  , unary          C.bitsNumber C.complement BitwiseNot
-
-  -- , binary C.boolLikeBoolean (C.&&) And
-  -- , binary C.boolLikeBoolean (C.||) Or
-  , unary  C.boolLikeBoolean C.not Not
+  , binary         C.boolLikeBoolean    C.(&&)       And
+  , binary         C.boolLikeBoolean    C.(||)       Or
+  , unary          C.boolLikeBoolean    C.not        Not
   ]
   where
   binary :: String -> String -> BinaryOperator -> JS -> JS

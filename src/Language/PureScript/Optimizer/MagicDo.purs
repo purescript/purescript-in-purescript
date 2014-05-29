@@ -63,8 +63,8 @@ magicDo' = everywhereOnJS undo <<< everywhereOnJSTopDown convert
   isReturn (JSApp retPoly [effDict]) | isRetPoly retPoly && isEffDict C.monadEffDictionary effDict = true
   isReturn _ = false
   -- Check if an expression represents the polymorphic >>= function
-  -- isBindPoly (JSAccessor prop (JSVar prelude)) = prelude == C.prelude && prop == identToJs (Op (C.>>=))
-  -- isBindPoly (JSIndexer (JSStringLiteral bind) (JSVar prelude)) = prelude == C.prelude && bind == (C.>>=)
+  isBindPoly (JSAccessor prop (JSVar prelude)) = prelude == C.prelude && prop == identToJs (Op C.(>>=))
+  isBindPoly (JSIndexer (JSStringLiteral bind) (JSVar prelude)) = prelude == C.prelude && bind == C.(>>=)
   isBindPoly _ = false
   -- Check if an expression represents the polymorphic return function
   isRetPoly (JSAccessor returnEscaped (JSVar prelude)) = prelude == C.prelude && returnEscaped == C.returnEscaped

@@ -26,8 +26,8 @@ optimize opts = untilFixedPoint (applyAll
   , etaConvert
   , evaluateIifes
   , inlineVariables
-  -- , inlineOperator (C.prelude, (C.$)) $ \f x -> JSApp f [x]
-  -- , inlineOperator (C.prelude, (C.#)) $ \x f -> JSApp f [x]
+  , inlineOperator (Tuple C.prelude C.($)) $ \f x -> JSApp f [x]
+  , inlineOperator (Tuple C.prelude C.(#)) $ \x f -> JSApp f [x]
   , inlineOperator (Tuple C.preludeUnsafe C.unsafeIndex) $ flip JSIndexer
   , inlineCommonOperators ])
 
