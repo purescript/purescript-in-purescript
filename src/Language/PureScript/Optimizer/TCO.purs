@@ -3,6 +3,8 @@ module Language.PureScript.Optimizer.TCO (tco) where
 import Data.Array (reverse, concat, map, zipWith)
 import Data.Maybe
 import Data.Tuple3
+import Data.Foldable (any)
+
 import Language.PureScript.Options
 import Language.PureScript.CodeGen.JS.AST
 
@@ -79,6 +81,9 @@ tco' = everywhereOnJS convert
     collectSelfCallArgs allArgumentValues (JSApp fn args') = collectSelfCallArgs (args' : allArgumentValues) fn
     collectSelfCallArgs allArgumentValues _ = allArgumentValues
   isSelfCall :: String -> JS -> Boolean
-  isSelfCall ident (JSApp (JSVar ident') _) | ident == ident' = true
-  isSelfCall ident (JSApp fn _) = isSelfCall ident fn
+  isSelfCall ident (JSApp (JSVar ident') args) | ident == ident' && not (any isFunction args) = true
+  isSelfCall ident (JSApp fn args) | not (any isFunction args) = isSelfCall ident fn
   isSelfCall _ _ = false
+  isFunction :: JS -> Boolean
+  isFunction (JSFunction _ _ _) = true
+  isFunction _ = false
