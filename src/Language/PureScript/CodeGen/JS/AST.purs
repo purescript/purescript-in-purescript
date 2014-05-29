@@ -26,13 +26,13 @@ data UnaryOperator
   -- Numeric unary \'plus\'
   --
   | Positive
-  
+
 instance showUnaryOperator :: Show UnaryOperator where
   show Negate = "Negate"
   show Not = "Not"
   show BitwiseNot = "BitwiseNot"
   show Positive = "Positive"
-  
+
 instance eqUnaryOperator :: Eq UnaryOperator where
   (==) Negate     Negate     = true
   (==) Not        Not        = true
@@ -121,7 +121,7 @@ data BinaryOperator
   -- Bitwise right shift with zero-fill
   --
   | ZeroFillShiftRight
-  
+
 instance showBinaryOperator :: Show BinaryOperator where
   show Add                   = "Add"
   show Subtract              = "Subtract"
@@ -165,7 +165,7 @@ instance eqBinaryOperator :: Eq BinaryOperator where
   (==) ZeroFillShiftRight   ZeroFillShiftRight   = true
   (==) _                    _                    = false
   (/=) b1                   b2                   = not (b1 == b2)
-  
+
 
 -- |
 -- Data type for simplified Javascript expressions
@@ -279,7 +279,7 @@ data JS
   -- Raw Javascript (for an inline foreign import declarations)
   --
   | JSRaw String
-  
+
 instance showJS :: Show JS where
   show (JSNumericLiteral n) = "JSNumericLiteral (" ++ show n ++ ")"
   show (JSStringLiteral s) = "JSStringLiteral (" ++ show s ++ ")"
@@ -308,6 +308,37 @@ instance showJS :: Show JS where
   show (JSBreak lbl) = "JSBreak (" ++ show lbl ++ ")"
   show (JSContinue lbl) = "JSContinue (" ++ show lbl ++ ")"
   show (JSRaw js) = "JSRaw (" ++ show js ++ ")"
+
+instance eqJS :: Eq JS where
+  (==) (JSNumericLiteral n1)            (JSNumericLiteral n2)            = n1 == n2
+  (==) (JSStringLiteral s1)             (JSStringLiteral s2)             = s1 == s2
+  (==) (JSBooleanLiteral b1)            (JSBooleanLiteral b2)            = b1 == b2
+  (==) (JSUnary op1 js1)                (JSUnary op2 js2)                = op1 == op2 && js1 == js2
+  (==) (JSBinary op1 js11 js21)         (JSBinary op2 js12 js22)         = op1 == op2 && js11 == js12 && js21 == js22
+  (==) (JSArrayLiteral js1)             (JSArrayLiteral js2)             = js1 == js2
+  (==) (JSIndexer js11 js21)            (JSIndexer js12 js22)            = js11 == js12 && js21 == js22
+  (==) (JSObjectLiteral ps1)            (JSObjectLiteral ps2)            = ps1 == ps2
+  (==) (JSAccessor prop1 js1)           (JSAccessor prop2 js2)           = prop1 == prop2 && js1 == js2
+  (==) (JSFunction nm1 args1 js1)       (JSFunction nm2 args2 js2)       = nm1 == nm2 && args1 == args2 && js1 == js2
+  (==) (JSApp js1 args1)                (JSApp js2 args2)                = js1 == js2 && args1 == args2
+  (==) (JSVar nm1)                      (JSVar nm2)                      = nm1 == nm2
+  (==) (JSConditional js11 js21 js31)   (JSConditional js12 js22 js32)   = js11 == js12 && js21 == js22 && js31 == js32
+  (==) (JSBlock js1)                    (JSBlock js2)                    = js1 == js2
+  (==) (JSVariableIntroduction nm1 js1) (JSVariableIntroduction nm2 js2) = nm1 == nm2 && js1 == js2
+  (==) (JSAssignment js11 js21)         (JSAssignment js12 js22)         = js11 == js12 && js21 == js22
+  (==) (JSWhile js11 js21)              (JSWhile js12 js22)              = js11 == js12 && js21 == js22
+  (==) (JSFor nm1 js11 js21 js31)       (JSFor nm2 js12 js22 js32)       = nm1 == nm2 && js11 == js12 && js21 == js22 && js31 == js32
+  (==) (JSForIn nm1 js11 js21)          (JSForIn nm2 js12 js22)          = nm1 == nm2 && js11 == js12 && js21 == js22
+  (==) (JSIfElse js11 js21 js31)        (JSIfElse js12 js22 js32)        = js11 == js12 && js21 == js22 && js31 == js32
+  (==) (JSReturn js1)                   (JSReturn js2)                   = js1 == js2
+  (==) (JSThrow js1)                    (JSThrow js2)                    = js1 == js2
+  (==) (JSTypeOf js1)                   (JSTypeOf js2)                   = js1 == js2
+  (==) (JSLabel lbl1 js1)               (JSLabel lbl2 js2)               = lbl1 == lbl2 && js1 == js2
+  (==) (JSBreak lbl1)                   (JSBreak lbl2)                   = lbl1 == lbl2
+  (==) (JSContinue lbl1)                (JSContinue lbl2)                = lbl1 == lbl2
+  (==) (JSRaw js1)                      (JSRaw js2)                      = js1 == js2
+  (==) _ _ = false
+  (/=) x y = not (x == y)
 
 --
 -- Traversals
