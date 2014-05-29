@@ -24,14 +24,10 @@ import Language.PureScript.Environment
 import Language.PureScript.Errors
 import Language.PureScript.Names
 import Language.PureScript.Options
--- import Language.PureScript.Optimizer
+import Language.PureScript.Optimizer
 import Language.PureScript.Supply
 import Language.PureScript.Traversals (sndM)
 import Language.PureScript.Types
-
--- TODO: not this, once Language.PureScript.Optimizer is in place
-optimize :: Options -> JS -> JS
-optimize _ js = js
 
 -- |
 -- Different types of modules which are supported
