@@ -20,7 +20,7 @@ import Prelude.Unsafe (unsafeIndex)
 import Data.Maybe
 import Data.Either
 import Data.Array (map, null, length)
-import Data.Foldable (elem, foldl)
+import Data.Foldable (notElem, foldl)
 
 import Control.Apply
 
@@ -233,24 +233,11 @@ hex = token' "hexadecimal" go
   go (Hex n) = Just n
   go _ = Nothing
 
-lineComment :: Parser TokenStream String
-lineComment = token' "lineComment" go
-  where
-  go (LineComment s) = Just s
-  go _ = Nothing
-
-blockComment :: Parser TokenStream String
-blockComment = token' "block comment" go
-  where
-  go (BlockComment s) = Just s
-  go _ = Nothing
-
 identifier :: Parser TokenStream String
-identifier = try do
-  s <- lname
-  if (s `elem` reservedPsNames) 
-    then fail "Unexpected keyword" 
-    else return s
+identifier = token' "identifier" go
+  where
+  go (LName s) | s `notElem` reservedPsNames = Just s
+  go _ = Nothing
 
 -- |
 -- Parse an identifier
@@ -338,3 +325,13 @@ sourcePos = do
   case unconsStream ts of
     Nothing -> return $ mkSourcePos "" 0 0
     Just cons -> return $ mkSourcePos "" cons.head.line cons.head.column
+  
+-- |
+-- A parser which returns the comments for the next lexeme
+--
+comments :: Parser TokenStream [String]
+comments = do
+  ts <- get
+  case unconsStream ts of
+    Nothing -> return []
+    Just cons -> return cons.head.comments
