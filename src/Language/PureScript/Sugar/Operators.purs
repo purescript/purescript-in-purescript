@@ -154,7 +154,7 @@ token exp p = do
     (t : rest) -> 
       case p t of
         Just a -> do
-          put (P.Consumed true)
+          P.consume
           put rest
           return a
         Nothing -> P.fail $ "Expected " ++ exp ++ ", found " ++ showLink t

@@ -68,7 +68,7 @@ token exp sh p = do
     Just cons -> 
       case p cons.head.token of
         Just a -> do
-          put (Consumed true)
+          consume
           put cons.tail
           return a
         Nothing -> fail $ "Expected " ++ exp ++ ", found " ++ sh cons.head.token ++ " at line " ++ show cons.head.line ++ ", column " ++ show cons.head.column 
@@ -246,7 +246,7 @@ blockComment = token' "block comment" go
   go _ = Nothing
 
 identifier :: Parser TokenStream String
-identifier = do
+identifier = try do
   s <- lname
   if (s `elem` reservedPsNames) 
     then fail "Unexpected keyword" 
@@ -277,7 +277,7 @@ moduleName :: Parser TokenStream ModuleName
 moduleName = ModuleName <$> (sepBy properName dot)
 
 notFollowedBy :: forall s a. String -> Parser s a -> Parser s {}
-notFollowedBy name p = try $ (do
+notFollowedBy name p = try (do
   c <- p
   fail ("Unexpected " ++ name)) <|> return {}
 
