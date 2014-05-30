@@ -72,7 +72,7 @@ import Language.PureScript.Sugar.BindingGroups
 
 import Language.PureScript.Parser.Lexer (lex)
 import Language.PureScript.Parser.Common
-import Language.PureScript.Parser.Declarations (parseModules)
+import Language.PureScript.Parser.Declarations (parseModule)
 
 import Language.PureScript.Pretty.JS
 
@@ -266,9 +266,9 @@ make outputDir opts@(Options optso) ms = do
   rebuildIfNecessary graph toRebuild (Module moduleName' _ _ : ms') = do
     let externsFile = outputDir ++ pathSeparator ++ runModuleName moduleName' ++ pathSeparator ++ "externs.purs"
     externs <- readTextFile externsFile
-    externsModules <- liftError (either (Left <<< show) Right (lex externs >>= runTokenParser parseModules))
-    case externsModules of
-      [m'@(Module moduleName'' _ _)] | moduleName'' == moduleName' -> (:) (Tuple false m') <$> rebuildIfNecessary graph toRebuild ms'
+    externsModule <- liftError (either (Left <<< show) Right (lex externs >>= runTokenParser parseModule))
+    case externsModule of
+      m'@(Module moduleName'' _ _) | moduleName'' == moduleName' -> (:) (Tuple false m') <$> rebuildIfNecessary graph toRebuild ms'
       _ -> liftError (Left ("Externs file " ++ externsFile ++ " was invalid"))
 
 reverseDependencies :: ModuleGraph -> M.Map ModuleName [ModuleName]

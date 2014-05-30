@@ -16,7 +16,6 @@
 module Language.PureScript.Parser.Declarations (
     parseDeclaration,
     parseModule,
-    parseModules,
     parseValue,
     parseGuard,
     parseBinder,
@@ -197,20 +196,27 @@ parseLocalDeclaration _ = PositionedDeclaration <$> sourcePos <*> P.choice
 -- |
 -- Parse a module header and a collection of declarations
 --
+-- This parser matches modules of the form
+--
+--   module M where { decl1 ; decl2 ; decl3 }
+--
+-- in which the declarations are indented after the "where keyword", but also modules of the form
+--
+--   module M where {} ; decl1 ; decl2 ; decl3
+--
+-- in which they are not.
+--
 parseModule :: P.Parser TokenStream Module
 parseModule = do
   reserved "module"
   name <- moduleName
   exports <- P.optionMaybe $ parens $ commaSep1 parseDeclarationRef
   reserved "where"
-  decls <- braces (semiSep parseDeclaration)
+  lbrace
+  decls <- (P.try rbrace *> semi *> semiSep parseDeclaration) <|>
+           (semiSep parseDeclaration <* rbrace)
+  eof
   return $ Module name decls exports
-  
--- |
--- Parse a collection of modules
---
-parseModules :: P.Parser TokenStream [Module]
-parseModules = P.many parseModule <* eof
 
 --
 -- Values

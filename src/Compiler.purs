@@ -114,18 +114,18 @@ eitherApp e = ErrorT (return e)
 preludeFilename :: String
 preludeFilename = "prelude/prelude.purs"
 
-modulesFromText :: String -> Either String [Module]
-modulesFromText text = do
+moduleFromText :: String -> Either String Module
+moduleFromText text = do
   tokens <- P.lex text
-  P.runTokenParser P.parseModules tokens
+  P.runTokenParser P.parseModule tokens
   
 readInput :: forall eff. [String] -> AppMonad [Module]
 readInput input = 
-  concat <$> for input (\inputFile -> do
+  for input (\inputFile -> do
     text <- readFileApp inputFile
-    case modulesFromText text of
+    case moduleFromText text of
       Left err -> throwError err
-      Right ms -> return ms)
+      Right m -> return m)
 
 runCompiler :: forall eff. Options -> [String] -> Maybe String -> Maybe String -> Eff AppEffects {}
 runCompiler opts@(Options optso) input output externs = runAppMonad do
