@@ -245,7 +245,7 @@ lex input = do
   removeWhitespace ms       ({ token = Newline _ } : (t@{ token = Newline _ }) : ts) acc = removeWhitespace ms (t : ts) acc
   removeWhitespace (m : ms) ((t@{ token = Newline n })      : ts) acc | m == n = removeWhitespace (m : ms) ts (mkPositionedToken t.line t.column t.comments Semi : acc)
   removeWhitespace []       ((t@{ token = Newline 1 })      : ts) acc = removeWhitespace [] ts (mkPositionedToken t.line t.column t.comments Semi : acc)
-  removeWhitespace (m : ms) ((t@{ token = Newline n })      : ts) acc | n < m = removeWhitespace ms ts (mkPositionedToken t.line t.column t.comments RBrace : acc)
+  removeWhitespace (m : ms) ((t@{ token = Newline n })      : ts) acc | n < m = removeWhitespace ms (t : ts) (mkPositionedToken t.line t.column t.comments RBrace : acc)
   removeWhitespace ms       ((t@{ token = Newline n })      : ts) acc = removeWhitespace ms ts acc
   removeWhitespace (m : ms) ((t@{ token = ShouldIndent n }) : ts) acc | n > m = removeWhitespace (n : m : ms) ts (mkPositionedToken t.line t.column t.comments LBrace : acc)
   removeWhitespace []       ((t@{ token = ShouldIndent n }) : ts) acc | n > 1 = removeWhitespace [n] ts (mkPositionedToken t.line t.column t.comments LBrace : acc)

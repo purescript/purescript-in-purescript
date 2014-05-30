@@ -59,7 +59,7 @@ eof = do
   ts <- get
   case unconsStream ts of
     Nothing -> return {}
-    Just cons -> fail $ "Expected EOF at line " ++ show cons.head.line ++ ", column " ++ show cons.head.column 
+    Just cons -> fail $ "Expected EOF at line " ++ show cons.head.line ++ ", column " ++ show cons.head.column ++ ", found " ++ show cons.head.token
     
 token :: forall a. String -> (Token -> String) -> (Token -> Maybe a) -> Parser TokenStream a
 token exp sh p = do

@@ -213,8 +213,8 @@ parseModule = do
   exports <- P.optionMaybe $ parens $ commaSep1 parseDeclarationRef
   reserved "where"
   lbrace
-  decls <- (P.try rbrace *> semi *> semiSep parseDeclaration) <|>
-           (semiSep parseDeclaration <* rbrace)
+  decls <- (P.try rbrace *> semi *> P.sepEndBy parseDeclaration semi) <|>
+           (semiSep parseDeclaration <* rbrace <* P.optional semi)
   eof
   return $ Module name decls exports
 
