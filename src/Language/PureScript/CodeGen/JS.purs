@@ -335,9 +335,11 @@ binderToJs m e varName done (PositionedBinder _ binder) =
 --
 isOnlyConstructor :: Environment -> Qualified ProperName -> Boolean
 isOnlyConstructor (Environment e) ctor =
-  let ty = maybe (theImpossibleHappened "Data constructor not found") id $ ctor `M.lookup` e.dataConstructors
+  let ty = assertDataConstructorExists $ ctor `M.lookup` e.dataConstructors
   in numConstructors (Tuple ctor ty) == 1
   where
+  assertDataConstructorExists (Just dc) = dc
+  assertDataConstructorExists Nothing = theImpossibleHappened "Data constructor not found"
   numConstructors ty = length $ filter (((==) `on` typeConstructor) ty) $ M.toList $ e.dataConstructors
   typeConstructor (Tuple (Qualified (Just moduleName) _) (Tuple tyCtor _)) = Tuple moduleName tyCtor
   typeConstructor _ = theImpossibleHappened "Invalid argument to isOnlyConstructor"
