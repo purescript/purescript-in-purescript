@@ -144,19 +144,19 @@ getProperName (TypeSynonymDeclaration pn _ _) = pn
 getProperName (PositionedDeclaration _ d) = getProperName d
 getProperName _ = theImpossibleHappened "Expected DataDeclaration"
 
-toBindingGroup :: [Declaration] -> Declaration
-toBindingGroup [d] = d
-toBindingGroup ds' = BindingGroupDeclaration $ map fromValueDecl ds'
+toBindingGroup :: SCC Declaration -> Declaration
+toBindingGroup (AcyclicSCC d) = d
+toBindingGroup (CyclicSCC [d]) = d
+toBindingGroup (CyclicSCC ds') = BindingGroupDeclaration $ map fromValueDecl ds'
 
-toDataBindingGroup :: [Declaration] -> Either ErrorStack Declaration
-toDataBindingGroup [d] = return d
-{-
-toDataBindingGroup (CyclicSCC [d]) = case isTypeSynonym d of
-  Just pn -> Left $ mkErrorStack ("Cycle in type synonym " ++ show pn) Nothing
-  _ -> return d
--}
-toDataBindingGroup ds' | all (isJust <<< isTypeSynonym) ds' = Left $ mkErrorStack "Cycle in type synonyms" Nothing
-toDataBindingGroup ds' = return $ DataBindingGroupDeclaration ds'
+toDataBindingGroup :: SCC Declaration -> Either ErrorStack Declaration
+toDataBindingGroup (AcyclicSCC d) = return d
+toDataBindingGroup (CyclicSCC [d]) = 
+  case isTypeSynonym d of
+    Just pn -> Left $ mkErrorStack ("Cycle in type synonym " ++ show pn) Nothing
+    _ -> return d
+toDataBindingGroup (CyclicSCC ds') | all (isJust <<< isTypeSynonym) ds' = Left $ mkErrorStack "Cycle in type synonyms" Nothing
+toDataBindingGroup (CyclicSCC ds') = return $ DataBindingGroupDeclaration ds'
 
 isTypeSynonym :: Declaration -> Maybe ProperName
 isTypeSynonym (TypeSynonymDeclaration pn _ _) = Just pn

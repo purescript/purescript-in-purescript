@@ -85,6 +85,6 @@ getModuleName (Module mn _ _) = mn
 -- |
 -- Convert a strongly connected component of the module graph to a module
 --
-toModule :: [Module] -> Either String Module
-toModule [m] = return m
-toModule ms = Left $ "Cycle in module dependencies: " ++ show ms
+toModule :: SCC Module -> Either String Module
+toModule (AcyclicSCC m) = return m
+toModule (CyclicSCC ms) = Left $ "Cycle in module dependencies: " ++ show (map getModuleName ms)
