@@ -18,7 +18,13 @@ module Language.PureScript (
     compile', 
     FilePath(..),
     MonadMake, 
-    make
+    make,
+    
+    getTimestamp,
+    readTextFile,
+    writeTextFile,
+    liftError,
+    progress
   ) where
 
 import Data.Array

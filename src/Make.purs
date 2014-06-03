@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 --
--- Module      :  Compiler
+-- Module      :  Make
 -- Copyright   :  (c) Phil Freeman 2013-14
 -- License     :  MIT
 --
@@ -8,11 +8,11 @@
 -- Stability   :  experimental
 -- Portability :
 --
--- | psc frontend to the PureScript library
+-- | psc-make frontend to the PureScript library
 --
 -----------------------------------------------------------------------------
 
-module Compiler where
+module Make where
 
 import Debug.Trace
 
@@ -26,6 +26,7 @@ import Data.Traversable (for)
 
 import Control.Monad.Eff
 import Control.Monad.Eff.Unsafe
+import Control.Monad.Eff.Exception
 import Control.Monad.Eff.Process
 import Control.Monad.Eff.FS
 
@@ -48,6 +49,22 @@ import qualified Language.PureScript.Parser.Lexer as P
 import qualified Language.PureScript.Parser.Common as P
 import qualified Language.PureScript.Parser.Declarations as P
 
+instance monadMakeApp :: MonadMake Application where
+  getTimestamp path = do
+    exists <- doesFileExistApplication path
+    case exists of
+      true -> Just <$> getModificationTimeApplication path
+      false -> return Nothing
+  readTextFile path = do
+    effApplication $ trace $ "Reading " ++ path
+    readFileApplication path
+  writeTextFile path text = do
+    mkdirpApplication (dirname path)
+    effApplication $ trace $ "Writing " ++ path
+    writeFileApplication path text
+  liftError = eitherApplication
+  progress msg = effApplication $ trace msg
+
 preludeFilename :: String
 preludeFilename = "prelude/prelude.purs"
 
@@ -56,24 +73,18 @@ moduleFromText text = do
   tokens <- P.lex text
   P.runTokenParser P.parseModule tokens
   
-readInput :: forall eff. [String] -> Application [Module]
+readInput :: forall eff. [String] -> Application [Tuple String Module]
 readInput input = 
   for input (\inputFile -> do
     text <- readFileApplication inputFile
     case moduleFromText text of
       Left err -> throwError err
-      Right m -> return m)
+      Right m -> return (Tuple inputFile m))
 
-runCompiler :: forall eff. Options -> [String] -> Maybe String -> Maybe String -> Eff (fs :: FS, trace :: Trace, process :: Process) {}
-runCompiler opts@(Options optso) input output externs = runApplication do
+runCompiler :: forall eff. String -> Options -> [String] -> Eff (fs :: FS, trace :: Trace, process :: Process) {}
+runCompiler outputDir opts@(Options optso) input = runApplication do
   modules <- readInput allInputFiles
-  Tuple3 js exts _ <- eitherApplication $ compile opts modules
-  case output of
-    Nothing -> effApplication $ trace js
-    Just path -> do
-      mkdirpApplication (dirname path)
-      writeFileApplication path js
-  for externs $ \path -> writeFileApplication path exts
+  make outputDir opts modules
   return {}
   where
   allInputFiles :: [String]
@@ -86,11 +97,8 @@ flag shortForm longForm = maybe false (const true) <$> opt (flagOnly shortForm <
 inputFiles :: Args [String]
 inputFiles = many argOnly
 
-outputFile :: Args (Maybe String)
-outputFile = opt (flagArg "o" <|> flagArg "output")
-
-externsFile :: Args (Maybe String)
-externsFile = opt (flagArg "e" <|> flagArg "externs")
+outputFile :: Args String
+outputFile = flagArg "o" <|> flagArg "output"
 
 noTco :: Args Boolean
 noTco = flagOpt "no-tco"
@@ -104,20 +112,8 @@ noPrelude = flagOpt "no-prelude"
 noMagicDo :: Args Boolean
 noMagicDo = flagOpt "no-magic-do"
 
-runMain :: Args (Maybe String)
-runMain = opt (flagArg "main")
-
 noOpts :: Args Boolean
 noOpts = flagOpt "no-opts"
-
-browserNamespace :: Args String
-browserNamespace = flagArg "browser-namespace" <|> pure "PS"
-
-dceModules :: Args [String]
-dceModules = many (flagArg "m" <|> flagArg "module")
-
-codeGenModules :: Args [String]
-codeGenModules = many (flagArg "codegen")
 
 verboseErrors :: Args Boolean
 verboseErrors = flag "v" "verbose-errors"
@@ -127,15 +123,15 @@ options = mkOptions <$> noPrelude
                     <*> noTco 
                     <*> performRuntimeTypeChecks 
                     <*> noMagicDo 
-                    <*> runMain 
+                    <*> pure Nothing 
                     <*> noOpts 
-                    <*> (Just <$> browserNamespace) 
-                    <*> dceModules 
-                    <*> codeGenModules 
+                    <*> pure Nothing
+                    <*> pure [] 
+                    <*> pure [] 
                     <*> verboseErrors
 
 term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process) {})
-term = runCompiler <$> options <*> inputFiles <*> outputFile <*> externsFile
+term = runCompiler <$> outputFile <*> options <*> inputFiles
 
 main = do
   result <- readArgs' term
