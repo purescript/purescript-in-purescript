@@ -19,14 +19,38 @@ module.exports = function(grunt) {
     clean: ["output"],
   
     pscMake: ["<%=libFiles%>"],
-    dotPsci: ["<%=libFiles%>"]
+    dotPsci: ["<%=libFiles%>"],
+    
+    copy: [
+      {
+        expand: true,
+        cwd: "output",
+        src: "**",
+        dest: "tmp/node_modules/"
+      },
+      {
+        expand: true,
+        cwd: "js",
+        src: "**",
+        dest: "tmp/"
+      }
+    ],
+    
+    execute: {
+      psc: {
+        src: "tmp/psc.js"
+      }
+    }
 
   });
 
   grunt.loadNpmTasks("grunt-contrib-clean");
-  grunt.loadNpmTasks("grunt-purescript");
+  grunt.loadNpmTasks("grunt-contrib-copy");
   grunt.loadNpmTasks('grunt-contrib-watch');
+  grunt.loadNpmTasks('grunt-execute');
+  grunt.loadNpmTasks("grunt-purescript");
   
-  grunt.registerTask("make", ["pscMake", "dotPsci"]);
+  grunt.registerTask("make", ["pscMake", "dotPsci", "copy"]);
+  grunt.registerTask("psc", ["make", "execute:psc"]);
   grunt.registerTask("default", ["make"]);
 };
