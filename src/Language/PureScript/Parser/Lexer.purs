@@ -44,9 +44,7 @@ data Token
   | StringLiteral String
 
   | Natural Number
-  | Integer Number
-  | Float Number
-  | Hex Number
+  | ANumber Number
   
 instance showToken :: Show Token where
   show LParen                = "LParen"
@@ -77,9 +75,7 @@ instance showToken :: Show Token where
   show (Symbol s)            = "Symbol (" ++ show s ++ ")"
   show (StringLiteral s)     = "StringLiteral (" ++ show s ++ ")"
   show (Natural n)           = "Natural (" ++ show n ++ ")"
-  show (Integer n)           = "Integer (" ++ show n ++ ")"
-  show (Float n)             = "Float (" ++ show n ++ ")"
-  show (Hex n)               = "Hex (" ++ show n ++ ")"
+  show (ANumber n)           = "ANumber (" ++ show n ++ ")"
   
 instance eqToken :: Eq Token where
   (==) LParen              LParen              = true
@@ -110,9 +106,7 @@ instance eqToken :: Eq Token where
   (==) (Symbol s1)         (Symbol s2)         = s1 == s2
   (==) (StringLiteral s1)  (StringLiteral s2)  = s1 == s2
   (==) (Natural n1)        (Natural n2)        = n1 == n2
-  (==) (Integer n1)        (Integer n2)        = n1 == n2
-  (==) (Float n1)          (Float n2)          = n1 == n2
-  (==) (Hex n1)            (Hex n2)            = n1 == n2
+  (==) (ANumber n1)        (ANumber n2)        = n1 == n2
   (==) _                   _                   = false
   (/=) tok1                tok2                = not (tok1 == tok2)
     
@@ -194,7 +188,7 @@ lex input = do
   
   go line col i cs ts | charAt i input == "0" && charAt (i + 1) input == "x" =
     let ns = eatWhile (i + 2) isHex 
-    in go line (col + length ns.str) ns.next [] (mkPositionedToken line col cs (Hex (readInt 16 ns.str)) : ts)
+    in go line (col + length ns.str) ns.next [] (mkPositionedToken line col cs (ANumber (readInt 16 ns.str)) : ts)
     
   go line col i cs ts | isNumeric (charAt i input) =
     case readNumberLiteral line col i of
@@ -300,7 +294,7 @@ lex input = do
     eat isNat count i | isNumeric (charAt i input) = eat isNat (count + 1) (i + 1)
     eat isNat count i = 
       let s = (take count (drop start input))
-      in Right { next: i, tok: if isNat then Natural (readInt 10 s) else Float (readFloat s), count: count }
+      in Right { next: i, tok: if isNat then Natural (readInt 10 s) else ANumber (readFloat s), count: count }
   
   lookaheadChar :: Position -> (String -> Boolean) -> Boolean
   lookaheadChar i pred = pred (charAt i input)

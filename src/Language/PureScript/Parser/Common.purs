@@ -233,22 +233,10 @@ natural = token' "natural number" go
   go (Natural n) = Just n
   go _ = Nothing
 
-integer :: Parser TokenStream Number
-integer = token' "integer" go
+number :: Parser TokenStream Number
+number = token' "number" go
   where
-  go (Integer n) = Just n
-  go _ = Nothing
-
-float :: Parser TokenStream Number
-float = token' "floating point" go
-  where
-  go (Float n) = Just n
-  go _ = Nothing
-
-hex :: Parser TokenStream Number
-hex = token' "hexadecimal" go
-  where
-  go (Hex n) = Just n
+  go (ANumber n) = Just n
   go _ = Nothing
 
 identifier :: Parser TokenStream String

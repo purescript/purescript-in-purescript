@@ -226,7 +226,7 @@ booleanLiteral :: P.Parser TokenStream Boolean
 booleanLiteral = (reserved "true" *> return true) <|> (reserved "false" *> return false)
 
 parseNumericLiteral :: P.Parser TokenStream Value
-parseNumericLiteral = NumericLiteral <$> (natural <|> integer <|> float <|> hex)
+parseNumericLiteral = NumericLiteral <$> (natural <|> number)
 
 parseStringLiteral :: P.Parser TokenStream Value
 parseStringLiteral = StringLiteral <$> stringLiteral
