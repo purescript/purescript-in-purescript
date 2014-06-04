@@ -464,7 +464,7 @@ module Prelude
 
   (++) :: forall s. (Semigroup s) => s -> s -> s
   (++) = (<>)
-
+{-
 module Data.Function where
 
   on :: forall a b c. (b -> b -> c) -> (a -> b) -> a -> a -> c
@@ -776,3 +776,4 @@ module Control.Monad.ST where
   foreign import runSTArray "function runSTArray(f) {\
                             \  return f;\
                             \}" :: forall a r. (forall h. Eff (st :: ST h | r) (STArray h a)) -> Eff r [a]
+-}

@@ -323,7 +323,7 @@ lex input = do
   isIdentStart c = isLower c || (c == "_")
   
   isIdentChar :: String -> Boolean
-  isIdentChar c = isAlphaNum c || (c == "_")
+  isIdentChar c = isAlphaNum c || (c == "_") || (c == "'")
   
   isNumericLiteralChar :: String -> Boolean
   isNumericLiteralChar c = isNumeric c || (c == ".") || (c == "b") || (c == "x") || (c == "-")

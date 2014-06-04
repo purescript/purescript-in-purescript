@@ -195,12 +195,30 @@ symbol :: Parser TokenStream String
 symbol = token' "symbol" go
   where
   go (Symbol s) = Just s
+  go LAngle     = Just "<"
+  go RAngle     = Just ">"
+  go LFatArrow  = Just "<="
+  go RFatArrow  = Just "=>"
+  go Colon      = Just ":"
+  go Pipe       = Just "|"
+  go Dot        = Just "."
+  go Comma      = Just ","
+  go At         = Just "@"
   go _ = Nothing
   
 symbol' :: String -> Parser TokenStream {}
 symbol' s = token' (show s) go
   where
-  go (Symbol s') | s == s' = Just {}
+  go (Symbol s') | s == s'   = Just {}
+  go LAngle      | s == "<"  = Just {}
+  go RAngle      | s == ">"  = Just {}
+  go LFatArrow   | s == "<=" = Just {}
+  go RFatArrow   | s == "=>" = Just {}
+  go Colon       | s == ":"  = Just {}
+  go Pipe        | s == "|"  = Just {}
+  go Dot         | s == "."  = Just {}
+  go Comma       | s == ","  = Just {}
+  go At          | s == "@"  = Just {}
   go _ = Nothing
 
 stringLiteral :: Parser TokenStream String
