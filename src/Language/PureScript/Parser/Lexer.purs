@@ -5,6 +5,8 @@ import Data.Either
 import Data.String
 import qualified Data.String.Regex as Rx
 
+import Global (readInt)
+
 import Language.PureScript.Keywords (opCharsString)  
   
 data Token
@@ -190,6 +192,10 @@ lex input = do
   go line col i cs ts | charAt i input == "<" && charAt (i + 1) input == "=" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) [] (mkPositionedToken line col cs LFatArrow : ts)
   go line col i cs ts | charAt i input == "=" && charAt (i + 1) input == ">" && lookaheadChar (i + 2) (not <<< isSymbolChar) = go line (col + 2) (i + 2) [] (mkPositionedToken line col cs RFatArrow : ts)
   
+  go line col i cs ts | charAt i input == "0" && charAt (i + 1) input == "x" =
+    let ns = eatWhile (i + 2) isHex 
+    in go line (col + length ns.str) ns.next [] (mkPositionedToken line col cs (Hex (readInt 16 ns.str)) : ts)
+    
   go line col i cs ts | isNumeric (charAt i input) =
     let ns = eatWhile i isNumeric 
     in go line (col + length ns.str) ns.next [] (mkPositionedToken line col cs (Natural (buildNat ns.str 0 0)) : ts)
@@ -315,6 +321,9 @@ lex input = do
   
   isNumeric :: String -> Boolean
   isNumeric c = c >= "0" && c <= "9"
+  
+  isHex :: String -> Boolean
+  isHex c = (c >= "a" && c <= "f") || (c >= "A" && c <= "F") || isNumeric c
   
   isAlphaNum :: String -> Boolean
   isAlphaNum c = isAlpha c || isNumeric c

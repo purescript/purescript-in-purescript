@@ -8,7 +8,8 @@
     "purescript-maps": "*",
     "purescript-transformers": "*",
     "purescript-pattern-arrows": "*",
-    "purescript-parsing": "*"
+    "purescript-parsing": "*",
+    "purescript-globals": ">=0.1.3"
   },
   "devDependencies": {
     "purescript-quickcheck": "*"
