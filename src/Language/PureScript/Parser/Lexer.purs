@@ -228,14 +228,14 @@ lex input = do
     in go line (col + length tok.str) tok.next [] (mkPositionedToken line col cs (Symbol tok.str) : ts)
   
   go line col i cs ts | indexOf' "\"\"\"" i input == i =
-    case readStringLiteral (i + 3) "\"\"\"" replaceNewLines of
+    case readStringLiteral line col (i + 3) "\"\"\"" replaceNewLines of
       Left err -> Left err
       Right tok -> go line (col + tok.count) tok.next [] (mkPositionedToken line col cs (StringLiteral tok.str) : ts)  
     where
     replaceNewLines :: String -> String
     replaceNewLines = joinWith "\\n" <<< split "\n"
   go line col i cs ts | charAt i input == "\"" =
-    case readStringLiteral (i + 1) "\"" id of
+    case readStringLiteral line col (i + 1) "\"" id of
       Left err -> Left err
       Right tok -> go line (col + tok.count) tok.next [] (mkPositionedToken line col cs (StringLiteral tok.str) : ts)
     
@@ -283,15 +283,14 @@ lex input = do
     eat i len | p i = eat (i + 1) (len + 1)
     eat i len = { next: i, str: take len (drop start input) }
     
-  readStringLiteral :: Position -> String -> (String -> String) -> Either String { next :: Position, str :: String, count :: Number }
-  readStringLiteral start term replace = eat false 0 start
+  readStringLiteral :: Line -> Column -> Position -> String -> (String -> String) -> Either String { next :: Position, str :: String, count :: Number }
+  readStringLiteral line col start term replace = eat false 0 start
     where
     eat :: Boolean -> Number -> Position -> Either String { next :: Position, str :: String, count :: Number }
     eat _     _     i | i >= length input = Left $ "Unterminated string literal"
     eat false count i | indexOf' term i input == i = 
       let escaped = replace (take count (drop start input))
-      -- TODO: include position info here
-      in unEscape escaped (\s -> Right { next: i + length term, str: s, count: count }) (Left $ "Invalid string literal: " ++ show escaped)
+      in unEscape escaped (\s -> Right { next: i + length term, str: s, count: count }) (Left $ "Invalid string literal at line " ++ show line ++ ", column " ++ show col ++ ": " ++ show escaped)
     eat _     count i | charAt i input == "\\" = eat true (count + 1) (i + 1)
     eat _     count i = eat false (count + 1) (i + 1)
   
