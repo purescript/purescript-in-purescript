@@ -287,7 +287,7 @@ lex input = do
   readStringLiteral line col start term replace = eat false 0 start
     where
     eat :: Boolean -> Number -> Position -> Either String { next :: Position, str :: String, count :: Number }
-    eat _     _     i | i >= length input = Left $ "Unterminated string literal"
+    eat _     _     i | i >= length input = Left $ "Unterminated string literal at line " ++ show line ++ ", column " ++ show col
     eat false count i | indexOf' term i input == i = 
       let escaped = replace (take count (drop start input))
       in unEscape escaped (\s -> Right { next: i + length term, str: s, count: count }) (Left $ "Invalid string literal at line " ++ show line ++ ", column " ++ show col ++ ": " ++ show escaped)
