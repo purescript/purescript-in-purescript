@@ -15,11 +15,11 @@ import Control.Monad.Eff.FS
 import Node.Args
 import Node.ReadLine
 
-import Text.Parsing.Parser
-
 import Language.PureScript.Names
 import Language.PureScript.Declarations (Value())
 
+import qualified Text.Parsing.Parser as P
+import qualified Text.Parsing.Parser.Combinators as P
 import qualified Language.PureScript.Parser.Lexer as P
 import qualified Language.PureScript.Parser.Common as P
 import qualified Language.PureScript.Parser.Declarations as P
@@ -61,8 +61,11 @@ data Command
   --
   | TypeOf Value
   
-parse :: forall a. Parser P.TokenStream a -> String -> Either String a
+parse :: forall a. P.Parser P.TokenStream a -> String -> Either String a
 parse p s = P.lex s >>= P.runTokenParser (p <* P.eof)
+
+parseLet :: P.Parser P.TokenStream Command
+parseLet = Let <$> (Language.PureScript.Declarations.Let <$> (P.reserved "let" *> P.braces (P.many1 P.parseDeclaration)))
   
 parseCommand :: String -> Either String Command
 parseCommand ":?" = Right Help
@@ -72,6 +75,7 @@ parseCommand cmd | indexOf ":i " cmd == 0 = Import <$> parse P.moduleName (drop 
 parseCommand cmd | indexOf ":m " cmd == 0 = Right $ LoadFile (drop 3 cmd)
 parseCommand cmd | indexOf ":t " cmd == 0 = TypeOf <$> parse (P.parseValue {}) (drop 3 cmd)
 parseCommand cmd | indexOf ":" cmd == 0 = Left "Unknown command. Type :? for help."
+parseCommand cmd = parse (parseLet <|> (Eval <$> P.parseValue {})) cmd
 
 -- |
 -- The help menu.
