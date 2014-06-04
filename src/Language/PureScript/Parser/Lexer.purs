@@ -5,7 +5,7 @@ import Data.Either
 import Data.String
 import qualified Data.String.Regex as Rx
 
-import Global (readInt)
+import Global (readInt, readFloat)
 
 import Language.PureScript.Keywords (opCharsString)  
   
@@ -290,9 +290,17 @@ lex input = do
     eat _     count i = eat false (count + 1) (i + 1)
     
   readNumberLiteral :: Line -> Column -> Position -> Either String { next :: Position, tok :: Token, count :: Number }
-  readNumberLiteral line col start =
-    let ns = eatWhile start isNumeric
-    in Right { next: ns.next, tok: Natural (readInt 10 ns.str), count: length ns.str }
+  readNumberLiteral line col start = eat true 0 start
+    where
+    eat :: Boolean -> Number -> Position -> Either String { next :: Position, tok :: Token, count :: Number }
+    eat isNat count i | charAt i input == "." = 
+      if isNat
+      then eat false (count + 1) (i + 1)
+      else Left $ "Invalid number literal at line " ++ show line ++ ", column " ++ show col
+    eat isNat count i | isNumeric (charAt i input) = eat isNat (count + 1) (i + 1)
+    eat isNat count i = 
+      let s = (take count (drop start input))
+      in Right { next: i, tok: if isNat then Natural (readInt 10 s) else Float (readFloat s), count: count }
   
   lookaheadChar :: Position -> (String -> Boolean) -> Boolean
   lookaheadChar i pred = pred (charAt i input)
