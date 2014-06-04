@@ -197,24 +197,9 @@ lex input = do
     in go line (col + length ns.str) ns.next [] (mkPositionedToken line col cs (Hex (readInt 16 ns.str)) : ts)
     
   go line col i cs ts | isNumeric (charAt i input) =
-    let ns = eatWhile i isNumeric 
-    in go line (col + length ns.str) ns.next [] (mkPositionedToken line col cs (Natural (buildNat ns.str 0 0)) : ts)
-    where
-    buildNat :: String -> Number -> Number -> Number
-    buildNat s i acc | i >= length s = acc
-    buildNat s i acc = buildNat s (i + 1) (acc * 10 + toDigit (charAt i s))
-    
-    toDigit :: String -> Number
-    toDigit "0" = 0
-    toDigit "1" = 1
-    toDigit "2" = 2
-    toDigit "3" = 3
-    toDigit "4" = 4
-    toDigit "5" = 5
-    toDigit "6" = 6
-    toDigit "7" = 7
-    toDigit "8" = 8
-    toDigit "9" = 9
+    case readNumberLiteral line col i of
+      Left err -> Left err
+      Right tok -> go line (col + tok.count) tok.next [] (mkPositionedToken line col cs tok.tok : ts)  
   
   go line col i cs ts | isIdentStart (charAt i input) = 
     let tok = eatWhile i isIdentChar
@@ -303,6 +288,11 @@ lex input = do
       in unEscape escaped (\s -> Right { next: i + length term, str: s, count: count }) (Left $ "Invalid string literal at line " ++ show line ++ ", column " ++ show col ++ ": " ++ show escaped)
     eat _     count i | charAt i input == "\\" = eat true (count + 1) (i + 1)
     eat _     count i = eat false (count + 1) (i + 1)
+    
+  readNumberLiteral :: Line -> Column -> Position -> Either String { next :: Position, tok :: Token, count :: Number }
+  readNumberLiteral line col start =
+    let ns = eatWhile start isNumeric
+    in Right { next: ns.next, tok: Natural (readInt 10 ns.str), count: length ns.str }
   
   lookaheadChar :: Position -> (String -> Boolean) -> Boolean
   lookaheadChar i pred = pred (charAt i input)
