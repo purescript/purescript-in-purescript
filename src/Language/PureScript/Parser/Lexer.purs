@@ -3,6 +3,7 @@ module Language.PureScript.Parser.Lexer where
 import Data.Array ()
 import Data.Either
 import Data.String
+import qualified Data.String.Regex as Rx
 
 import Language.PureScript.Keywords (opCharsString)  
   
@@ -235,9 +236,12 @@ lex input = do
     replaceNewLines :: String -> String
     replaceNewLines = joinWith "\\n" <<< split "\n"
   go line col i cs ts | charAt i input == "\"" =
-    case readStringLiteral line col (i + 1) "\"" id of
+    case readStringLiteral line col (i + 1) "\"" handleMultiline of
       Left err -> Left err
       Right tok -> go line (col + tok.count) tok.next [] (mkPositionedToken line col cs (StringLiteral tok.str) : ts)
+    where
+    handleMultiline :: String -> String
+    handleMultiline = Rx.replace (Rx.regex "\\\\(\\s*)\\n(\\s*)\\\\" "g") ""
     
   go line col _ _ _ = Left $ "Lexer error at line " ++ show line ++ ", column " ++ show col
   
