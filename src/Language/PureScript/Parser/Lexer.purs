@@ -284,15 +284,18 @@ lex input = do
     eat _     count i = eat false (count + 1) (i + 1)
     
   readNumberLiteral :: Line -> Column -> Position -> Either String { next :: Position, tok :: Token, count :: Number }
-  readNumberLiteral line col start = eat true 0 start
+  readNumberLiteral line col start = eat true false 0 start
     where
-    eat :: Boolean -> Number -> Position -> Either String { next :: Position, tok :: Token, count :: Number }
-    eat isNat count i | charAt i input == "." = 
-      if isNat
-      then eat false (count + 1) (i + 1)
-      else Left $ "Invalid number literal at line " ++ show line ++ ", column " ++ show col
-    eat isNat count i | isNumeric (charAt i input) = eat isNat (count + 1) (i + 1)
-    eat isNat count i = 
+    eat :: Boolean -> Boolean -> Number -> Position -> Either String { next :: Position, tok :: Token, count :: Number }
+    eat _     true  count i | charAt i input == "." = Left $ "Invalid decimal place in exponent in number literal at line " ++ show line ++ ", column " ++ show col
+    eat false _     count i | charAt i input == "." = Left $ "Invalid decimal place in number literal at line " ++ show line ++ ", column " ++ show col
+    eat _     _     count i | charAt i input == "." = eat false false (count + 1) (i + 1)
+    eat _     true  count i | charAt i input == "e" = Left $ "Invalid exponent in exponent in number literal at line " ++ show line ++ ", column " ++ show col
+    eat _     _     count i | charAt i input == "e" && charAt (i + 1) input == "-" = eat false true (count + 2) (i + 2)
+    eat _     _     count i | charAt i input == "e" && charAt (i + 1) input == "+" = eat false true (count + 2) (i + 2)
+    eat _     _     count i | charAt i input == "e" = eat false true (count + 1) (i + 1)
+    eat isNat isExp count i | isNumeric (charAt i input) = eat isNat isExp (count + 1) (i + 1)
+    eat isNat isExp count i = 
       let s = (take count (drop start input))
       in Right { next: i, tok: if isNat then Natural (readInt 10 s) else ANumber (readFloat s), count: count }
   
