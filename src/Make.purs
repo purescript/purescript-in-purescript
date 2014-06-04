@@ -44,6 +44,7 @@ import Node.Args
 import Language.PureScript
 import Language.PureScript.Declarations
 import Language.PureScript.Options
+import Language.Purescript.Prelude
 
 import qualified Language.PureScript.Parser.Lexer as P
 import qualified Language.PureScript.Parser.Common as P
@@ -64,9 +65,6 @@ instance monadMakeApp :: MonadMake Application where
     writeFileApplication path text
   liftError = eitherApplication
   progress msg = effApplication $ trace msg
-
-preludeFilename :: String
-preludeFilename = "prelude/prelude.purs"
 
 moduleFromText :: String -> Either String Module
 moduleFromText text = do
@@ -89,7 +87,7 @@ runCompiler outputDir opts@(Options optso) input = runApplication do
   where
   allInputFiles :: [String]
   allInputFiles | optso.noPrelude = input
-  allInputFiles = preludeFilename : input
+  allInputFiles = preludeFiles ++ input
 
 flag :: String -> String -> Args Boolean
 flag shortForm longForm = maybe false (const true) <$> opt (flagOnly shortForm <|> flagOnly longForm)
