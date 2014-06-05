@@ -58,29 +58,29 @@ data CompileError = CompileError {
     -- |
     -- Error message
     --
-    compileErrorMessage :: String
+    message :: String
     -- |
     -- The value where the error occurred
     --
-  , compileErrorValue :: Maybe ErrorSource
+  , value :: Maybe ErrorSource
     -- |
     -- Optional source position information
     --
-  , compileErrorPosition :: Maybe SourcePos
+  , position :: Maybe SourcePos
   }
   
 mkCompileError :: String -> Maybe ErrorSource -> Maybe SourcePos -> CompileError
-mkCompileError compileErrorMessage compileErrorValue compileErrorPosition = 
-  CompileError { compileErrorMessage: compileErrorMessage
-	             , compileErrorValue: compileErrorValue
-							 , compileErrorPosition: compileErrorPosition
+mkCompileError message value position = 
+  CompileError { message: message
+	             , value: value
+							 , position: position
 							 }
   
 instance showCompileError :: Show CompileError where
   show (CompileError o) = "CompileError {" ++
-    "compileErrorMessage: " ++  show o.compileErrorMessage ++ ", " ++
-    "compileErrorValue: " ++    show o.compileErrorValue ++ ", " ++
-    "compileErrorPosition: " ++ show o.compileErrorPosition ++ " " ++
+    "message: " ++  show o.message ++ ", " ++
+    "value: " ++    show o.value ++ ", " ++
+    "position: " ++ show o.position ++ " " ++
 	  "}" 
 
 -- |
@@ -109,7 +109,7 @@ unifyError = WithErrorType
 
 prettyPrintErrorStack :: Boolean -> ErrorStack -> String
 prettyPrintErrorStack printFullStack (ErrorStack es) =
-  case mconcat $ map (\(CompileError o) -> Last o.compileErrorPosition) es of
+  case mconcat $ map (\(CompileError o) -> Last o.position) es of
     Last (Just sourcePos) -> "Error at " ++ show sourcePos ++ ": \n" ++ prettyPrintErrorStack'
     _ -> prettyPrintErrorStack'
   where
@@ -130,13 +130,13 @@ stringifyErrorStack :: forall a. Boolean -> Either ErrorStack a -> Either String
 stringifyErrorStack printFullStack = either (Left <<< prettyPrintErrorStack printFullStack) Right
 
 isErrorNonEmpty :: CompileError -> Boolean
-isErrorNonEmpty (CompileError { compileErrorMessage = "" }) = false
+isErrorNonEmpty (CompileError { message = "" }) = false
 isErrorNonEmpty _ = true
 
 showError :: CompileError -> String
-showError (CompileError { compileErrorMessage = msg, compileErrorValue = Nothing }) = msg
-showError (CompileError { compileErrorMessage = msg, compileErrorValue = Just (ValueError val) }) = "Error in value " ++ prettyPrintValue val ++ ":\n" ++ msg
-showError (CompileError { compileErrorMessage = msg, compileErrorValue = Just (TypeError ty) }) = "Error in type " ++ prettyPrintType ty ++ ":\n" ++ msg
+showError (CompileError { message = msg, value = Nothing }) = msg
+showError (CompileError { message = msg, value = Just (ValueError val) }) = "Error in value " ++ prettyPrintValue val ++ ":\n" ++ msg
+showError (CompileError { message = msg, value = Just (TypeError ty) }) = "Error in type " ++ prettyPrintType ty ++ ":\n" ++ msg
 
 mkErrorStack :: String -> Maybe ErrorSource -> ErrorStack
 mkErrorStack msg t = ErrorStack [mkCompileError msg t Nothing]
