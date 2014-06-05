@@ -1095,7 +1095,7 @@ checkFunctionApplication' :: Value -> Type -> Value -> Maybe Type -> UnifyT Type
 checkFunctionApplication' fn (TypeApp (TypeApp tyFunction' argTy) retTy) arg ret = do
   tyFunction' =?= tyFunction
   _ <- maybe (return Nothing) (subsumes Nothing retTy) ret
-  subst <- (\(UnifyState st) -> st.unifyCurrentSubstitution) <$> UnifyT get
+  subst <- (\(UnifyState st) -> st.currentSubstitution) <$> UnifyT get
   arg' <- check arg (subst $? argTy)
   return $ Tuple retTy (App fn arg')
 checkFunctionApplication' fn (ForAll ident ty _) arg ret = do

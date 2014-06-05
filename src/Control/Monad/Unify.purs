@@ -75,11 +75,11 @@ type UnifyStateObj t = {
   -- |
   -- The next fresh unification variable
   --
-    unifyNextVar :: Unknown
+    nextVar :: Unknown
   -- |
   -- The current substitution
   --
-  , unifyCurrentSubstitution :: Substitution t
+  , currentSubstitution :: Substitution t
   }
   
 unifyStateObj :: forall t. UnifyState t -> UnifyStateObj t
@@ -89,7 +89,7 @@ unifyStateObj (UnifyState o) = o
 -- An empty @UnifyState@
 --
 defaultUnifyState :: forall t. (Partial t) => UnifyState t
-defaultUnifyState = UnifyState { unifyNextVar: 0, unifyCurrentSubstitution: mempty }
+defaultUnifyState = UnifyState { nextVar: 0, currentSubstitution: mempty }
 
 -- |
 -- The type checking monad, which provides the state of the type checker, and error reporting capabilities
@@ -141,14 +141,14 @@ substituteOne u t = Substitution $ Data.Map.singleton u t
 substitute :: forall e m t. (Error e, Monad m, MonadError e m, Partial t, Unifiable m t) => WithErrorType e -> Unknown -> t -> UnifyT t m {}
 substitute errorType u t' = do
   UnifyState st <- get
-  let sub = st.unifyCurrentSubstitution
+  let sub = st.currentSubstitution
   let t = sub $? t'
   occursCheck errorType u t
   let current = sub $? unknown u
   case isUnknown current of
     Just u1 | u1 == u -> return {}
     _ -> current =?= t
-  modify $ \(UnifyState s) -> UnifyState { unifyNextVar: st.unifyNextVar, unifyCurrentSubstitution: substituteOne u t <> s.unifyCurrentSubstitution }
+  modify $ \(UnifyState s) -> UnifyState { nextVar: st.nextVar, currentSubstitution: substituteOne u t <> s.currentSubstitution }
 
 -- |
 -- This type exists to get around a type error caused by the lack of functional dependencies
@@ -171,10 +171,10 @@ fresh' :: forall m t. (Monad m) => UnifyT t m Unknown
 fresh' = do
   UnifyState st <- getState
   put $ UnifyState 
-    { unifyNextVar: st.unifyNextVar + 1
-    , unifyCurrentSubstitution: st.unifyCurrentSubstitution 
+    { nextVar: st.nextVar + 1
+    , currentSubstitution: st.currentSubstitution 
     }
-  return st.unifyNextVar
+  return st.nextVar
   where
   getState :: forall m t. (Monad m) => UnifyT t m (UnifyState t)
   getState = get

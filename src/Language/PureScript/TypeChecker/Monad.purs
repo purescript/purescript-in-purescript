@@ -218,6 +218,6 @@ liftCheck = UnifyT <<< lift
 liftUnify :: forall t a. (Partial t) => UnifyT t Check a -> Check (Tuple a (Substitution t))
 liftUnify unify = do
   CheckState st <- get
-  Tuple a (UnifyState ust) <- runUnify (UnifyState $ (unifyStateObj defaultUnifyState) { unifyNextVar = st.nextVar }) unify
-  modify $ \(CheckState st') -> CheckState $ st' { nextVar = ust.unifyNextVar }
-  return $ Tuple a ust.unifyCurrentSubstitution
+  Tuple a (UnifyState ust) <- runUnify (UnifyState $ (unifyStateObj defaultUnifyState) { nextVar = st.nextVar }) unify
+  modify $ \(CheckState st') -> CheckState $ st' { nextVar = ust.nextVar }
+  return $ Tuple a ust.currentSubstitution
