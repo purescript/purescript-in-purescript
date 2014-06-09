@@ -1,6 +1,15 @@
 {
   "private": true,
-  "dependencies": {
+  "name": "purescript",
+  "version": "0.0.0",
+  "files": ["dist", "prelude"],
+  "bin": {
+    "psc2": "dist/psc.js",
+    "psci2": "dist/psci.js",
+    "psc-make2": "dist/psc-make.js"
+  },
+  "preferGlobal": true,
+  "devDependencies": {
     "grunt": "~0.4.4",
     "grunt-contrib-clean": "~0.5.0",
     "grunt-contrib-copy": "~0.5.0",

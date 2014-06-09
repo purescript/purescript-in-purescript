@@ -16,7 +16,7 @@ module.exports = function(grunt) {
       }
     },
     
-    clean: ["output"],
+    clean: ["output", "dist"],
   
     pscMake: ["<%=libFiles%>"],
     dotPsci: ["<%=libFiles%>"],
@@ -26,19 +26,19 @@ module.exports = function(grunt) {
         expand: true,
         cwd: "output",
         src: "**",
-        dest: "tmp/node_modules/"
+        dest: "dist/node_modules/"
       },
       {
         expand: true,
         cwd: "js",
         src: "**",
-        dest: "tmp/"
+        dest: "dist/"
       }
     ],
     
     execute: {
       psc: {
-        src: "tmp/psc.js"
+        src: "dist/psc.js"
       }
     }
 
