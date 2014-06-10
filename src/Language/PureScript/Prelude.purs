@@ -1,13 +1,20 @@
 module Language.PureScript.Prelude where
 
+import Node.Path
+
+foreign import procFile "var procFile = process.argv[1];" :: String
+
+preludeBaseDir :: String
+preludeBaseDir = join (dirname procFile) "../prelude/"
+
 preludeFiles :: [String]
 preludeFiles = 
-  [ "prelude/Prelude.purs"
-  , "prelude/Prelude/Unsafe.purs"
-  , "prelude/Control/Monad/Eff.purs"
-  , "prelude/Control/Monad/Eff/Unsafe.purs"
-  , "prelude/Control/Monad/ST.purs"
-  , "prelude/Data/Eq.purs"
-  , "prelude/Data/Function.purs"
-  , "prelude/Debug/Trace.purs"
+  [ preludeBaseDir ++ "Prelude.purs"
+  , preludeBaseDir ++ "Prelude/Unsafe.purs"
+  , preludeBaseDir ++ "Control/Monad/Eff.purs"
+  , preludeBaseDir ++ "Control/Monad/Eff/Unsafe.purs"
+  , preludeBaseDir ++ "Control/Monad/ST.purs"
+  , preludeBaseDir ++ "Data/Eq.purs"
+  , preludeBaseDir ++ "Data/Function.purs"
+  , preludeBaseDir ++ "Debug/Trace.purs"
   ]

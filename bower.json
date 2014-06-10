@@ -9,7 +9,8 @@
     "purescript-transformers": "*",
     "purescript-pattern-arrows": "*",
     "purescript-parsing": "*",
-    "purescript-globals": ">=0.1.3"
+    "purescript-globals": ">=0.1.3",
+    "purescript-node-path": ">=0.1.0"
   },
   "devDependencies": {
     "purescript-quickcheck": "*"
