@@ -209,8 +209,8 @@ class (Monad m) <= MonadMake m where
 -- If timestamps have not changed, the externs file can be used to provide the module's types without
 -- having to typecheck the module again.
 --
-make :: forall m. (Functor m, Apply m, Applicative m, Bind m, Monad m, MonadMake m) => FilePath -> Options -> [Tuple FilePath Module] -> m Environment
-make outputDir opts@(Options optso) ms = do
+make :: forall m. (Functor m, Apply m, Applicative m, Bind m, Monad m, MonadMake m) => RequirePathType -> FilePath -> Options -> [Tuple FilePath Module] -> m Environment
+make rpt outputDir opts@(Options optso) ms = do
   let filePathMap = M.fromList (map (\(Tuple fp (Module mn _ _)) -> Tuple mn fp) ms)
 
   Tuple sorted graph <- liftError $ sortModules $ if optso.noPrelude then map snd ms else (map (importPrelude <<< snd) ms)
@@ -255,7 +255,7 @@ make outputDir opts@(Options optso) ms = do
     regrouped <- lift (liftError (stringifyErrorStack true (createBindingGroups moduleName' (collapseBindingGroups elaborated))))
     
     let mod' = Module moduleName' regrouped exps
-    js <- prettyPrintJS <$> moduleToJs CommonJS opts mod' env'
+    js <- prettyPrintJS <$> moduleToJs (CommonJS rpt) opts mod' env'
     let exts = moduleToPs mod' env'
     
     lift $ writeTextFile jsFile js

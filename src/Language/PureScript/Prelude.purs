@@ -1,4 +1,4 @@
-module Language.Purescript.Prelude where
+module Language.PureScript.Prelude where
 
 preludeFiles :: [String]
 preludeFiles = 

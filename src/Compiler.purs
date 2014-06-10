@@ -43,7 +43,7 @@ import Node.Args
 import Language.PureScript
 import Language.PureScript.Declarations
 import Language.PureScript.Options
-import Language.Purescript.Prelude
+import Language.PureScript.Prelude
 
 import qualified Language.PureScript.Parser.Lexer as P
 import qualified Language.PureScript.Parser.Common as P

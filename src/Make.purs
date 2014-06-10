@@ -44,7 +44,8 @@ import Node.Args
 import Language.PureScript
 import Language.PureScript.Declarations
 import Language.PureScript.Options
-import Language.Purescript.Prelude
+import Language.PureScript.Prelude
+import Language.PureScript.CodeGen.JS
 
 import qualified Language.PureScript.Parser.Lexer as P
 import qualified Language.PureScript.Parser.Common as P
@@ -82,7 +83,7 @@ readInput input =
 runCompiler :: forall eff. String -> Options -> [String] -> Eff (fs :: FS, trace :: Trace, process :: Process) {}
 runCompiler outputDir opts@(Options optso) input = runApplication do
   modules <- readInput allInputFiles
-  make outputDir opts modules
+  make RequireLocal outputDir opts modules
   return {}
   where
   allInputFiles :: [String]

@@ -1,5 +1,6 @@
 module Language.PureScript.CodeGen.JS
-  ( ModuleType(..)
+  ( RequirePathType(..)
+  , ModuleType(..)
   , declToJs
   , moduleToJs
   ) where
@@ -30,9 +31,14 @@ import Language.PureScript.Traversals (sndM)
 import Language.PureScript.Types
 
 -- |
+-- Different ways of referencing a module in a require(...) statement - absolute paths, and module name only.
+--
+data RequirePathType = RequireAbsolute (String -> String) | RequireLocal
+
+-- |
 -- Different types of modules which are supported
 --
-data ModuleType = CommonJS | Globals
+data ModuleType = CommonJS RequirePathType | Globals
 
 -- |
 -- Generate code in the simplified Javascript intermediate representation for all declarations in a
@@ -47,7 +53,7 @@ moduleToJs mt opts@(Options o) (Module name decls (Just exps)) env = do
   let moduleBody = JSStringLiteral "use strict" : jsImports ++ optimized
   let moduleExports = JSObjectLiteral $ concatMap exportToJs exps
   return $ case mt of
-    CommonJS -> moduleBody ++ [JSAssignment (JSAccessor "exports" (JSVar "module")) moduleExports]
+    CommonJS _ -> moduleBody ++ [JSAssignment (JSAccessor "exports" (JSVar "module")) moduleExports]
     Globals | not isModuleEmpty ->
       [ JSVariableIntroduction (fromJust o.browserNamespace)
                                (Just (JSBinary Or (JSVar (fromJust o.browserNamespace)) (JSObjectLiteral [])) )
@@ -61,8 +67,12 @@ importToJs :: ModuleType -> Options -> ModuleName -> JS
 importToJs mt (Options opts) mn = JSVariableIntroduction (moduleNameToJs mn) (Just moduleBody)
   where
   moduleBody = case mt of
-    CommonJS -> JSApp (JSVar "require") [JSStringLiteral (runModuleName mn)]
+    CommonJS rpt -> JSApp (JSVar "require") [JSStringLiteral (requireModule rpt mn)]
     Globals -> JSAccessor (moduleNameToJs mn) (JSVar (fromJust opts.browserNamespace))
+
+requireModule :: RequirePathType -> ModuleName -> String
+requireModule RequireLocal mn = runModuleName mn
+requireModule (RequireAbsolute f) mn = f (runModuleName mn)
 
 imports :: Declaration -> [ModuleName]
 imports =
