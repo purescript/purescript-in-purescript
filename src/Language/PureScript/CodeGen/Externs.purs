@@ -72,8 +72,9 @@ moduleToPs (Module moduleName ds (Just exts)) (Environment env) = joinWith "\n" 
         Nothing -> theImpossibleHappened $ show className ++ " has no type class definition in exportToPs"
         Just (Tuple3 args members implies) -> do
           let impliesString = if null implies then "" else "(" ++ joinWith ", " (map (\(Tuple pn tys') -> show pn ++ " " ++ joinWith " " (map prettyPrintTypeAtom tys')) implies) ++ ") <= "
-          tell ["class " ++ impliesString ++ show className ++ " " ++ joinWith " " args ++ " where"]
-          for_ (filter (isValueExported <<< fst) members) $ \(Tuple member ty) ->
+          let exportedMembers = filter (isValueExported <<< fst) members
+          tell ["class " ++ impliesString ++ show className ++ " " ++ joinWith " " args ++ (if null exportedMembers then "" else " where")]
+          for_ exportedMembers $ \(Tuple member ty) ->
             tell [ "  " ++ show member ++ " :: " ++ prettyPrintType ty ]
 
     exportToPs (TypeInstanceRef ident) = do
