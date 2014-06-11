@@ -152,17 +152,17 @@ createTemporaryModule exec st value =
     moduleName :: ModuleName
     moduleName = ModuleName [ProperName "Main"]
     
-    traceModule :: ModuleName
-    traceModule = ModuleName [ProperName "Debug", ProperName "Trace"]
+    replModule :: ModuleName
+    replModule = ModuleName [ProperName "REPL"]
     
-    trace :: D.Value
-    trace = D.Var (Qualified (Just traceModule) (Ident "print"))
+    evalPrint :: D.Value
+    evalPrint = D.Var (Qualified (Just replModule) (Ident "evalPrint"))
     
     itValue :: D.Value
     itValue = foldl (\x f -> f x) value st.letBindings
     
     mainValue :: D.Value
-    mainValue = D.App trace (D.Var (Qualified Nothing (Ident "it")))
+    mainValue = D.App evalPrint (D.Var (Qualified Nothing (Ident "it")))
     
     importDecl :: ModuleName -> D.Declaration
     importDecl m = D.ImportDeclaration m Nothing Nothing
@@ -175,8 +175,11 @@ createTemporaryModule exec st value =
     
     decls :: [D.Declaration]
     decls = if exec then [itDecl, mainDecl] else [itDecl]
+    
+    moduleBody :: [D.Declaration]
+    moduleBody = map importDecl (replModule : st.importedModuleNames) ++ decls
   in
-    D.Module moduleName (map importDecl st.importedModuleNames ++ decls) Nothing
+    D.Module moduleName moduleBody Nothing
 
 -- |
 -- Require statements use absolute paths to modules cached in the current directory
@@ -195,8 +198,15 @@ foreign import homeDirectory
 --
 modulesDir :: String
 modulesDir = homeDirectory ++ "/.purescript/psci/cache"
+
+-- |
+-- The REPL support module
+--
+replModule :: String
+replModule = homeDirectory ++ "/.purescript/psci/modules/REPL.purs"
     
--- | Compilation options.
+-- | 
+-- Compilation options
 --
 options :: Options
 options = mkOptions false true false true Nothing true Nothing [] [] false    
@@ -243,7 +253,7 @@ handleEval st value = do
     make requireMode modulesDir options (ms ++ [Tuple "Main.purs" m])
   case e of
     Left err -> trace err
-    Right _ -> evaluate $ "(function() { console.log(require('" ++ modulePath "Main" ++ "').main()); })()"
+    Right _ -> evaluate $ "(function() { require('" ++ modulePath "Main" ++ "').main(); })()"
 
 prologueMessage :: String
 prologueMessage = 
@@ -276,6 +286,8 @@ handleCommand _ state (LoadFile filename) = do
 handleCommand _ state (Import mn) =
   modifyRef state (\st -> st { importedModuleNames = st.importedModuleNames ++ [mn] })
 handleCommand initialFiles state Reset = writeRef state (emptyPSCIState initialFiles)
+handleCommand _ state (Let f) =
+  modifyRef state (\st -> st { letBindings = st.letBindings ++ [f] })
 
 lineHandler :: [String] -> RefVal PSCIState -> String -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
 lineHandler initialFiles state input = 
@@ -285,11 +297,12 @@ lineHandler initialFiles state input =
 
 loop :: [String] -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
 loop inputFiles = do
-  state <- newRef (emptyPSCIState (preludeFiles ++ inputFiles))
+  let allModules = preludeFiles ++ [replModule] ++ inputFiles
+  state <- newRef (emptyPSCIState allModules)
   interface <- createInterface process.stdin process.stdout (completion state)
   setPrompt "> " 2 interface
   prompt interface
-  setLineHandler (\s -> lineHandler (preludeFiles ++ inputFiles) state s <* prompt interface) interface
+  setLineHandler (\s -> lineHandler allModules state s <* prompt interface) interface
   return {}
   
 inputFiles :: Args [String]
