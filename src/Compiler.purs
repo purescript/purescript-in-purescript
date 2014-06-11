@@ -62,12 +62,12 @@ readInput input =
       Left err -> throwError err
       Right m -> return m)
 
-runCompiler :: forall eff. Options -> [String] -> Maybe String -> Maybe String -> Eff (fs :: FS, trace :: Trace, process :: Process) {}
+runCompiler :: forall eff. Options -> [String] -> Maybe String -> Maybe String -> Eff (fs :: FS, trace :: Trace, process :: Process | eff) {}
 runCompiler opts@(Options optso) input output externs = runApplication do
   modules <- readInput allInputFiles
   Tuple3 js exts _ <- eitherApplication $ compile opts modules
   case output of
-    Nothing -> effApplication $ trace js
+    Nothing -> effApplication (trace js)
     Just path -> do
       mkdirpApplication (dirname path)
       writeFileApplication path js

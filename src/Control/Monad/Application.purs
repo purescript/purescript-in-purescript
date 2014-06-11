@@ -1,6 +1,7 @@
 module Control.Monad.Application where
   
 import Data.Either  
+import Data.Maybe
   
 import Debug.Trace  
 
@@ -14,9 +15,11 @@ import Control.Monad.Eff
 import Control.Monad.Eff.FS
 import Control.Monad.Eff.Process
 
-data Application a = Application (ErrorT String (Eff (fs :: FS, trace :: Trace, process :: Process)) a)
+import Language.PureScript
 
-unApplication :: forall a. Application a -> ErrorT String (Eff (fs :: FS, trace :: Trace, process :: Process)) a
+data Application a = Application (forall eff. ErrorT String (Eff (fs :: FS, trace :: Trace, process :: Process | eff)) a)
+
+unApplication :: forall eff a. Application a -> ErrorT String (Eff (fs :: FS, trace :: Trace, process :: Process | eff)) a
 unApplication (Application m) = m
 
 instance functorApplication :: Functor Application where
@@ -35,9 +38,25 @@ instance monadApplication :: Monad Application
 
 instance monadErrorApplication :: MonadError String Application where
   throwError e = Application (throwError e)
-  catchError (Application e) f = Application $ catchError e (unApplication <<< f)
+  catchError (Application e) f = Application (catchError e (unApplication <<< f))
 
-runApplication :: forall a. Application a -> Eff (fs :: FS, trace :: Trace, process :: Process) {}
+instance monadMakeApp :: MonadMake Application where
+  getTimestamp path = do
+    exists <- doesFileExistApplication path
+    case exists of
+      true -> Just <$> getModificationTimeApplication path
+      false -> return Nothing
+  readTextFile path = do
+    effApplication (trace $ "Reading " ++ path)
+    readFileApplication path
+  writeTextFile path text = do
+    mkdirpApplication (dirname path)
+    effApplication (trace $ "Writing " ++ path)
+    writeFileApplication path text
+  liftError = eitherApplication
+  progress msg = effApplication (trace msg)
+
+runApplication :: forall eff a. Application a -> Eff (fs :: FS, trace :: Trace, process :: Process | eff) {}
 runApplication (Application app) = do
   result <- runErrorT app
   case result of
@@ -46,8 +65,11 @@ runApplication (Application app) = do
       exit 1
     Right _ -> exit 0
     
+runApplication' :: forall eff a. Application a -> Eff (fs :: FS, trace :: Trace, process :: Process | eff) (Either String a)
+runApplication' (Application app) = runErrorT app
+    
 fsAction :: forall a. (forall eff r. (a -> r) -> (FSError -> r) -> Eff (fs :: FS | eff) r) -> Application a
-fsAction k = Application $ ErrorT $ k Right (Left <<< getStackTrace)
+fsAction k = Application (ErrorT (k Right (Left <<< getStackTrace)))
 
 readFileApplication :: String -> Application String
 readFileApplication filename = fsAction (readFile filename)
@@ -65,7 +87,7 @@ mkdirpApplication :: String -> Application {}
 mkdirpApplication filename = fsAction (mkdirp filename)
 
 eitherApplication :: forall a. Either String a -> Application a
-eitherApplication e = Application $ ErrorT (return e)
+eitherApplication e = Application (ErrorT (return e))
 
-effApplication :: forall a. Eff (fs :: FS, trace :: Trace, process :: Process) a -> Application a
-effApplication a = Application $ lift a
+effApplication :: forall a. (forall eff. Eff (fs :: FS, trace :: Trace, process :: Process | eff) a) -> Application a
+effApplication a = Application (lift a)

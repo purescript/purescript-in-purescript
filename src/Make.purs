@@ -51,22 +51,6 @@ import qualified Language.PureScript.Parser.Lexer as P
 import qualified Language.PureScript.Parser.Common as P
 import qualified Language.PureScript.Parser.Declarations as P
 
-instance monadMakeApp :: MonadMake Application where
-  getTimestamp path = do
-    exists <- doesFileExistApplication path
-    case exists of
-      true -> Just <$> getModificationTimeApplication path
-      false -> return Nothing
-  readTextFile path = do
-    effApplication $ trace $ "Reading " ++ path
-    readFileApplication path
-  writeTextFile path text = do
-    mkdirpApplication (dirname path)
-    effApplication $ trace $ "Writing " ++ path
-    writeFileApplication path text
-  liftError = eitherApplication
-  progress msg = effApplication $ trace msg
-
 moduleFromText :: String -> Either String Module
 moduleFromText text = do
   tokens <- P.lex text

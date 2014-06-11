@@ -5,7 +5,10 @@ import Data.Maybe
 import Data.Either
 import Data.Array (map)
 import Data.Foldable (foldl)
+import Data.Traversable (for)
 import Data.String (joinWith, indexOf, drop)
+
+import qualified Data.Map as M
 
 import Debug.Trace
 
@@ -15,12 +18,19 @@ import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Monad.Eff.Process
 import Control.Monad.Eff.FS
+import Control.Monad.Application
+import Control.Monad.Error.Class
 
 import Node.Args
 import Node.ReadLine
 
+import Language.PureScript
 import Language.PureScript.Names
-import Language.PureScript.Environment (NameKind(..))
+import Language.PureScript.Options
+import Language.PureScript.Prelude
+import Language.PureScript.Environment
+import Language.PureScript.Pretty.Types (prettyPrintType)
+import Language.PureScript.CodeGen.JS (RequirePathType(..))
 import qualified Language.PureScript.Declarations as D
 
 import qualified Text.Parsing.Parser as P
@@ -88,18 +98,16 @@ parseCommand cmd = parse (parseLet <|> (Eval <$> P.parseValue {})) cmd
 -- The let bindings are partial,
 -- because it makes more sense to apply the binding to the final evaluated expression.
 --
-type PSCIState = { importedFilenames   :: [String]
+type PSCIState = { loadedModules       :: [String]
                  , importedModuleNames :: [ModuleName]
-                 , loadedModules       :: [Tuple String D.Module]
                  , letBindings         :: [D.Value -> D.Value]
                  }
   
-emptyPSCIState :: PSCIState
-emptyPSCIState = { importedFilenames   : []
-                 , importedModuleNames : []
-                 , loadedModules       : []
-                 , letBindings         : []
-                 }
+emptyPSCIState :: [String] -> PSCIState
+emptyPSCIState files = { loadedModules       : files
+                       , importedModuleNames : [ModuleName [ProperName "Prelude"]]
+                       , letBindings         : []
+                       }
                  
 defaultImports :: [ModuleName]
 defaultImports = [ModuleName [ProperName "Prelude"]]
@@ -126,6 +134,14 @@ moduleFromText text = do
 --
 loadModule :: forall eff. String -> Eff (fs :: FS | eff) (Either String D.Module)
 loadModule filename = readFile filename moduleFromText (Left <<< getStackTrace)
+
+loadModules :: [String] -> Application [Tuple String D.Module]
+loadModules input = 
+  for input (\inputFile -> do
+    text <- readFileApplication inputFile
+    case moduleFromText text of
+      Left err -> throwError err
+      Right m -> return (Tuple inputFile m))
 
 -- |
 -- Makes a temporary module for the purposes of executing an expression
@@ -162,6 +178,73 @@ createTemporaryModule exec st value =
   in
     D.Module moduleName (map importDecl st.importedModuleNames ++ decls) Nothing
 
+-- |
+-- Require statements use absolute paths to modules cached in the current directory
+--
+requireMode :: RequirePathType
+requireMode = RequireAbsolute modulePath
+
+modulePath :: String -> String
+modulePath mn = modulesDir ++ "/" ++ mn ++ "/index.js"
+
+foreign import homeDirectory
+  "var homeDirectory = process.env['HOME'] || process.env['HOMEPATH'] || process.env['USERPROFILE'];" :: String
+
+-- |
+-- Directory which holds compiled modules
+--
+modulesDir :: String
+modulesDir = homeDirectory ++ "/.purescript/psci/cache"
+    
+-- | Compilation options.
+--
+options :: Options
+options = mkOptions false true false true Nothing true Nothing [] [] false    
+    
+-- |
+-- Takes a value and prints its type
+--
+handleTypeOf :: forall eff. PSCIState -> D.Value -> Eff (fs :: FS, trace :: Trace, process :: Process | eff) {}
+handleTypeOf st value = do
+  let m = createTemporaryModule false st value
+  e <- runApplication' do
+    ms <- loadModules st.loadedModules
+    make requireMode modulesDir options (ms ++ [Tuple "Main.purs" m])
+  case e of
+    Left err -> trace err
+    Right (Environment env') ->
+      case M.lookup (Tuple (ModuleName [ProperName "Main"]) (Ident "it")) env'.names of
+        Just (Tuple ty _) -> trace $ prettyPrintType ty
+        Nothing -> trace "Could not find type"
+
+-- |
+-- An effect for the 'eval' function
+--
+foreign import data Eval :: !
+
+-- |
+-- Evaluate some Javascript
+--
+foreign import evaluate
+  "function evaluate(js) {\
+  \  return function() {\
+  \    eval(js);\
+  \  };\
+  \}" :: forall eff. String -> Eff (eval :: Eval | eff) {}
+        
+-- |
+-- Takes a value declaration and evaluates it with the current state.
+--
+handleEval :: forall eff. PSCIState -> D.Value -> Eff (fs :: FS, trace :: Trace, process :: Process, eval :: Eval | eff) {}
+handleEval st value = do
+  let m = createTemporaryModule true st value
+  e <- runApplication' do
+    ms <- loadModules st.loadedModules
+    make requireMode modulesDir options (ms ++ [Tuple "Main.purs" m])
+  case e of
+    Left err -> trace err
+    Right _ -> evaluate $ "(function() { console.log(require('" ++ modulePath "Main" ++ "').main()); })()"
+
 prologueMessage :: String
 prologueMessage = 
   " ____                 ____            _       _   \n\
@@ -178,18 +261,24 @@ prologueMessage =
 completion :: forall eff. RefVal PSCIState -> Completer (ref :: Ref | eff)
 completion state s = return $ Tuple [] s
 
-handleCommand :: Command -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref) {}
-handleCommand Help = trace help
-handleCommand Quit = trace "See ya!" *> exit 0
-handleCommand cmd = return {}
+handleCommand :: RefVal PSCIState -> Command -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
+handleCommand _ Help = trace help
+handleCommand _ Quit = trace "See ya!" *> exit 0
+handleCommand state (TypeOf v) = do
+  st <- readRef state
+  handleTypeOf st v
+handleCommand state (Eval v) = do
+  st <- readRef state
+  handleEval st v
+handleCommand state cmd = return {}
 
-lineHandler :: RefVal PSCIState -> String -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref) {}
+lineHandler :: RefVal PSCIState -> String -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
 lineHandler state input = 
   case parseCommand input of
     Left msg -> trace msg
-    Right cmd -> handleCommand cmd
+    Right cmd -> handleCommand state cmd
 
-loop :: RefVal PSCIState -> [String] -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref) {}
+loop :: RefVal PSCIState -> [String] -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
 loop state inputFiles = do
   interface <- createInterface process.stdin process.stdout (completion state)
   setPrompt "> " 2 interface
@@ -200,11 +289,11 @@ loop state inputFiles = do
 inputFiles :: Args [String]
 inputFiles = many argOnly  
   
-term :: RefVal PSCIState -> Args (Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref) {})
+term :: RefVal PSCIState -> Args (Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {})
 term state = loop state <$> inputFiles
 
 main = do
-  state <- newRef emptyPSCIState
+  state <- newRef (emptyPSCIState preludeFiles)
   trace prologueMessage
   result <- readArgs' (term state)
   case result of
