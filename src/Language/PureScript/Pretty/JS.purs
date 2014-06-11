@@ -226,7 +226,6 @@ prettyPrintJS' js = runPattern matchValue js
                         ++ fromMaybe "" name
                         ++ "(" ++ S.joinWith ", " args ++ ") "
                         ++ ret) ]
-                  , [ Operator (wrap conditional $ \(Tuple th el) cond -> cond ++ " ? " ++ prettyPrintJS1 th ++ " : " ++ prettyPrintJS1 el) ]
                   , [ binary    LessThan             "<" ]
                   , [ binary    LessThanOrEqualTo    "<=" ]
                   , [ binary    GreaterThan          ">" ]
@@ -251,4 +250,5 @@ prettyPrintJS' js = runPattern matchValue js
                   , [ binary    BitwiseOr            "|" ]
                   , [ binary    And                  "&&" ]
                   , [ binary    Or                   "||" ]
+                  , [ Operator (wrap conditional $ \(Tuple th el) cond -> cond ++ " ? " ++ prettyPrintJS1 th ++ " : " ++ prettyPrintJS1 el) ]
                     ]
