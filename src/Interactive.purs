@@ -261,41 +261,46 @@ prologueMessage =
 completion :: forall eff. RefVal PSCIState -> Completer (ref :: Ref | eff)
 completion state s = return $ Tuple [] s
 
-handleCommand :: RefVal PSCIState -> Command -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
-handleCommand _ Help = trace help
-handleCommand _ Quit = trace "See ya!" *> exit 0
-handleCommand state (TypeOf v) = do
+handleCommand :: [String] -> RefVal PSCIState -> Command -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
+handleCommand _ _ Help = trace help
+handleCommand _ _ Quit = trace "See ya!" *> exit 0
+handleCommand _ state (TypeOf v) = do
   st <- readRef state
   handleTypeOf st v
-handleCommand state (Eval v) = do
+handleCommand _ state (Eval v) = do
   st <- readRef state
   handleEval st v
-handleCommand state cmd = return {}
+handleCommand _ state (LoadFile filename) = do
+  modifyRef state (\st -> st { loadedModules = st.loadedModules ++ [filename] })
+  -- TODO: parse the module and store it
+handleCommand _ state (Import mn) =
+  modifyRef state (\st -> st { importedModuleNames = st.importedModuleNames ++ [mn] })
+handleCommand initialFiles state Reset = writeRef state (emptyPSCIState initialFiles)
 
-lineHandler :: RefVal PSCIState -> String -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
-lineHandler state input = 
+lineHandler :: [String] -> RefVal PSCIState -> String -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
+lineHandler initialFiles state input = 
   case parseCommand input of
     Left msg -> trace msg
-    Right cmd -> handleCommand state cmd
+    Right cmd -> handleCommand initialFiles state cmd
 
-loop :: RefVal PSCIState -> [String] -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
-loop state inputFiles = do
+loop :: [String] -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
+loop inputFiles = do
+  state <- newRef (emptyPSCIState (preludeFiles ++ inputFiles))
   interface <- createInterface process.stdin process.stdout (completion state)
   setPrompt "> " 2 interface
   prompt interface
-  setLineHandler (\s -> lineHandler state s <* prompt interface) interface
+  setLineHandler (\s -> lineHandler (preludeFiles ++ inputFiles) state s <* prompt interface) interface
   return {}
   
 inputFiles :: Args [String]
 inputFiles = many argOnly  
   
-term :: RefVal PSCIState -> Args (Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {})
-term state = loop state <$> inputFiles
+term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {})
+term = loop <$> inputFiles
 
 main = do
-  state <- newRef (emptyPSCIState preludeFiles)
   trace prologueMessage
-  result <- readArgs' (term state)
+  result <- readArgs' term
   case result of
     Left err -> print err
     _ -> return {}
