@@ -9,4 +9,4 @@ foreign import exit
   \  return function() {\
   \    process.exit(code);\
   \  };\
-  \}" :: forall eff. Number -> Eff (process :: Process | eff) {}
+  \}" :: forall eff. Number -> Eff (process :: Process | eff) Unit

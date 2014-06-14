@@ -54,11 +54,11 @@ runTokenParser p ts = case runParser (toTokenStream ts) p of
   Left (ParseError o) -> Left o.message
   Right a -> Right a
   
-eof :: Parser TokenStream {}
+eof :: Parser TokenStream Unit
 eof = do
   ts <- get
   case unconsStream ts of
-    Nothing -> return {}
+    Nothing -> return unit
     Just cons -> fail $ "Expected EOF at line " ++ show cons.head.line ++ ", column " ++ show cons.head.column ++ ", found " ++ show cons.head.token
     
 token :: forall a. String -> (Token -> String) -> (Token -> Maybe a) -> Parser TokenStream a
@@ -77,82 +77,82 @@ token exp sh p = do
 token' :: forall a. String -> (Token -> Maybe a) -> Parser TokenStream a
 token' exp p = token exp show p
 
-match :: forall a. Token -> Parser TokenStream {}
-match tok = token' (show tok) (\tok' -> if tok == tok' then Just {} else Nothing)
+match :: forall a. Token -> Parser TokenStream Unit
+match tok = token' (show tok) (\tok' -> if tok == tok' then Just unit else Nothing)
     
-lparen :: Parser TokenStream {}
+lparen :: Parser TokenStream Unit
 lparen = match LParen 
 
-rparen :: Parser TokenStream {}
+rparen :: Parser TokenStream Unit
 rparen = match RParen
 
 parens :: forall a. Parser TokenStream a -> Parser TokenStream a
 parens = between lparen rparen
 
-lbrace :: Parser TokenStream {}
+lbrace :: Parser TokenStream Unit
 lbrace = match LBrace
 
-rbrace :: Parser TokenStream {}
+rbrace :: Parser TokenStream Unit
 rbrace = match RBrace
 
 braces :: forall a. Parser TokenStream a -> Parser TokenStream a
 braces = between lbrace rbrace
 
-langle :: Parser TokenStream {}
+langle :: Parser TokenStream Unit
 langle = match LAngle
 
-rangle :: Parser TokenStream {}
+rangle :: Parser TokenStream Unit
 rangle = match RAngle
 
 angles :: forall a. Parser TokenStream a -> Parser TokenStream a
 angles = between langle rangle
 
-lsquare :: Parser TokenStream {}
+lsquare :: Parser TokenStream Unit
 lsquare = match LSquare
 
-rsquare :: Parser TokenStream {}
+rsquare :: Parser TokenStream Unit
 rsquare = match RSquare
 
 squares :: forall a. Parser TokenStream a -> Parser TokenStream a
 squares = between lsquare rsquare
 
-larrow :: Parser TokenStream {}
+larrow :: Parser TokenStream Unit
 larrow = match LArrow
 
-rarrow :: Parser TokenStream {}
+rarrow :: Parser TokenStream Unit
 rarrow = match RArrow
 
-lfatArrow :: Parser TokenStream {}
+lfatArrow :: Parser TokenStream Unit
 lfatArrow = match LFatArrow
 
-rfatArrow :: Parser TokenStream {}
+rfatArrow :: Parser TokenStream Unit
 rfatArrow = match RFatArrow
 
-colon :: Parser TokenStream {}
+colon :: Parser TokenStream Unit
 colon = match Colon
 
-doubleColon :: Parser TokenStream {}
+doubleColon :: Parser TokenStream Unit
 doubleColon = match DoubleColon
 
-equals :: Parser TokenStream {}
+equals :: Parser TokenStream Unit
 equals = match Equals
 
-pipe :: Parser TokenStream {}
+pipe :: Parser TokenStream Unit
 pipe = match Pipe
 
-tick :: Parser TokenStream {}
+tick :: Parser TokenStream Unit
 tick = match Tick
 
-dot :: Parser TokenStream {}
+dot :: Parser TokenStream Unit
 dot = match Dot
 
-comma :: Parser TokenStream {}
+comma :: Parser TokenStream Unit
 comma = match Comma
 
-semi :: Parser TokenStream {}
+semi :: Parser TokenStream Unit
 semi = match Semi
 
-at :: Parser TokenStream {}
+at :: Parser TokenStream Unit
 at = match At
 
 semiSep :: forall a. Parser TokenStream a -> Parser TokenStream [a]
@@ -173,10 +173,10 @@ lname = token' "identifier" go
   go (LName s) = Just s
   go _ = Nothing
   
-reserved :: String -> Parser TokenStream {}
+reserved :: String -> Parser TokenStream Unit
 reserved s = token' (show s) go
   where
-  go (LName s') | s == s' = Just {}
+  go (LName s') | s == s' = Just unit
   go _ = Nothing
 
 uname :: Parser TokenStream String
@@ -185,10 +185,10 @@ uname = token' "proper name" go
   go (UName s) = Just s
   go _ = Nothing
   
-uname' :: String -> Parser TokenStream {}
+uname' :: String -> Parser TokenStream Unit
 uname' s = token' (show s) go
   where
-  go (UName s') | s == s' = Just {}
+  go (UName s') | s == s' = Just unit
   go _ = Nothing
   
 symbol :: Parser TokenStream String
@@ -206,19 +206,19 @@ symbol = token' "symbol" go
   go At         = Just "@"
   go _ = Nothing
   
-symbol' :: String -> Parser TokenStream {}
+symbol' :: String -> Parser TokenStream Unit
 symbol' s = token' (show s) go
   where
-  go (Symbol s') | s == s'   = Just {}
-  go LAngle      | s == "<"  = Just {}
-  go RAngle      | s == ">"  = Just {}
-  go LFatArrow   | s == "<=" = Just {}
-  go RFatArrow   | s == "=>" = Just {}
-  go Colon       | s == ":"  = Just {}
-  go Pipe        | s == "|"  = Just {}
-  go Dot         | s == "."  = Just {}
-  go Comma       | s == ","  = Just {}
-  go At          | s == "@"  = Just {}
+  go (Symbol s') | s == s'   = Just unit
+  go LAngle      | s == "<"  = Just unit
+  go RAngle      | s == ">"  = Just unit
+  go LFatArrow   | s == "<=" = Just unit
+  go RFatArrow   | s == "=>" = Just unit
+  go Colon       | s == ":"  = Just unit
+  go Pipe        | s == "|"  = Just unit
+  go Dot         | s == "."  = Just unit
+  go Comma       | s == ","  = Just unit
+  go At          | s == "@"  = Just unit
   go _ = Nothing
 
 stringLiteral :: Parser TokenStream String
@@ -269,10 +269,10 @@ properName = ProperName <$> uname
 moduleName :: Parser TokenStream ModuleName
 moduleName = ModuleName <$> (sepBy properName dot)
 
-notFollowedBy :: forall s a. String -> Parser s a -> Parser s {}
+notFollowedBy :: forall s a. String -> Parser s a -> Parser s Unit
 notFollowedBy name p = try (do
   c <- p
-  fail ("Unexpected " ++ name)) <|> return {}
+  fail ("Unexpected " ++ name)) <|> return unit
 
 -- |
 -- Run the first parser, then match the second if possible, applying the specified function on a successful match
@@ -313,7 +313,7 @@ parseQualified parser = part []
                   part (updatePath path name))
               <|> (Qualified (qual path) <$> try parser)
            
-  delimiter :: Parser TokenStream {}
+  delimiter :: Parser TokenStream Unit
   delimiter = dot <* notFollowedBy "dot" dot
   
   updatePath :: [ProperName] -> ProperName -> [ProperName]

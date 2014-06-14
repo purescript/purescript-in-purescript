@@ -56,7 +56,7 @@ instance monadMakeApp :: MonadMake Application where
   liftError = eitherApplication
   progress msg = effApplication (trace msg)
 
-runApplication :: forall eff a. Application a -> Eff (fs :: FS, trace :: Trace, process :: Process | eff) {}
+runApplication :: forall eff a. Application a -> Eff (fs :: FS, trace :: Trace, process :: Process | eff) Unit
 runApplication (Application app) = do
   result <- runErrorT app
   case result of
@@ -74,7 +74,7 @@ fsAction k = Application (ErrorT (k Right (Left <<< getStackTrace)))
 readFileApplication :: String -> Application String
 readFileApplication filename = fsAction (readFile filename)
 
-writeFileApplication :: String -> String -> Application {}
+writeFileApplication :: String -> String -> Application Unit
 writeFileApplication filename text = fsAction (writeFile filename text)
 
 doesFileExistApplication :: String -> Application Boolean
@@ -83,7 +83,7 @@ doesFileExistApplication filename = fsAction (doesFileExist filename)
 getModificationTimeApplication :: String -> Application Number
 getModificationTimeApplication filename = fsAction (getModificationTime filename)
 
-mkdirpApplication :: String -> Application {}
+mkdirpApplication :: String -> Application Unit
 mkdirpApplication filename = fsAction (mkdirp filename)
 
 eitherApplication :: forall a. Either String a -> Application a

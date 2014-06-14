@@ -47,7 +47,7 @@ class Partial t where
 -- Identifies types which support unification
 --
 class (Partial t) <= Unifiable m t where
-  (=?=) :: t -> t -> UnifyT t m {}
+  (=?=) :: t -> t -> UnifyT t m Unit
 
 -- |
 -- A substitution maintains a mapping from unification variables to their values
@@ -138,7 +138,7 @@ substituteOne u t = Substitution $ Data.Map.singleton u t
 -- |
 -- Replace a unification variable with the specified value in the current substitution
 --
-substitute :: forall e m t. (Error e, Monad m, MonadError e m, Partial t, Unifiable m t) => WithErrorType e -> Unknown -> t -> UnifyT t m {}
+substitute :: forall e m t. (Error e, Monad m, MonadError e m, Partial t, Unifiable m t) => WithErrorType e -> Unknown -> t -> UnifyT t m Unit
 substitute errorType u t' = do
   UnifyState st <- get
   let sub = st.currentSubstitution
@@ -146,7 +146,7 @@ substitute errorType u t' = do
   occursCheck errorType u t
   let current = sub $? unknown u
   case isUnknown current of
-    Just u1 | u1 == u -> return {}
+    Just u1 | u1 == u -> return unit
     _ -> current =?= t
   modify $ \(UnifyState s) -> UnifyState { nextVar: st.nextVar, currentSubstitution: substituteOne u t <> s.currentSubstitution }
 
@@ -158,11 +158,11 @@ data Proxy e = Proxy
 -- |
 -- Perform the occurs check, to make sure a unification variable does not occur inside a value
 --
-occursCheck :: forall e m t. (Error e, Monad m, MonadError e m, Partial t) => WithErrorType e -> Unknown -> t -> UnifyT t m {}
+occursCheck :: forall e m t. (Error e, Monad m, MonadError e m, Partial t) => WithErrorType e -> Unknown -> t -> UnifyT t m Unit
 occursCheck errorType u t =
   case isUnknown t of
     Nothing | u `elem` unknowns t -> UnifyT $ lift $ throwError $ withErrorType errorType $ strMsg $ "Occurs check fails"
-    _ -> return {}
+    _ -> return unit
 	
 -- |
 -- Generate a fresh untyped unification variable

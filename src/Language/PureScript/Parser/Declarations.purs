@@ -65,15 +65,15 @@ parseTypeSynonymDeclaration =
                          <*> P.many identifier
                          <*> (equals *> parseType)
                      
-parseValueDeclaration :: {} -> P.Parser TokenStream Declaration
+parseValueDeclaration :: Unit -> P.Parser TokenStream Declaration
 parseValueDeclaration _ = do
   name <- ident
-  binders <- P.many (parseBinderNoParens {})
-  guard <- P.optionMaybe (parseGuard {})
-  value <- equals *> parseValue {}
+  binders <- P.many (parseBinderNoParens unit)
+  guard <- P.optionMaybe (parseGuard unit)
+  value <- equals *> parseValue unit
   whereClause <- P.optionMaybe $ do
     reserved "where"
-    braces (semiSep1 (parseLocalDeclaration {}))
+    braces (semiSep1 (parseLocalDeclaration unit))
   return $ ValueDeclaration name Value binders guard (maybe value (\ds -> Let ds value) whereClause)
                        
 parseExternDeclaration :: P.Parser TokenStream Declaration
@@ -165,7 +165,7 @@ parseTypeInstanceDeclaration = do
   ty <- P.many parseTypeAtom
   members <- P.option [] $ do
     reserved "where"
-    braces (semiSep1 (positioned (parseValueDeclaration {})))
+    braces (semiSep1 (positioned (parseValueDeclaration unit)))
   return $ TypeInstanceDeclaration name (fromMaybe [] deps) className ty members
   
 positioned :: P.Parser TokenStream Declaration -> P.Parser TokenStream Declaration
@@ -179,7 +179,7 @@ parseDeclaration = positioned (P.choice
                    [ parseDataDeclaration
                    , parseTypeDeclaration
                    , parseTypeSynonymDeclaration
-                   , parseValueDeclaration {}
+                   , parseValueDeclaration unit
                    , parseExternDeclaration
                    , parseFixityDeclaration
                    , parseImportDeclaration
@@ -187,10 +187,10 @@ parseDeclaration = positioned (P.choice
                    , parseTypeInstanceDeclaration
                    ]) P.<?> "declaration"
                    
-parseLocalDeclaration :: {} -> P.Parser TokenStream Declaration
+parseLocalDeclaration :: Unit -> P.Parser TokenStream Declaration
 parseLocalDeclaration _ = PositionedDeclaration <$> sourcePos <*> P.choice
                    [ parseTypeDeclaration
-                   , parseValueDeclaration {}
+                   , parseValueDeclaration unit
                    ] P.<?> "local declaration"
 
 -- |
@@ -202,7 +202,7 @@ parseLocalDeclaration _ = PositionedDeclaration <$> sourcePos <*> P.choice
 --
 -- in which the declarations are indented after the "where keyword", but also modules of the form
 --
---   module M where {} ; decl1 ; decl2 ; decl3
+--   module M where unit ; decl1 ; decl2 ; decl3
 --
 -- in which they are not.
 --
@@ -234,22 +234,22 @@ parseStringLiteral = StringLiteral <$> stringLiteral
 parseBooleanLiteral :: P.Parser TokenStream Value
 parseBooleanLiteral = BooleanLiteral <$> booleanLiteral
 
-parseArrayLiteral :: {} -> P.Parser TokenStream Value
-parseArrayLiteral _ = ArrayLiteral <$> squares (commaSep (parseValue {}))
+parseArrayLiteral :: Unit -> P.Parser TokenStream Value
+parseArrayLiteral _ = ArrayLiteral <$> squares (commaSep (parseValue unit))
 
-parseObjectLiteral :: {} -> P.Parser TokenStream Value
-parseObjectLiteral _ = ObjectLiteral <$> braces (commaSep (parseIdentifierAndValue {}))
+parseObjectLiteral :: Unit -> P.Parser TokenStream Value
+parseObjectLiteral _ = ObjectLiteral <$> braces (commaSep (parseIdentifierAndValue unit))
 
-parseIdentifierAndValue :: {} -> P.Parser TokenStream (Tuple String Value)
+parseIdentifierAndValue :: Unit -> P.Parser TokenStream (Tuple String Value)
 parseIdentifierAndValue _ = Tuple <$> ((identifier <|> stringLiteral) <* colon)
-                                <*> parseValue {}
+                                <*> parseValue unit
                     
-parseAbs :: {} -> P.Parser TokenStream Value
+parseAbs :: Unit -> P.Parser TokenStream Value
 parseAbs _ = do
   symbol' "\\"
-  args <- P.many1 (Abs <$> (Left <$> P.try ident <|> Right <$> parseBinderNoParens {}))
+  args <- P.many1 (Abs <$> (Left <$> P.try ident <|> Right <$> parseBinderNoParens unit))
   rarrow
-  value <- parseValue {}
+  value <- parseValue unit
   return $ toFunction args value
   where
   toFunction :: [Value -> Value] -> Value -> Value
@@ -261,50 +261,50 @@ parseVar = Var <$> parseQualified ident
 parseConstructor :: P.Parser TokenStream Value
 parseConstructor = Constructor <$> parseQualified properName 
 
-parseCase :: {} -> P.Parser TokenStream Value
-parseCase _ = Case <$> P.between (P.try (reserved "case")) (reserved "of") (return <$> parseValue {})
-                   <*> braces (semiSep (parseCaseAlternative {}))
+parseCase :: Unit -> P.Parser TokenStream Value
+parseCase _ = Case <$> P.between (P.try (reserved "case")) (reserved "of") (return <$> parseValue unit)
+                   <*> braces (semiSep (parseCaseAlternative unit))
                  
-parseCaseAlternative :: {} -> P.Parser TokenStream CaseAlternative
-parseCaseAlternative _ = mkCaseAlternative <$> (return <$> parseBinder {})
-                                           <*> P.optionMaybe (parseGuard {})
-                                           <*> (rarrow *> parseValue {})
+parseCaseAlternative :: Unit -> P.Parser TokenStream CaseAlternative
+parseCaseAlternative _ = mkCaseAlternative <$> (return <$> parseBinder unit)
+                                           <*> P.optionMaybe (parseGuard unit)
+                                           <*> (rarrow *> parseValue unit)
                                            P.<?> "case alternative"
                                          
-parseIfThenElse :: {} -> P.Parser TokenStream Value
-parseIfThenElse _ = IfThenElse <$> (P.try (reserved "if") *> parseValue {})
-                               <*> (reserved "then" *> parseValue {})
-                               <*> (reserved "else" *> parseValue {})
+parseIfThenElse :: Unit -> P.Parser TokenStream Value
+parseIfThenElse _ = IfThenElse <$> (P.try (reserved "if") *> parseValue unit)
+                               <*> (reserved "then" *> parseValue unit)
+                               <*> (reserved "else" *> parseValue unit)
           
-parseDo :: {} -> P.Parser TokenStream Value
+parseDo :: Unit -> P.Parser TokenStream Value
 parseDo _ = do
   reserved "do"
-  Do <$> braces (semiSep1 (parseDoNotationElement {}))
+  Do <$> braces (semiSep1 (parseDoNotationElement unit))
 
-parseDoNotationLet :: {} -> P.Parser TokenStream DoNotationElement
-parseDoNotationLet _ = DoNotationLet <$> (reserved "let" *> braces (semiSep1 (parseLocalDeclaration {})))
+parseDoNotationLet :: Unit -> P.Parser TokenStream DoNotationElement
+parseDoNotationLet _ = DoNotationLet <$> (reserved "let" *> braces (semiSep1 (parseLocalDeclaration unit)))
 
-parseDoNotationBind :: {} -> P.Parser TokenStream DoNotationElement
-parseDoNotationBind _ = DoNotationBind <$> parseBinder {} <*> (larrow *> parseValue {})
+parseDoNotationBind :: Unit -> P.Parser TokenStream DoNotationElement
+parseDoNotationBind _ = DoNotationBind <$> parseBinder unit <*> (larrow *> parseValue unit)
 
-parseDoNotationElement :: {} -> P.Parser TokenStream DoNotationElement
+parseDoNotationElement :: Unit -> P.Parser TokenStream DoNotationElement
 parseDoNotationElement _ = P.choice
-  [ P.try (parseDoNotationBind {})
-  , parseDoNotationLet {}
-  , P.try (DoNotationValue <$> parseValue {}) ]
+  [ P.try (parseDoNotationBind unit)
+  , parseDoNotationLet unit
+  , P.try (DoNotationValue <$> parseValue unit) ]
                              
-parseLet :: {} -> P.Parser TokenStream Value
+parseLet :: Unit -> P.Parser TokenStream Value
 parseLet _ = do
   reserved "let"
-  ds <- braces (semiSep1 (parseLocalDeclaration {}))
+  ds <- braces (semiSep1 (parseLocalDeclaration unit))
   reserved "in"
-  result <- parseValue {}
+  result <- parseValue unit
   return $ Let ds result
   
-parsePropertyUpdate :: {} -> P.Parser TokenStream (Tuple String Value)
+parsePropertyUpdate :: Unit -> P.Parser TokenStream (Tuple String Value)
 parsePropertyUpdate _ = do
   name <- identifier <|> stringLiteral
-  value <- equals *> parseValue {}
+  value <- equals *> parseValue unit
   return (Tuple name value)
 
 parseAccessor :: Value -> P.Parser TokenStream Value
@@ -314,7 +314,7 @@ parseAccessor obj = P.try $ Accessor <$> (dot *> (identifier <|> stringLiteral))
 -- |
 -- Parse a value
 --
-parseValue :: {} -> P.Parser TokenStream Value
+parseValue :: Unit -> P.Parser TokenStream Value
 parseValue _ = P.fix $ \parseValue' ->
   let
   
@@ -323,21 +323,21 @@ parseValue _ = P.fix $ \parseValue' ->
       [ parseNumericLiteral
       , parseStringLiteral
       , parseBooleanLiteral
-      , parseArrayLiteral {}
-      , P.try (parseObjectLiteral {})
-      , parseAbs {}
+      , parseArrayLiteral unit
+      , P.try (parseObjectLiteral unit)
+      , parseAbs unit
       , P.try parseConstructor
       , P.try parseVar
-      , parseCase {}
-      , parseIfThenElse {}
-      , parseDo {}
-      , parseLet {}
+      , parseCase unit
+      , parseIfThenElse unit
+      , parseDo unit
+      , parseLet unit
       , Parens <$> parens parseValue' ]
   
     indexersAndAccessors = buildPostfixParser postfixTable1 parseValueAtom
     
     postfixTable1 = [ parseAccessor
-                    , \v -> P.try $ flip ObjectUpdate <$> (braces (commaSep1 (parsePropertyUpdate {}))) <*> pure v 
+                    , \v -> P.try $ flip ObjectUpdate <$> (braces (commaSep1 (parsePropertyUpdate unit))) <*> pure v 
                     ]
     postfixTable2 = [ \v -> P.try (flip App <$> indexersAndAccessors) <*> pure v
                     , \v -> flip (TypedValue true) <$> (doubleColon *> parseType) <*> pure v
@@ -355,8 +355,8 @@ parseValue _ = P.fix $ \parseValue' ->
                 ]
               ]
 
-parseGuard :: {} -> P.Parser TokenStream Guard
-parseGuard _ = pipe *> parseValue {}
+parseGuard :: Unit -> P.Parser TokenStream Guard
+parseGuard _ = pipe *> parseValue unit
 
 parseStringBinder :: P.Parser TokenStream Binder
 parseStringBinder = StringBinder <$> stringLiteral
@@ -373,39 +373,39 @@ parseVarBinder = VarBinder <$> ident
 parseNullaryConstructorBinder :: P.Parser TokenStream Binder
 parseNullaryConstructorBinder = ConstructorBinder <$> parseQualified properName <*> pure []
 
-parseConstructorBinder :: {} -> P.Parser TokenStream Binder
+parseConstructorBinder :: Unit -> P.Parser TokenStream Binder
 parseConstructorBinder _ = do 
   ctor <- parseQualified properName
-  binders <- P.many (parseBinderNoParens {})
+  binders <- P.many (parseBinderNoParens unit)
   return $ ConstructorBinder ctor binders
 
-parseObjectBinder :: {} -> P.Parser TokenStream Binder
-parseObjectBinder _ = ObjectBinder <$> braces (commaSep (parseIdentifierAndBinder {}))
+parseObjectBinder :: Unit -> P.Parser TokenStream Binder
+parseObjectBinder _ = ObjectBinder <$> braces (commaSep (parseIdentifierAndBinder unit))
 
-parseArrayBinder :: {} -> P.Parser TokenStream Binder
-parseArrayBinder _ = squares $ ArrayBinder <$> commaSep (parseBinder {})
+parseArrayBinder :: Unit -> P.Parser TokenStream Binder
+parseArrayBinder _ = squares $ ArrayBinder <$> commaSep (parseBinder unit)
 
-parseNamedBinder :: {} -> P.Parser TokenStream Binder
+parseNamedBinder :: Unit -> P.Parser TokenStream Binder
 parseNamedBinder _ = do
   name <- ident
   at
-  binder <- parseBinder {}
+  binder <- parseBinder unit
   return $ NamedBinder name binder
 
 parseNullBinder :: P.Parser TokenStream Binder
 parseNullBinder = reserved "_" *> return NullBinder
 
-parseIdentifierAndBinder :: {} -> P.Parser TokenStream (Tuple String Binder)
+parseIdentifierAndBinder :: Unit -> P.Parser TokenStream (Tuple String Binder)
 parseIdentifierAndBinder _ = do
   name <- identifier <|> stringLiteral
   equals
-  binder <- parseBinder {}
+  binder <- parseBinder unit
   return (Tuple name binder)
 
 -- |
 -- Parse a binder
 --
-parseBinder :: {} -> P.Parser TokenStream Binder
+parseBinder :: Unit -> P.Parser TokenStream Binder
 parseBinder _ = P.fix $ \p -> 
   let
     parseBinderAtom :: P.Parser TokenStream Binder
@@ -414,11 +414,11 @@ parseBinder _ = P.fix $ \p ->
                       , parseStringBinder
                       , parseBooleanBinder
                       , parseNumberBinder
-                      , parseNamedBinder {}
+                      , parseNamedBinder unit
                       , parseVarBinder
-                      , parseConstructorBinder {}
-                      , parseObjectBinder {}
-                      , parseArrayBinder {}
+                      , parseConstructorBinder unit
+                      , parseObjectBinder unit
+                      , parseArrayBinder unit
                       , parens p ]) P.<?> "binder"
   in PositionedBinder <$> sourcePos <*> (P.buildExprParser operators parseBinderAtom P.<?> "expression")
   where
@@ -427,15 +427,15 @@ parseBinder _ = P.fix $ \p ->
 -- |
 -- Parse a binder as it would appear in a top level declaration
 --
-parseBinderNoParens :: {} -> P.Parser TokenStream Binder
+parseBinderNoParens :: Unit -> P.Parser TokenStream Binder
 parseBinderNoParens _ = P.choice (map P.try
                   [ parseNullBinder
                   , parseStringBinder
                   , parseBooleanBinder
                   , parseNumberBinder
-                  , parseNamedBinder {}
+                  , parseNamedBinder unit
                   , parseVarBinder
                   , parseNullaryConstructorBinder
-                  , parseObjectBinder {}
-                  , parseArrayBinder {}
-                  , parens (parseBinder {}) ]) P.<?> "binder"
+                  , parseObjectBinder unit
+                  , parseArrayBinder unit
+                  , parens (parseBinder unit) ]) P.<?> "binder"

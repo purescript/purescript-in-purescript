@@ -47,11 +47,11 @@ instance partialKind :: Partial Kind where
     go other = other
 
 instance unifiableCheckKind :: Unifiable Check Kind where
-  (=?=) (KUnknown u1) (KUnknown u2) | u1 == u2 = return {}
+  (=?=) (KUnknown u1) (KUnknown u2) | u1 == u2 = return unit
   (=?=) (KUnknown u) k = substitute unifyError u k
   (=?=) k (KUnknown u) = substitute unifyError u k
-  (=?=) Star Star = return {}
-  (=?=) Bang Bang = return {}
+  (=?=) Star Star = return unit
+  (=?=) Bang Bang = return unit
   (=?=) (Row k1) (Row k2) = k1 =?= k2
   (=?=) (FunKind k1 k2) (FunKind k3 k4) = do
     k1 =?= k3
@@ -166,7 +166,7 @@ infer' (RCons _ ty row) = do
 infer' (ConstrainedType deps ty) = do
   for_ deps $ \(Tuple className tys) -> do
     _ <- infer $ foldl TypeApp (TypeConstructor className) tys
-    return {}
+    return unit
   k <- infer ty
   k =?= Star
   return Star

@@ -201,7 +201,7 @@ lex input = do
     in case tok.str of
       s | shouldIndent tok.str -> 
         let lme = nextLexeme line col' tok.next
-        in case {} of
+        in case unit of
           _ | charAt lme.next input == "{" -> go line col' tok.next [] (mkPositionedToken line col cs (LName tok.str) : ts)
           _ -> go lme.line lme.col lme.next [] (mkPositionedToken line col cs (ShouldIndent lme.col) : mkPositionedToken line col [] (LName tok.str) : ts)
       s -> go line col' tok.next [] (mkPositionedToken line col cs (LName tok.str) : ts)

@@ -6,7 +6,7 @@ import Control.Monad.Eff
 import Control.Monad.Eff.Unsafe
 
 class EvalPrint a where
-  evalPrint :: a -> Eff (trace :: Trace) {}
+  evalPrint :: a -> Eff (trace :: Trace) Unit
 
 instance evalPrintEff :: (Show a) => EvalPrint (Eff eff a) where
   evalPrint e = do

@@ -34,14 +34,14 @@ moduleToPs (Module moduleName ds (Just exts)) (Environment env) = joinWith "\n" 
   traverse_ exportToPs exts
   where
 
-    declToPs :: Declaration -> Writer [String] {}
+    declToPs :: Declaration -> Writer [String] Unit
     declToPs (ImportDeclaration mn _ _) = tell ["import " ++ show mn ++ " ()"]
     declToPs (FixityDeclaration (Fixity assoc prec) ident) =
       tell [ joinWith " " [ show assoc, show prec, ident ] ]
     declToPs (PositionedDeclaration _ d) = declToPs d
-    declToPs _ = return {}
+    declToPs _ = return unit
 
-    exportToPs :: DeclarationRef -> Writer [String] {}
+    exportToPs :: DeclarationRef -> Writer [String] Unit
     exportToPs (PositionedDeclarationRef _ r) = exportToPs r
     exportToPs (TypeRef pn dctors) =
       case Qualified (Just moduleName) pn `M.lookup` env.types of
@@ -66,7 +66,7 @@ moduleToPs (Module moduleName ds (Just exts)) (Environment env) = joinWith "\n" 
         Nothing -> theImpossibleHappened $ show ident ++ " has no type in exportToPs"
         Just (Tuple ty nameKind) | nameKind == Value || nameKind == Extern ForeignImport || nameKind == Extern InlineJavascript ->
           tell ["foreign import " ++ show ident ++ " :: " ++ prettyPrintType ty]
-        _ -> return {}
+        _ -> return unit
     exportToPs (TypeClassRef className) =
       case Qualified (Just moduleName) className `M.lookup` env.typeClasses of
         Nothing -> theImpossibleHappened $ show className ++ " has no type class definition in exportToPs"

@@ -43,37 +43,37 @@ import Language.PureScript.TypeChecker.Monad
 import Language.PureScript.TypeChecker.Types
 import Language.PureScript.TypeChecker.Kinds
 
-addDataType :: ModuleName -> ProperName -> [String] -> [Tuple ProperName [Type]] -> Kind -> Check {}
+addDataType :: ModuleName -> ProperName -> [String] -> [Tuple ProperName [Type]] -> Kind -> Check Unit
 addDataType moduleName name args dctors ctorKind = do
   modifyEnv $ \(Environment env) -> Environment (env { types = M.insert (Qualified (Just moduleName) name) (Tuple ctorKind (DataType args dctors)) env.types })
   for_ dctors $ \(Tuple dctor tys) ->
     rethrow (\e -> strMsg ("Error in data constructor " ++ show dctor) <> (e :: ErrorStack)) $
       addDataConstructor moduleName name args dctor tys
 
-addDataConstructor :: ModuleName -> ProperName -> [String] -> ProperName -> [Type] -> Check {}
+addDataConstructor :: ModuleName -> ProperName -> [String] -> ProperName -> [Type] -> Check Unit
 addDataConstructor moduleName name args dctor tys = do
   let retTy = foldl TypeApp (TypeConstructor (Qualified (Just moduleName) name)) (map TypeVar args)
   let dctorTy = foldr function retTy tys
   let polyType = mkForAll args dctorTy
   modifyEnv $ \(Environment env) -> Environment (env { dataConstructors = M.insert (Qualified (Just moduleName) dctor) (Tuple name polyType) env.dataConstructors })
 
-addTypeSynonym :: ModuleName -> ProperName -> [String] -> Type -> Kind -> Check {}
+addTypeSynonym :: ModuleName -> ProperName -> [String] -> Type -> Kind -> Check Unit
 addTypeSynonym moduleName name args ty kind = do
   modifyEnv $ \(Environment env) -> Environment (env { types = M.insert (Qualified (Just moduleName) name) (Tuple kind TypeSynonym) env.types
                                                      , typeSynonyms = M.insert (Qualified (Just moduleName) name) (Tuple args ty) env.typeSynonyms })
 
-valueIsNotDefined :: ModuleName -> Ident -> Check {}
+valueIsNotDefined :: ModuleName -> Ident -> Check Unit
 valueIsNotDefined moduleName name = do
   Environment env <- getEnv
   case M.lookup (Tuple moduleName name) env.names of
     Just _ -> throwError (strMsg (show name ++ " is already defined") :: ErrorStack)
-    Nothing -> return {}
+    Nothing -> return unit
 
-addValue :: ModuleName -> Ident -> Type -> NameKind -> Check {}
+addValue :: ModuleName -> Ident -> Type -> NameKind -> Check Unit
 addValue moduleName name ty nameKind =
   modifyEnv $ \(Environment env) -> Environment (env { names = M.insert (Tuple moduleName name) (Tuple ty nameKind) env.names })
   
-addTypeClass :: ModuleName -> ProperName -> [String] -> [Tuple (Qualified ProperName) [Type]] -> [Declaration] -> Check {}
+addTypeClass :: ModuleName -> ProperName -> [String] -> [Tuple (Qualified ProperName) [Type]] -> [Declaration] -> Check Unit
 addTypeClass moduleName pn args implies ds =
   let members = map toPair ds in
   modifyEnv $ \(Environment env) -> Environment (env { typeClasses = M.insert (Qualified (Just moduleName) pn) (Tuple3 args members implies) env.typeClasses })
@@ -82,15 +82,15 @@ addTypeClass moduleName pn args implies ds =
   toPair (PositionedDeclaration _ d) = toPair d
   toPair _ = theImpossibleHappened "Invalid declaration in TypeClassDeclaration"
 
-addTypeClassDictionaries :: [TypeClassDictionaryInScope] -> Check {}
+addTypeClassDictionaries :: [TypeClassDictionaryInScope] -> Check Unit
 addTypeClassDictionaries entries =
   let mentries = M.fromList $ 
     do (entry@(TypeClassDictionaryInScope { name = Qualified mn _ })) <- entries
        return (Tuple (Tuple (canonicalizeDictionary entry) mn) entry)
   in modifyEnv $ \(Environment env) -> Environment (env { typeClassDictionaries = env.typeClassDictionaries `M.union` mentries })
 
-checkTypeClassInstance :: ModuleName -> Type -> Check {}
-checkTypeClassInstance _ (TypeVar _) = return {}
+checkTypeClassInstance :: ModuleName -> Type -> Check Unit
+checkTypeClassInstance _ (TypeVar _) = return unit
 checkTypeClassInstance _ (TypeConstructor ctor) = do
   Environment env <- getEnv
   when (ctor `M.member` env.typeSynonyms) $ throwError (strMsg "Type synonym instances are disallowed" :: ErrorStack)

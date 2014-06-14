@@ -64,11 +64,11 @@ readInput input =
       Left err -> throwError err
       Right m -> return (Tuple inputFile m))
 
-runCompiler :: forall eff. String -> Options -> [String] -> Eff (fs :: FS, trace :: Trace, process :: Process) {}
+runCompiler :: forall eff. String -> Options -> [String] -> Eff (fs :: FS, trace :: Trace, process :: Process) Unit
 runCompiler outputDir opts@(Options optso) input = runApplication do
   modules <- readInput allInputFiles
   make RequireLocal outputDir opts modules
-  return {}
+  return unit
   where
   allInputFiles :: [String]
   allInputFiles | optso.noPrelude = input
@@ -113,12 +113,12 @@ options = mkOptions <$> noPrelude
                     <*> pure [] 
                     <*> verboseErrors
 
-term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process) {})
+term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process) Unit)
 term = runCompiler <$> outputFile <*> options <*> inputFiles
 
 main = do
   result <- readArgs' term
   case result of
     Left err -> print err
-    _ -> return {}
+    _ -> return unit
 

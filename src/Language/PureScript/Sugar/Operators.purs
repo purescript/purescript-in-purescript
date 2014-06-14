@@ -88,11 +88,11 @@ collectFixities (Module moduleName ds _) = concatMap collect ds
   collect (FixityDeclaration _ _) = theImpossibleHappened "Fixity without srcpos info"
   collect _ = []
 
-ensureNoDuplicates :: [Tuple (Qualified Ident) SourcePos] -> Either ErrorStack {}
+ensureNoDuplicates :: [Tuple (Qualified Ident) SourcePos] -> Either ErrorStack Unit
 ensureNoDuplicates m = go $ sortBy (compare `on` fst) m
   where
-  go [] = return {}
-  go [_] = return {}
+  go [] = return unit
+  go [_] = return unit
   go ((Tuple (x@(Qualified (Just mn) name)) _) : (Tuple y pos) : _) | x == y =
     rethrow (\e -> strMsg ("Error in module " ++ show mn) <> (e :: ErrorStack)) $
       rethrowWithPosition pos $
@@ -140,11 +140,11 @@ toAssoc Infixl = P.AssocLeft
 toAssoc Infixr = P.AssocRight
 toAssoc Infix  = P.AssocNone
   
-eof :: forall t. P.Parser Chain {}
+eof :: forall t. P.Parser Chain Unit
 eof = do
   ts <- get
   case ts :: Chain of
-    [] -> return {}
+    [] -> return unit
     _ -> P.fail "Expected EOF"
     
 token :: forall a. String -> (Link -> Maybe a) -> P.Parser Chain a
@@ -182,9 +182,9 @@ parseTicks = token "infix function" match
   match (Right (q@(Qualified _ (Ident _)))) = Just q
   match _ = Nothing
 
-matchOp :: Qualified Ident -> P.Parser Chain {}
+matchOp :: Qualified Ident -> P.Parser Chain Unit
 matchOp op = do
   ident <- parseOp
   if (ident == op) 
-    then return {} 
+    then return unit 
     else P.fail "Expected operator"

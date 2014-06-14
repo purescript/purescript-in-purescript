@@ -41,7 +41,7 @@ foreign import writeFile
   \      };\
   \    };\
   \  };\
-  \}" :: forall eff r. String -> String -> ({} -> r) -> (FSError -> r) -> Eff (fs :: FS | eff) r
+  \}" :: forall eff r. String -> String -> (Unit -> r) -> (FSError -> r) -> Eff (fs :: FS | eff) r
   
 foreign import doesFileExist
   "function doesFileExist(filename) {\
@@ -87,7 +87,7 @@ foreign import mkdirp
   \      };\
   \    };\
   \  };\
-  \}" :: forall eff r. String -> ({} -> r) -> (FSError -> r) -> Eff (fs :: FS | eff) r
+  \}" :: forall eff r. String -> (Unit -> r) -> (FSError -> r) -> Eff (fs :: FS | eff) r
   
 foreign import dirname 
   "function dirname(filename) {\

@@ -15,16 +15,16 @@
 
 module Data.List where
 	
-data List a = Nil | Cons a ({} -> List a)
+data List a = Nil | Cons a (Unit -> List a)
 
 instance functorList :: Functor List where
 	(<$>) _ Nil = Nil
-	(<$>) f (Cons h t) = Cons (f h) $ \_ -> f <$> t {}
+	(<$>) f (Cons h t) = Cons (f h) $ \_ -> f <$> t unit
 	
 filter :: forall a. (a -> Boolean) -> List a -> List a
 filter _ Nil = Nil
-filter f (Cons h t) | f h = Cons h $ \_ -> filter f (t {})
-filter f (Cons h t) = filter f (t {})
+filter f (Cons h t) | f h = Cons h $ \_ -> filter f (t unit)
+filter f (Cons h t) = filter f (t unit)
 
 enumFrom :: Number -> List Number
 enumFrom n = Cons n $ \_ -> enumFrom (n + 1)
@@ -35,7 +35,7 @@ fromArray (h : t) = Cons h $ \_ -> fromArray t
 
 toArray :: forall a. List a -> [a]
 toArray Nil = []
-toArray (Cons h t) = h : toArray (t {})
+toArray (Cons h t) = h : toArray (t unit)
 
 (\\) :: forall a. (Eq a) => List a -> [a] -> List a
 (\\) l arr = filter (\a -> not (a `elem` arr)) l
@@ -48,4 +48,4 @@ toArray (Cons h t) = h : toArray (t {})
 take :: forall a. Number -> List a -> List a
 take _ Nil = Nil
 take 0 _ = Nil
-take n (Cons h t) = Cons h $ \_ -> take (n - 1) (t {}) 
+take n (Cons h t) = Cons h $ \_ -> take (n - 1) (t unit) 

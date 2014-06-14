@@ -81,7 +81,7 @@ foreign import showStringImpl
   \}" :: String -> String
 
 instance showUnit :: Show Unit where
-  show (Unit {}) = "Unit {}"
+  show _ = "Unit {}"
 
 instance showString :: Show String where
   show = showStringImpl
@@ -252,8 +252,8 @@ foreign import refIneq
   \}" :: forall a. a -> a -> Boolean
 
 instance eqUnit :: Eq Unit where
-  (==) (Unit {}) (Unit {}) = true
-  (/=) (Unit {}) (Unit {}) = false
+  (==) _ _ = true
+  (/=) _ _ = false
 
 instance eqString :: Eq String where
   (==) = refEq
@@ -326,7 +326,7 @@ foreign import unsafeCompare
   \}" :: forall a. a -> a -> Ordering
 
 instance ordUnit :: Ord Unit where
-  compare (Unit {}) (Unit {}) = EQ
+  compare _ _ = EQ
 
 instance ordBoolean :: Ord Boolean where
   compare false false = EQ
@@ -452,7 +452,7 @@ foreign import concatString
   \}" :: String -> String -> String
 
 instance semigroupUnit :: Semigroup Unit where
-  (<>) (Unit {}) (Unit {}) = Unit {}
+  (<>) _ _ = Unit {}
 
 instance semigroupString :: Semigroup String where
   (<>) = concatString

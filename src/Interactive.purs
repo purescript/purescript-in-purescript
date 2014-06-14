@@ -88,9 +88,9 @@ parseCommand ":q" = Right Quit
 parseCommand ":r" = Right Reset
 parseCommand cmd | indexOf ":i " cmd == 0 = Import <$> parse P.moduleName (drop 3 cmd)
 parseCommand cmd | indexOf ":m " cmd == 0 = Right $ LoadFile (drop 3 cmd)
-parseCommand cmd | indexOf ":t " cmd == 0 = TypeOf <$> parse (P.parseValue {}) (drop 3 cmd)
+parseCommand cmd | indexOf ":t " cmd == 0 = TypeOf <$> parse (P.parseValue unit) (drop 3 cmd)
 parseCommand cmd | indexOf ":" cmd == 0 = Left "Unknown command. Type :? for help."
-parseCommand cmd = parse (parseLet <|> (Eval <$> P.parseValue {})) cmd
+parseCommand cmd = parse (parseLet <|> (Eval <$> P.parseValue unit)) cmd
   
 -- |
 -- The PSCI state.
@@ -214,7 +214,7 @@ options = mkOptions false true false true Nothing true Nothing [] [] false
 -- |
 -- Takes a value and prints its type
 --
-handleTypeOf :: forall eff. PSCIState -> D.Value -> Eff (fs :: FS, trace :: Trace, process :: Process | eff) {}
+handleTypeOf :: forall eff. PSCIState -> D.Value -> Eff (fs :: FS, trace :: Trace, process :: Process | eff) Unit
 handleTypeOf st value = do
   let m = createTemporaryModule false st value
   e <- runApplication' do
@@ -240,12 +240,12 @@ foreign import evaluate
   \  return function() {\
   \    eval(js);\
   \  };\
-  \}" :: forall eff. String -> Eff (eval :: Eval | eff) {}
+  \}" :: forall eff. String -> Eff (eval :: Eval | eff) Unit
         
 -- |
 -- Takes a value declaration and evaluates it with the current state.
 --
-handleEval :: forall eff. PSCIState -> D.Value -> Eff (fs :: FS, trace :: Trace, process :: Process, eval :: Eval | eff) {}
+handleEval :: forall eff. PSCIState -> D.Value -> Eff (fs :: FS, trace :: Trace, process :: Process, eval :: Eval | eff) Unit
 handleEval st value = do
   let m = createTemporaryModule true st value
   e <- runApplication' do
@@ -253,7 +253,7 @@ handleEval st value = do
     make requireMode modulesDir options (ms ++ [Tuple "Main.purs" m])
   case e of
     Left err -> trace err
-    Right _ -> evaluate $ "(function() { require('" ++ modulePath "Main" ++ "').main(); })()"
+    Right _ -> evaluate $ "(function() { require(" ++ show (modulePath "Main") ++ ").main(); })()"
 
 prologueMessage :: String
 prologueMessage = 
@@ -271,7 +271,7 @@ prologueMessage =
 completion :: forall eff. RefVal PSCIState -> Completer (ref :: Ref | eff)
 completion state s = return $ Tuple [] s
 
-handleCommand :: [String] -> RefVal PSCIState -> Command -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
+handleCommand :: [String] -> RefVal PSCIState -> Command -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) Unit
 handleCommand _ _ Help = trace help
 handleCommand _ _ Quit = trace "See ya!" *> exit 0
 handleCommand _ state (TypeOf v) = do
@@ -289,13 +289,13 @@ handleCommand initialFiles state Reset = writeRef state (emptyPSCIState initialF
 handleCommand _ state (Let f) =
   modifyRef state (\st -> st { letBindings = st.letBindings ++ [f] })
 
-lineHandler :: [String] -> RefVal PSCIState -> String -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
+lineHandler :: [String] -> RefVal PSCIState -> String -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) Unit
 lineHandler initialFiles state input = 
   case parseCommand input of
     Left msg -> trace msg
     Right cmd -> handleCommand initialFiles state cmd
 
-loop :: [String] -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {}
+loop :: [String] -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) Unit
 loop inputFiles = do
   let allModules = preludeFiles ++ [replModule] ++ inputFiles
   state <- newRef (emptyPSCIState allModules)
@@ -303,12 +303,12 @@ loop inputFiles = do
   setPrompt "> " 2 interface
   prompt interface
   setLineHandler (\s -> lineHandler allModules state s <* prompt interface) interface
-  return {}
+  return unit
   
 inputFiles :: Args [String]
 inputFiles = many argOnly  
   
-term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) {})
+term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) Unit)
 term = loop <$> inputFiles
 
 main = do
@@ -316,4 +316,4 @@ main = do
   result <- readArgs' term
   case result of
     Left err -> print err
-    _ -> return {}
+    _ -> return unit

@@ -138,7 +138,7 @@ typeCheckModule mainModuleName (Module mn decls exps) = do
 
   -- Check that all the type constructors defined in the current module that appear in member types
   -- have also been exported from the module
-  checkTypesAreExported :: DeclarationRef -> Check {}
+  checkTypesAreExported :: DeclarationRef -> Check Unit
   checkTypesAreExported (ValueRef name) = do
     ty <- lookupVariable unifyError mn (Qualified (Just mn) name)
     case find isTconHidden (findTcons ty) of
@@ -146,8 +146,8 @@ typeCheckModule mainModuleName (Module mn decls exps) = do
                                              "':\nExporting declaration '" ++ show name ++ 
                                              "' requires type '" ++ show hiddenType ++ 
                                              "' to be exported as well") :: ErrorStack)
-      Nothing -> return {}
-  checkTypesAreExported _ = return {}
+      Nothing -> return unit
+  checkTypesAreExported _ = return unit
 
   -- Find the type constructors exported from the current module used in a type
   findTcons :: Type -> [ProperName]
@@ -191,7 +191,7 @@ class (Monad m) <= MonadMake m where
   -- |
   -- Write a text file
   --
-  writeTextFile :: FilePath -> String -> m {}
+  writeTextFile :: FilePath -> String -> m Unit
 
   -- |
   -- Report an error
@@ -201,7 +201,7 @@ class (Monad m) <= MonadMake m where
   -- |
   -- Respond to a progress update
   --
-  progress :: String -> m {}
+  progress :: String -> m Unit
 
 -- |
 -- Compiles in "make" mode, compiling each module separately to a js files and an externs file

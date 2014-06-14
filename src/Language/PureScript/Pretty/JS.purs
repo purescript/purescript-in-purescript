@@ -167,10 +167,10 @@ app _ = mkPattern' match
     return (Tuple (S.joinWith ", " jss) val)
   match _ = lift Nothing
 
-typeOf :: Pattern PrinterState JS (Tuple {} JS)
+typeOf :: Pattern PrinterState JS (Tuple Unit JS)
 typeOf = mkPattern match
   where
-  match (JSTypeOf val) = Just (Tuple {} val)
+  match (JSTypeOf val) = Just (Tuple unit val)
   match _ = Nothing
 
 unary :: UnaryOperator -> String -> Operator PrinterState JS String

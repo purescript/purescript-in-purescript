@@ -86,11 +86,11 @@ instance unifiableCheckType :: Unifiable Check Type where
 -- |
 -- Unify two types, updating the current substitution
 --
-unifyTypes :: Type -> Type -> UnifyT Type Check {}
+unifyTypes :: Type -> Type -> UnifyT Type Check Unit
 unifyTypes t1 t2 = rethrow (\x -> mkErrorStack ("Error unifying type " ++ prettyPrintType t1 ++ " with type " ++ prettyPrintType t2) Nothing <> x) $
   unifyTypes' t1 t2
   where
-  unifyTypes' (TUnknown u1) (TUnknown u2) | u1 == u2 = return {}
+  unifyTypes' (TUnknown u1) (TUnknown u2) | u1 == u2 = return unit
   unifyTypes' (TUnknown u) t = substitute unifyError u t
   unifyTypes' t (TUnknown u) = substitute unifyError u t
   unifyTypes' (SaturatedTypeSynonym name args) ty = do
@@ -111,13 +111,13 @@ unifyTypes t1 t2 = rethrow (\x -> mkErrorStack ("Error unifying type " ++ pretty
     sk `unifyTypes` ty2
   unifyTypes' (ForAll _ _ _) _ = throwError $ withErrorType unifyError $ strMsg $ "Skolem variable scope is unspecified"
   unifyTypes' ty f@(ForAll _ _ _) = f `unifyTypes` ty
-  unifyTypes' (TypeVar v1) (TypeVar v2) | v1 == v2 = return {}
+  unifyTypes' (TypeVar v1) (TypeVar v2) | v1 == v2 = return unit
   unifyTypes' (TypeConstructor c1) (TypeConstructor c2) =
     guardWith (withErrorType unifyError $ strMsg ("Cannot unify " ++ show c1 ++ " with " ++ show c2 ++ ".")) (c1 == c2)
   unifyTypes' (TypeApp t3 t4) (TypeApp t5 t6) = do
     t3 `unifyTypes` t5
     t4 `unifyTypes` t6
-  unifyTypes' (Skolem _ s1 _) (Skolem _ s2 _) | s1 == s2 = return {}
+  unifyTypes' (Skolem _ s1 _) (Skolem _ s2 _) | s1 == s2 = return unit
   unifyTypes' r1@(RCons _ _ _) r2 = unifyRows r1 r2
   unifyTypes' r1 r2@(RCons _ _ _) = unifyRows r1 r2
   unifyTypes' REmpty r2 = unifyRows REmpty r2
@@ -133,7 +133,7 @@ unifyTypes t1 t2 = rethrow (\x -> mkErrorStack ("Error unifying type " ++ pretty
 -- trailing row unification variable, if appropriate, otherwise leftover labels result in a unification
 -- error.
 --
-unifyRows :: Type -> Type -> UnifyT Type Check {}
+unifyRows :: Type -> Type -> UnifyT Type Check Unit
 unifyRows r1 r2 =
   case Tuple (rowToList r1) (rowToList r2) of
     Tuple (Tuple s1 r1') (Tuple s2 r2') -> 
@@ -144,7 +144,7 @@ unifyRows r1 r2 =
         for_ int (uncurry (=?=))
         unifyRows' sd1 r1' sd2 r2'
   where
-  unifyRows' :: [Tuple String Type] -> Type -> [Tuple String Type] -> Type -> UnifyT Type Check {}
+  unifyRows' :: [Tuple String Type] -> Type -> [Tuple String Type] -> Type -> UnifyT Type Check Unit
   unifyRows' [] (TUnknown u) sd r = substitute unifyError u (rowFromList $ Tuple sd r)
   unifyRows' sd r [] (TUnknown u) = substitute unifyError u (rowFromList $ Tuple sd r)
   unifyRows' ((Tuple name ty):row) r others u@(TUnknown un) = do
@@ -153,9 +153,9 @@ unifyRows r1 r2 =
     u' <- fresh
     u =?= RCons name ty u'
     unifyRows' row r others u'
-  unifyRows' [] REmpty [] REmpty = return {}
-  unifyRows' [] (TypeVar v1) [] (TypeVar v2) | v1 == v2 = return {}
-  unifyRows' [] (Skolem _ s1 _) [] (Skolem _ s2 _) | s1 == s2 = return {}
+  unifyRows' [] REmpty [] REmpty = return unit
+  unifyRows' [] (TypeVar v1) [] (TypeVar v2) | v1 == v2 = return unit
+  unifyRows' [] (Skolem _ s1 _) [] (Skolem _ s2 _) | s1 == s2 = return unit
   unifyRows' sd3 r3 sd4 r4 = throwError $ withErrorType unifyError $ strMsg $ 
     "Cannot unify (" ++ prettyPrintRow (rowFromList $ Tuple sd3 r3) ++ 
     ") with (" ++ prettyPrintRow (rowFromList $ Tuple sd4 r4) ++ ")"
@@ -503,8 +503,8 @@ typeHeadsAreEqual _ _ _ _ = Nothing
 -- |
 -- Ensure skolem variables do not escape their scope
 --
-skolemEscapeCheck :: Value -> Check {}
-skolemEscapeCheck (TypedValue false _ _) = return {}
+skolemEscapeCheck :: Value -> Check Unit
+skolemEscapeCheck (TypedValue false _ _) = return unit
 skolemEscapeCheck root@(TypedValue _ _ _) =
   -- Every skolem variable is created when a ForAll type is skolemized.
   -- This determines the scope of that skolem variable, which is copied from the SkolemScope
@@ -514,7 +514,7 @@ skolemEscapeCheck root@(TypedValue _ _ _) =
   -- an escaped skolem variable.
   case everythingWithContextOnValues [] [] (++) def go def def def of
     Tuple5 _ f _ _ _ -> case f root of
-       [] -> return {}
+       [] -> return unit
        ((Tuple binding val) : _) -> throwError $ mkErrorStack ("Rigid/skolem type variable " ++ maybe "" (\x -> "bound by " ++ prettyPrintValue x) binding ++ " has escaped.") (Just (ValueError val))
   where
   def :: forall a. [Tuple SkolemScope Value] -> a -> Tuple [Tuple SkolemScope Value] [Tuple (Maybe Value) Value]
@@ -639,7 +639,7 @@ expandAllTypeSynonyms errorType = everywhereOnTypesTopDownM go
 -- |
 -- Ensure a set of property names and value does not contain duplicate labels
 --
-ensureNoDuplicateProperties :: forall e m. (Error e, Monad m, MonadError e m) => WithErrorType e -> [Tuple String Value] -> m {}
+ensureNoDuplicateProperties :: forall e m. (Error e, Monad m, MonadError e m) => WithErrorType e -> [Tuple String Value] -> m Unit
 ensureNoDuplicateProperties errorType ps = 
   guardWith (withErrorType errorType $ strMsg "Duplicate property names") $ 
     length (nub <<< map fst $ ps) == length ps

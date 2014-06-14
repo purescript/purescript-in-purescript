@@ -62,7 +62,7 @@ readInput input =
       Left err -> throwError err
       Right m -> return m)
 
-runCompiler :: forall eff. Options -> [String] -> Maybe String -> Maybe String -> Eff (fs :: FS, trace :: Trace, process :: Process | eff) {}
+runCompiler :: forall eff. Options -> [String] -> Maybe String -> Maybe String -> Eff (fs :: FS, trace :: Trace, process :: Process | eff) Unit
 runCompiler opts@(Options optso) input output externs = runApplication do
   modules <- readInput allInputFiles
   Tuple3 js exts _ <- eitherApplication $ compile opts modules
@@ -72,7 +72,7 @@ runCompiler opts@(Options optso) input output externs = runApplication do
       mkdirpApplication (dirname path)
       writeFileApplication path js
   for externs $ \path -> writeFileApplication path exts
-  return {}
+  return unit
   where
   allInputFiles :: [String]
   allInputFiles | optso.noPrelude = input
@@ -132,12 +132,12 @@ options = mkOptions <$> noPrelude
                     <*> codeGenModules 
                     <*> verboseErrors
 
-term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process) {})
+term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process) Unit)
 term = runCompiler <$> options <*> inputFiles <*> outputFile <*> externsFile
 
 main = do
   result <- readArgs' term
   case result of
     Left err -> print err
-    _ -> return {}
+    _ -> return unit
 

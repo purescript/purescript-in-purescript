@@ -161,13 +161,13 @@ getEnv = (\(CheckState st) -> st.env) <$> get
 -- |
 -- Update the @Environment@
 --
-putEnv :: forall m. (Monad m, MonadState CheckState m) => Environment -> m {}
+putEnv :: forall m. (Monad m, MonadState CheckState m) => Environment -> m Unit
 putEnv env = modify $ \(CheckState st) -> CheckState $ st { env = env }
 
 -- |
 -- Modify the @Environment@
 --
-modifyEnv :: forall m. (Monad m, MonadState CheckState m) => (Environment -> Environment) -> m {}
+modifyEnv :: forall m. (Monad m, MonadState CheckState m) => (Environment -> Environment) -> m Unit
 modifyEnv f = modify (\(CheckState st) -> CheckState $ st { env = f st.env })
 
 -- |
@@ -193,8 +193,8 @@ runCheck' (Options o) env c = stringifyErrorStack o.verboseErrors $ do
 -- |
 -- Make an assertion, failing with an error message
 --
-guardWith :: forall e m. (Monad m, MonadError e m) => e -> Boolean -> m {}
-guardWith _ true = return {}
+guardWith :: forall e m. (Monad m, MonadError e m) => e -> Boolean -> m Unit
+guardWith _ true = return unit
 guardWith e false = throwError e
 
 -- |

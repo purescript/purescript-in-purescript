@@ -41,7 +41,7 @@ foreign import untilE "function untilE(f) {\
                       \    while (!f()) { }\
                       \    return {};\
                       \  };\
-                      \}" :: forall e. Eff e Boolean -> Eff e {}
+                      \}" :: forall e. Eff e Boolean -> Eff e Unit
 
 foreign import whileE "function whileE(f) {\
                       \  return function(a) {\
@@ -52,7 +52,7 @@ foreign import whileE "function whileE(f) {\
                       \      return {};\
                       \    };\
                       \  };\
-                      \}" :: forall e a. Eff e Boolean -> Eff e a -> Eff e {}
+                      \}" :: forall e a. Eff e Boolean -> Eff e a -> Eff e Unit
 
 foreign import forE "function forE(lo) {\
                     \  return function(hi) {\
@@ -64,7 +64,7 @@ foreign import forE "function forE(lo) {\
                     \      };\
                     \    };\
                     \  };\
-                    \}" :: forall e. Number -> Number -> (Number -> Eff e {}) -> Eff e {}
+                    \}" :: forall e. Number -> Number -> (Number -> Eff e Unit) -> Eff e Unit
 
 
 foreign import foreachE "function foreachE(as) {\
@@ -73,4 +73,4 @@ foreign import foreachE "function foreachE(as) {\
                         \      f(as[i])();\
                         \    }\
                         \  };\
-                        \}" :: forall e a. [a] -> (a -> Eff e {}) -> Eff e {}
+                        \}" :: forall e a. [a] -> (a -> Eff e Unit) -> Eff e Unit
