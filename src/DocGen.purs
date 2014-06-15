@@ -52,7 +52,7 @@ import Control.Monad.Error.Class
 
 import Node.Args
 
-docgen :: [String] -> Maybe String -> Eff (fs :: FS, trace :: Trace, process :: Process) {}
+docgen :: [String] -> Maybe String -> Eff (fs :: FS, trace :: Trace, process :: Process) Unit
 docgen input output = runApplication do
   ms <- readInput input
   let docs = runDocs $ renderModules ms
@@ -60,21 +60,21 @@ docgen input output = runApplication do
     Nothing -> effApplication (trace docs)
     Just filename -> writeFileApplication filename docs
   effApplication (exit 0)
-  
+
 moduleFromText :: String -> Either String P.Module
 moduleFromText text = do
   tokens <- Parser.lex text
   Parser.runTokenParser Parser.parseModule tokens
-  
+
 readInput :: forall eff. [String] -> Application [P.Module]
-readInput input = 
+readInput input =
   for input (\inputFile -> do
     text <- readFileApplication inputFile
     case moduleFromText text of
       Left err -> throwError err
       Right m -> return m)
 
-type Docs = Writer [String] {}
+type Docs = Writer [String] Unit
 
 runDocs :: Docs -> String
 runDocs = joinWith "\n" <<< execWriter
@@ -84,7 +84,7 @@ spacer = tell [""]
 
 replicate :: Number -> String -> String
 replicate n s = go n ""
-  where 
+  where
     go 0 acc = acc
     go n acc = go (n - 1) (acc ++ s)
 
@@ -101,7 +101,7 @@ renderModules ms = do
   headerLevel 1 "Module Documentation"
   spacer
   traverse_ renderModule ms
-  
+
 renderModule :: P.Module -> Docs
 renderModule (P.Module moduleName ds exps) =
   let exported = filter (isExported exps) ds
@@ -192,13 +192,13 @@ renderDeclaration n _ (P.TypeInstanceDeclaration name constraints className tys 
   atIndent n $ "instance " ++ show name ++ " :: " ++ constraintsText ++ show className ++ " " ++ joinWith " " (map P.prettyPrintTypeAtom tys)
 renderDeclaration n exps (P.PositionedDeclaration _ d) =
   renderDeclaration n exps d
-renderDeclaration _ _ _ = return {}
+renderDeclaration _ _ _ = return unit
 
 prettyPrintType' :: P.Type -> String
 prettyPrintType' = P.prettyPrintType <<< P.everywhereOnTypes dePrim
   where
   dePrim ty@(P.TypeConstructor (P.Qualified _ name))
-    | ty == P.tyBoolean || ty == P.tyNumber || ty == P.tyString = 
+    | ty == P.tyBoolean || ty == P.tyNumber || ty == P.tyString =
       P.TypeConstructor $ P.Qualified Nothing name
   dePrim other = other
 
@@ -242,12 +242,12 @@ inputFiles = many argOnly
 outputFile :: Args (Maybe String)
 outputFile = opt (flagArg "o" <|> flagArg "output")
 
-term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process) {})
+term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process) Unit)
 term = docgen <$> inputFiles <*> outputFile
 
 main = do
   result <- readArgs' term
   case result of
     Left err -> print err
-    _ -> return {}
+    _ -> return unit
 
