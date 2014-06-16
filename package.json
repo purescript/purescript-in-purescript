@@ -6,7 +6,8 @@
   "bin": {
     "psc2": "dist/psc.js",
     "psci2": "dist/psci.js",
-    "psc-make2": "dist/psc-make.js"
+    "psc-make2": "dist/psc-make.js",
+    "psc-docs": "dist/psc-docs.js"
   },
   "preferGlobal": true,
   "devDependencies": {
