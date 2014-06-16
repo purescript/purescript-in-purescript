@@ -156,7 +156,7 @@ lex input = do
     let wh = eatWhitespace (i + 1) ts
     in go (line + 1) (wh.len + 1) wh.next cs wh.toks
 
-  go line col i cs ts | charAt i input == "-" && charAt (i + 1) input == "-" && lookaheadChar (i + 2) (not <<< isSymbolChar) =
+  go line col i cs ts | charAt i input == "-" && charAt (i + 1) input == "-" && lookaheadChar (i + 2) (\x -> (not $ isSymbolChar x) || x == "-") =
     let tok = eatWhile (i + 2) (\s -> s /= "\n")
     in go line (col + length tok.str) tok.next (cs ++ [tok.str]) ts
   go line col i cs ts | charAt i input == "{" && charAt (i + 1) input == "-" =
