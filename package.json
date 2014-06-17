@@ -2,7 +2,10 @@
   "private": true,
   "name": "purescript",
   "version": "0.0.0",
-  "files": ["dist", "prelude"],
+  "files": [
+    "dist",
+    "prelude"
+  ],
   "bin": {
     "psc2": "dist/psc.js",
     "psci2": "dist/psci.js",
@@ -17,5 +20,8 @@
     "grunt-contrib-watch": "~0.6.1",
     "grunt-execute": "~0.2.1",
     "grunt-purescript": "~0.5.1"
+  },
+  "dependencies": {
+    "mkdirp": "^0.5.0"
   }
 }
