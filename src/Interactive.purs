@@ -75,13 +75,13 @@ data Command
   -- Find the type of an expression
   --
   | TypeOf D.Value
-  
+
 parse :: forall a. P.Parser P.TokenStream a -> String -> Either String a
 parse p s = P.lex s >>= P.runTokenParser (p <* P.eof)
 
 parseLet :: P.Parser P.TokenStream Command
 parseLet = Let <$> (D.Let <$> (P.reserved "let" *> P.braces (P.many1 P.parseDeclaration)))
-  
+
 parseCommand :: String -> Either String Command
 parseCommand ":?" = Right Help
 parseCommand ":q" = Right Quit
@@ -91,7 +91,7 @@ parseCommand cmd | indexOf ":m " cmd == 0 = Right $ LoadFile (drop 3 cmd)
 parseCommand cmd | indexOf ":t " cmd == 0 = TypeOf <$> parse (P.parseValue unit) (drop 3 cmd)
 parseCommand cmd | indexOf ":" cmd == 0 = Left "Unknown command. Type :? for help."
 parseCommand cmd = parse (parseLet <|> (Eval <$> P.parseValue unit)) cmd
-  
+
 -- |
 -- The PSCI state.
 -- Holds a list of imported modules, loaded files, and partial let bindings.
@@ -102,13 +102,13 @@ type PSCIState = { loadedModules       :: [String]
                  , importedModuleNames :: [ModuleName]
                  , letBindings         :: [D.Value -> D.Value]
                  }
-  
+
 emptyPSCIState :: [String] -> PSCIState
 emptyPSCIState files = { loadedModules       : files
                        , importedModuleNames : [ModuleName [ProperName "Prelude"]]
                        , letBindings         : []
                        }
-                 
+
 defaultImports :: [ModuleName]
 defaultImports = [ModuleName [ProperName "Prelude"]]
 
@@ -116,19 +116,19 @@ defaultImports = [ModuleName [ProperName "Prelude"]]
 -- The help menu.
 --
 help :: String
-help = 
+help =
   "  :?            Show this help menu\n\
   \  :i <module>   Import <module> for use in PSCi\n\
   \  :m <file>     Load <file> for importing\n\
   \  :q            Quit PSCi\n\
   \  :r            Reset\n\
   \  :t <expr>     Show the type of <expr>"
- 
+
 moduleFromText :: String -> Either String D.Module
 moduleFromText text = do
   tokens <- P.lex text
   P.runTokenParser P.parseModule tokens
-  
+
 -- |
 -- Load a module from a file
 --
@@ -136,7 +136,7 @@ loadModule :: forall eff. String -> Eff (fs :: FS | eff) (Either String D.Module
 loadModule filename = readFile filename moduleFromText (Left <<< getStackTrace)
 
 loadModules :: [String] -> Application [Tuple String D.Module]
-loadModules input = 
+loadModules input =
   for input (\inputFile -> do
     text <- readFileApplication inputFile
     case moduleFromText text of
@@ -151,31 +151,31 @@ createTemporaryModule exec st value =
   let
     moduleName :: ModuleName
     moduleName = ModuleName [ProperName "Main"]
-    
+
     replModule :: ModuleName
     replModule = ModuleName [ProperName "REPL"]
-    
+
     evalPrint :: D.Value
     evalPrint = D.Var (Qualified (Just replModule) (Ident "evalPrint"))
-    
+
     itValue :: D.Value
     itValue = foldl (\x f -> f x) value st.letBindings
-    
+
     mainValue :: D.Value
     mainValue = D.App evalPrint (D.Var (Qualified Nothing (Ident "it")))
-    
+
     importDecl :: ModuleName -> D.Declaration
     importDecl m = D.ImportDeclaration m Nothing Nothing
-    
+
     itDecl :: D.Declaration
     itDecl = D.ValueDeclaration (Ident "it") Value [] Nothing itValue
-    
+
     mainDecl :: D.Declaration
     mainDecl = D.ValueDeclaration (Ident "main") Value [] Nothing mainValue
-    
+
     decls :: [D.Declaration]
     decls = if exec then [itDecl, mainDecl] else [itDecl]
-    
+
     moduleBody :: [D.Declaration]
     moduleBody = map importDecl (replModule : st.importedModuleNames) ++ decls
   in
@@ -204,13 +204,13 @@ modulesDir = homeDirectory ++ "/.purescript/psci/cache"
 --
 replModule :: String
 replModule = homeDirectory ++ "/.purescript/psci/modules/REPL.purs"
-    
--- | 
+
+-- |
 -- Compilation options
 --
 options :: Options
-options = mkOptions false true false true Nothing true Nothing [] [] false    
-    
+options = mkOptions false true false true Nothing true Nothing [] [] false
+
 -- |
 -- Takes a value and prints its type
 --
@@ -241,7 +241,7 @@ foreign import evaluate
   \    eval(js);\
   \  };\
   \}" :: forall eff. String -> Eff (eval :: Eval | eff) Unit
-        
+
 -- |
 -- Takes a value declaration and evaluates it with the current state.
 --
@@ -253,10 +253,14 @@ handleEval st value = do
     make requireMode modulesDir options (ms ++ [Tuple "Main.purs" m])
   case e of
     Left err -> trace err
-    Right _ -> evaluate $ "(function() { require(" ++ show (modulePath "Main") ++ ").main(); })()"
+    Right _ -> evaluate $
+      "(function() {\
+      \  for (var k in require.cache) delete require.cache[k];\
+      \  require(" ++ show (modulePath "Main") ++ ").main();\
+      \})()"
 
 prologueMessage :: String
-prologueMessage = 
+prologueMessage =
   " ____                 ____            _       _   \n\
   \|  _ \\ _   _ _ __ ___/ ___|  ___ _ __(_)_ __ | |_ \n\
   \| |_) | | | | '__/ _ \\___ \\ / __| '__| | '_ \\| __|\n\
@@ -267,7 +271,7 @@ prologueMessage =
   \:? shows help\n\
   \\n\
   \Expressions are terminated using Ctrl+D"
-  
+
 completion :: forall eff. RefVal PSCIState -> Completer (ref :: Ref | eff)
 completion state s = return $ Tuple [] s
 
@@ -290,7 +294,7 @@ handleCommand _ state (Let f) =
   modifyRef state (\st -> st { letBindings = st.letBindings ++ [f] })
 
 lineHandler :: [String] -> RefVal PSCIState -> String -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) Unit
-lineHandler initialFiles state input = 
+lineHandler initialFiles state input =
   case parseCommand input of
     Left msg -> trace msg
     Right cmd -> handleCommand initialFiles state cmd
@@ -304,10 +308,10 @@ loop inputFiles = do
   prompt interface
   setLineHandler (\s -> lineHandler allModules state s <* prompt interface) interface
   return unit
-  
+
 inputFiles :: Args [String]
-inputFiles = many argOnly  
-  
+inputFiles = many argOnly
+
 term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) Unit)
 term = loop <$> inputFiles
 
