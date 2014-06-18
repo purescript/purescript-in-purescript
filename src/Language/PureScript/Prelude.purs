@@ -1,12 +1,10 @@
 module Language.PureScript.Prelude where
 
+import Language.PureScript (procFilePath)
 import Node.Path
 
-foreign import procFile
-  "var procFile = require('fs').realpathSync(process.argv[1]);" :: String
-
 preludeBaseDir :: String
-preludeBaseDir = join (dirname procFile) "../prelude/"
+preludeBaseDir = join (dirname procFilePath) "../prelude/"
 
 preludeFiles :: [String]
 preludeFiles =

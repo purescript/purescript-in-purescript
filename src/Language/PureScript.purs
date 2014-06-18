@@ -14,17 +14,19 @@
 -----------------------------------------------------------------------------
 
 module Language.PureScript (
-    compile, 
-    compile', 
+    compile,
+    compile',
     FilePath(..),
-    MonadMake, 
+    MonadMake,
     make,
-    
+
     getTimestamp,
     readTextFile,
     writeTextFile,
     liftError,
-    progress
+    progress,
+
+    procFilePath
   ) where
 
 import Data.Array
@@ -54,26 +56,26 @@ import Control.Apply
 
 import Math (min)
 
-import Language.PureScript.Types 
-import Language.PureScript.Kinds 
-import Language.PureScript.Declarations 
-import Language.PureScript.Names 
-import Language.PureScript.Options 
-import Language.PureScript.ModuleDependencies 
-import Language.PureScript.Environment 
-import Language.PureScript.Errors 
+import Language.PureScript.Types
+import Language.PureScript.Kinds
+import Language.PureScript.Declarations
+import Language.PureScript.Names
+import Language.PureScript.Options
+import Language.PureScript.ModuleDependencies
+import Language.PureScript.Environment
+import Language.PureScript.Errors
 {- import Language.PureScript.DeadCodeElimination -}
-import Language.PureScript.Supply 
+import Language.PureScript.Supply
 
-import Language.PureScript.CodeGen.Common 
+import Language.PureScript.CodeGen.Common
 import Language.PureScript.CodeGen.JS
 import Language.PureScript.CodeGen.JS.AST
-import Language.PureScript.CodeGen.Externs 
+import Language.PureScript.CodeGen.Externs
 
-import Language.PureScript.TypeChecker 
+import Language.PureScript.TypeChecker
 import Language.PureScript.TypeChecker.Monad
 
-import Language.PureScript.Sugar 
+import Language.PureScript.Sugar
 import Language.PureScript.Sugar.BindingGroups
 
 import Language.PureScript.Parser.Lexer (lex)
@@ -84,7 +86,9 @@ import Language.PureScript.Pretty.JS
 
 import qualified Language.PureScript.Constants as C
 
-foreign import pathSeparator "var pathSeparator = require('path').sep" :: String 
+foreign import pathSeparator "var pathSeparator = require('path').sep" :: String
+
+foreign import procFilePath "var procFilePath = require('fs').realpathSync(process.argv[1]);" :: String
 
 -- |
 -- Compile a collection of modules
@@ -114,7 +118,7 @@ compile' env opts@(Options optso) ms = do
   Tuple desugared nextVar <- stringifyErrorStack true $ runSupplyT 0 $ desugar sorted
   Tuple elaborated env' <- runCheck' opts env $ for desugared $ typeCheckModule mainModuleIdent
   regrouped <- stringifyErrorStack true $ createBindingGroupsModule <<< collapseBindingGroupsModule $ elaborated
-  let 
+  let
     entryPoints = moduleNameFromString `map` optso.modules
     elim = regrouped -- if null entryPoints then regrouped else eliminateDeadCode entryPoints regrouped
     codeGenModules = moduleNameFromString `map` optso.codeGenModules
@@ -142,9 +146,9 @@ typeCheckModule mainModuleName (Module mn decls exps) = do
   checkTypesAreExported (ValueRef name) = do
     ty <- lookupVariable unifyError mn (Qualified (Just mn) name)
     case find isTconHidden (findTcons ty) of
-      Just hiddenType -> throwError (strMsg ("Error in module '" ++ show mn ++ 
-                                             "':\nExporting declaration '" ++ show name ++ 
-                                             "' requires type '" ++ show hiddenType ++ 
+      Just hiddenType -> throwError (strMsg ("Error in module '" ++ show mn ++
+                                             "':\nExporting declaration '" ++ show name ++
+                                             "' requires type '" ++ show hiddenType ++
                                              "' to be exported as well") :: ErrorStack)
       Nothing -> return unit
   checkTypesAreExported _ = return unit
@@ -215,26 +219,26 @@ make rpt outputDir opts@(Options optso) ms = do
 
   Tuple sorted graph <- liftError $ sortModules $ if optso.noPrelude then map snd ms else (map (importPrelude <<< snd) ms)
 
-  toRebuild <- foldM (\s (Module moduleName' _ _) -> 
+  toRebuild <- foldM (\s (Module moduleName' _ _) ->
     do let filePath = runModuleName moduleName'
-       
+
            jsFile      = outputDir ++ pathSeparator ++ filePath ++ pathSeparator ++ "index.js"
            externsFile = outputDir ++ pathSeparator ++ filePath ++ pathSeparator ++ "externs.purs"
            inputFile   = fromMaybe (error "Input file is undefined in make") $ M.lookup moduleName' filePathMap
-       
+
        jsTimestamp      <- getTimestamp jsFile
        externsTimestamp <- getTimestamp externsFile
        inputTimestamp   <- getTimestamp inputFile
-    
+
        return $ case (Tuple3 inputTimestamp jsTimestamp externsTimestamp) of
          Tuple3 (Just t1) (Just t2) (Just t3) | t1 < min t2 t3 -> s
          _ -> S.insert moduleName' s
     ) S.empty sorted
-  
+
   marked <- rebuildIfNecessary (reverseDependencies graph) toRebuild sorted
-  
+
   Tuple desugared nextVar <- liftError $ stringifyErrorStack true $ runSupplyT 0 $ zip (map fst marked) <$> desugar (map snd marked)
-  
+
   evalSupplyT nextVar (go initEnvironment desugared)
 
   where
@@ -247,20 +251,20 @@ make rpt outputDir opts@(Options optso) ms = do
     let filePath = runModuleName moduleName'
         jsFile = outputDir ++ pathSeparator ++ filePath ++ pathSeparator ++ "index.js"
         externsFile = outputDir ++ pathSeparator ++ filePath ++ pathSeparator ++ "externs.purs"
-    
+
     lift (progress ("Compiling " ++ runModuleName moduleName'))
-    
+
     Tuple (Module _ elaborated _) env' <- lift (liftError (runCheck' opts env (typeCheckModule Nothing m)))
-    
+
     regrouped <- lift (liftError (stringifyErrorStack true (createBindingGroups moduleName' (collapseBindingGroups elaborated))))
-    
+
     let mod' = Module moduleName' regrouped exps
     js <- prettyPrintJS <$> moduleToJs (CommonJS rpt) opts mod' env'
     let exts = moduleToPs mod' env'
-    
+
     lift $ writeTextFile jsFile js
     lift $ writeTextFile externsFile exts
-    
+
     go env' ms'
 
   rebuildIfNecessary :: forall m. (Functor m, Apply m, Applicative m, Bind m, Monad m, MonadMake m) => M.Map ModuleName [ModuleName] -> S.Set ModuleName -> [Module] -> m [Tuple Boolean Module]
@@ -295,11 +299,11 @@ importPrelude m@(Module mn decls exps) =
   where
   prelude :: ModuleName
   prelude = ModuleName [ProperName C.prelude]
-  
+
   isPreludeImport :: Declaration -> Boolean
   isPreludeImport (ImportDeclaration (ModuleName [ProperName mn']) _ _) | mn' == C.prelude = true
   isPreludeImport (PositionedDeclaration _ d) = isPreludeImport d
   isPreludeImport _ = false
-  
+
   preludeImport :: Declaration
   preludeImport = ImportDeclaration prelude Nothing Nothing

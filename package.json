@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "files": [
     "dist",
-    "prelude"
+    "prelude",
+    "runtime"
   ],
   "bin": {
     "psc2": "dist/psc.js",

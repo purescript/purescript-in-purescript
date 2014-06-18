@@ -17,12 +17,13 @@ import Control.Monad
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Monad.Eff.Process
-import Control.Monad.Eff.FS
+import Control.Monad.Eff.FS (FS(), readFile, getStackTrace)
 import Control.Monad.Application
 import Control.Monad.Error.Class
 
 import Node.Args
 import Node.ReadLine
+import Node.Path (dirname, join)
 
 import Language.PureScript
 import Language.PureScript.Names
@@ -203,7 +204,7 @@ modulesDir = homeDirectory ++ "/.purescript/psci/cache"
 -- The REPL support module
 --
 replModule :: String
-replModule = homeDirectory ++ "/.purescript/psci/modules/REPL.purs"
+replModule = join (dirname procFilePath) "../runtime/REPL.purs"
 
 -- |
 -- Compilation options
