@@ -35,7 +35,7 @@ bindNames newNames action = do
   a <- action
   modify $ \(CheckState st) -> CheckState $ st { env = Environment $ (envObj st.env) { names = (envObj orig.env).names } }
   return a
-  
+
 -- |
 -- Temporarily bind a collection of names to types
 --
@@ -46,14 +46,15 @@ bindTypes newNames action = do
   a <- action
   modify $ \(CheckState st) -> CheckState $ st { env = Environment $ (envObj st.env) { types = (envObj orig.env).types } }
   return a
+
 -- |
 -- Temporarily make a collection of type class dictionaries available
 --
 withTypeClassDictionaries :: forall m a. (Monad m, MonadState CheckState m) => [TypeClassDictionaryInScope] -> m a -> m a
 withTypeClassDictionaries entries action = do
   CheckState orig <- get
-  let mentries = M.fromList $ flip map entries $ \entry -> case entry of 
-                     TypeClassDictionaryInScope { name = (Qualified mn _) } -> 
+  let mentries = M.fromList $ flip map entries $ \entry -> case entry of
+                     TypeClassDictionaryInScope { name = (Qualified mn _) } ->
                        Tuple (Tuple (canonicalizeDictionary entry) mn) entry
   modify $ \(CheckState st) -> CheckState $ st { env = Environment $ (envObj st.env) { typeClassDictionaries = (envObj st.env).typeClassDictionaries `M.union` mentries } }
   a <- action
@@ -99,7 +100,7 @@ lookupTypeVariable errorType currentModule (Qualified moduleName name) = do
   case M.lookup (Qualified (Just $ fromMaybe currentModule moduleName) name) env.types of
     Nothing -> throwError $ withErrorType errorType $ strMsg $ "Type variable " ++ show name ++ " is undefined"
     Just (Tuple k _) -> return k
-    
+
 -- |
 -- State required for type checking:
 --
@@ -126,7 +127,6 @@ data CheckState = CheckState {
 -- The type checking monad, which provides the state of the type checker, and error reporting capabilities
 --
 data Check a = Check (StateT CheckState (Either ErrorStack) a)
--- TODO: deriving MonadPlus
 
 unCheck :: forall a. Check a -> StateT CheckState (Either ErrorStack) a
 unCheck (Check x) = x
@@ -148,7 +148,7 @@ instance monadCheck :: Monad Check
 instance monadErrorCheck :: MonadError ErrorStack Check where
   throwError = Check <<< throwError
   catchError e f = Check $ catchError (unCheck e) (unCheck <<< f)
-  
+
 instance monadStateCheck :: MonadState CheckState Check where
   state = Check <<< state
 
