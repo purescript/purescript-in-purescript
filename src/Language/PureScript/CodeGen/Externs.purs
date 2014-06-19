@@ -7,7 +7,7 @@ import Control.Monad.Writer.Class
 
 import Data.Array (filter, map, mapMaybe, null)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Foldable (elem, find, for_, traverse_)
+import Data.Foldable (elem, find, for_, traverse_, lookup)
 import Data.Monoid
 import Data.String (joinWith)
 import Data.Tuple
@@ -88,8 +88,3 @@ moduleToPs (Module moduleName ds (Just exts)) (Environment env) = joinWith "\n" 
 
     isValueExported :: Ident -> Boolean
     isValueExported ident = ValueRef ident `elem` exts
-    
-    -- TODO: put this somewhere else
-    lookup :: forall a b. (Eq a) => a -> [Tuple a b] -> Maybe b
-    lookup key ((Tuple x y) : xys) = if key == x then Just y else lookup key xys
-    lookup _ [] = Nothing
