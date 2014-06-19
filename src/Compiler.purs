@@ -39,6 +39,7 @@ import Control.Monad.Error.Class
 import Control.Monad.Cont.Trans
 
 import Node.Args
+import Node.FS
 
 import Language.PureScript
 import Language.PureScript.Declarations
@@ -53,9 +54,9 @@ moduleFromText :: String -> Either String Module
 moduleFromText text = do
   tokens <- P.lex text
   P.runTokenParser P.parseModule tokens
-  
+
 readInput :: forall eff. [String] -> Application [Module]
-readInput input = 
+readInput input =
   for input (\inputFile -> do
     text <- readFileApplication inputFile
     case moduleFromText text of
@@ -121,15 +122,15 @@ verboseErrors :: Args Boolean
 verboseErrors = flag "v" "verbose-errors"
 
 options :: Args Options
-options = mkOptions <$> noPrelude 
-                    <*> noTco 
-                    <*> performRuntimeTypeChecks 
-                    <*> noMagicDo 
-                    <*> runMain 
-                    <*> noOpts 
-                    <*> (Just <$> browserNamespace) 
-                    <*> dceModules 
-                    <*> codeGenModules 
+options = mkOptions <$> noPrelude
+                    <*> noTco
+                    <*> performRuntimeTypeChecks
+                    <*> noMagicDo
+                    <*> runMain
+                    <*> noOpts
+                    <*> (Just <$> browserNamespace)
+                    <*> dceModules
+                    <*> codeGenModules
                     <*> verboseErrors
 
 term :: Args (Eff (fs :: FS, trace :: Trace, process :: Process) Unit)

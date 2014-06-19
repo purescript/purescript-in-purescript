@@ -1,21 +1,18 @@
 module Control.Monad.Application where
-  
-import Data.Either  
-import Data.Maybe
-  
-import Debug.Trace  
 
+import Data.Either
+import Data.Maybe
+import Debug.Trace
 import Control.Monad.Trans
-  
 import Control.Monad.Error
 import Control.Monad.Error.Class
 import Control.Monad.Error.Trans
-
 import Control.Monad.Eff
 import Control.Monad.Eff.FS
 import Control.Monad.Eff.Process
-
+import Global
 import Language.PureScript
+import Node.FS
 
 data Application a = Application (forall eff. ErrorT String (Eff (fs :: FS, trace :: Trace, process :: Process | eff)) a)
 
@@ -24,7 +21,7 @@ unApplication (Application m) = m
 
 instance functorApplication :: Functor Application where
   (<$>) f (Application m) = Application (f <$> m)
-  
+
 instance applyApplication :: Apply Application where
   (<*>) (Application f) (Application x) = Application (f <*> x)
 
@@ -64,12 +61,12 @@ runApplication (Application app) = do
       trace err
       exit 1
     Right _ -> exit 0
-    
+
 runApplication' :: forall eff a. Application a -> Eff (fs :: FS, trace :: Trace, process :: Process | eff) (Either String a)
 runApplication' (Application app) = runErrorT app
-    
-fsAction :: forall a. (forall eff r. (a -> r) -> (FSError -> r) -> Eff (fs :: FS | eff) r) -> Application a
-fsAction k = Application (ErrorT (k Right (Left <<< getStackTrace)))
+
+fsAction :: forall a. (forall eff r. (a -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r) -> Application a
+fsAction k = Application (ErrorT (k Right (Left <<< show)))
 
 readFileApplication :: String -> Application String
 readFileApplication filename = fsAction (readFile filename)

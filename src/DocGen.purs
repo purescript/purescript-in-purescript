@@ -51,6 +51,7 @@ import Control.Monad.Writer.Class
 import Control.Monad.Error.Class
 
 import Node.Args
+import Node.FS
 
 docgen :: [String] -> Maybe String -> Eff (fs :: FS, trace :: Trace, process :: Process) Unit
 docgen input output = runApplication do

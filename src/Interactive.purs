@@ -17,11 +17,12 @@ import Control.Monad
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Monad.Eff.Process
-import Control.Monad.Eff.FS (FS(), readFile, getStackTrace)
+import Control.Monad.Eff.FS (readFile)
 import Control.Monad.Application
 import Control.Monad.Error.Class
 
 import Node.Args
+import Node.FS
 import Node.ReadLine
 import Node.Path (dirname, join)
 
@@ -134,7 +135,7 @@ moduleFromText text = do
 -- Load a module from a file
 --
 loadModule :: forall eff. String -> Eff (fs :: FS | eff) (Either String D.Module)
-loadModule filename = readFile filename moduleFromText (Left <<< getStackTrace)
+loadModule filename = readFile filename moduleFromText (Left <<< show)
 
 loadModules :: [String] -> Application [Tuple String D.Module]
 loadModules input =

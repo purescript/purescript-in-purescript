@@ -1,15 +1,8 @@
 module Control.Monad.Eff.FS where
-  
-import Control.Monad.Eff  
-  
-foreign import data FS :: !
-  
-foreign import data FSError :: *
 
-foreign import getStackTrace
-  "function getStackTrace(err) {\
-  \  return err.stack.toString();\
-  \}" :: FSError -> String
+import Control.Monad.Eff
+import Global
+import Node.FS
 
 foreign import readFile
   "function readFile(filename) {\
@@ -24,7 +17,7 @@ foreign import readFile
   \      };\
   \    };\
   \  };\
-  \}" :: forall eff r. String -> (String -> r) -> (FSError -> r) -> Eff (fs :: FS | eff) r
+  \}" :: forall eff r. String -> (String -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
 
 foreign import writeFile
   "function writeFile(filename) {\
@@ -41,8 +34,8 @@ foreign import writeFile
   \      };\
   \    };\
   \  };\
-  \}" :: forall eff r. String -> String -> (Unit -> r) -> (FSError -> r) -> Eff (fs :: FS | eff) r
-  
+  \}" :: forall eff r. String -> String -> (Unit -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+
 foreign import doesFileExist
   "function doesFileExist(filename) {\
   \  return function(k) {\
@@ -56,8 +49,8 @@ foreign import doesFileExist
   \      };\
   \    };\
   \  };\
-  \}" :: forall eff r. String -> (Boolean -> r) -> (FSError -> r) -> Eff (fs :: FS | eff) r
-  
+  \}" :: forall eff r. String -> (Boolean -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+
 foreign import getModificationTime
   "function getModificationTime(filename) {\
   \  return function(k) {\
@@ -72,8 +65,8 @@ foreign import getModificationTime
   \      };\
   \    };\
   \  };\
-  \}" :: forall eff r. String -> (Number -> r) -> (FSError -> r) -> Eff (fs :: FS | eff) r
-  
+  \}" :: forall eff r. String -> (Number -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+
 foreign import mkdirp
   "function mkdirp(filename) {\
   \  return function(k) {\
@@ -87,9 +80,9 @@ foreign import mkdirp
   \      };\
   \    };\
   \  };\
-  \}" :: forall eff r. String -> (Unit -> r) -> (FSError -> r) -> Eff (fs :: FS | eff) r
-  
-foreign import dirname 
+  \}" :: forall eff r. String -> (Unit -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+
+foreign import dirname
   "function dirname(filename) {\
   \  return require('path').dirname(filename);\
   \}" :: forall eff. String -> String
