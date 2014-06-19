@@ -87,8 +87,6 @@ import Node.Path
 
 import qualified Language.PureScript.Constants as C
 
-foreign import pathSeparator "var pathSeparator = require('path').sep" :: String
-
 foreign import procFilePath "var procFilePath = require('fs').realpathSync(process.argv[1]);" :: String
 
 -- |
@@ -221,8 +219,8 @@ make rpt outputDir opts@(Options optso) ms = do
   toRebuild <- foldM (\s (Module moduleName' _ _) ->
     do let filePath = runModuleName moduleName'
 
-           jsFile      = outputDir ++ pathSeparator ++ filePath ++ pathSeparator ++ "index.js"
-           externsFile = outputDir ++ pathSeparator ++ filePath ++ pathSeparator ++ "externs.purs"
+           jsFile      = outputDir ++ sep ++ filePath ++ sep ++ "index.js"
+           externsFile = outputDir ++ sep ++ filePath ++ sep ++ "externs.purs"
            inputFile   = fromMaybe (error "Input file is undefined in make") $ M.lookup moduleName' filePathMap
 
        jsTimestamp      <- getTimestamp jsFile
@@ -248,8 +246,8 @@ make rpt outputDir opts@(Options optso) ms = do
     go env' ms'
   go env (Tuple true (m@(Module moduleName' _ exps)) : ms') = do
     let filePath = runModuleName moduleName'
-        jsFile = outputDir ++ pathSeparator ++ filePath ++ pathSeparator ++ "index.js"
-        externsFile = outputDir ++ pathSeparator ++ filePath ++ pathSeparator ++ "externs.purs"
+        jsFile = outputDir ++ sep ++ filePath ++ sep ++ "index.js"
+        externsFile = outputDir ++ sep ++ filePath ++ sep ++ "externs.purs"
 
     lift (progress ("Compiling " ++ runModuleName moduleName'))
 
@@ -273,7 +271,7 @@ make rpt outputDir opts@(Options optso) ms = do
         toRebuild' = toRebuild `S.union` S.fromList deps
     (:) (Tuple true m) <$> rebuildIfNecessary graph toRebuild' ms'
   rebuildIfNecessary graph toRebuild (Module moduleName' _ _ : ms') = do
-    let externsFile = outputDir ++ pathSeparator ++ runModuleName moduleName' ++ pathSeparator ++ "externs.purs"
+    let externsFile = outputDir ++ sep ++ runModuleName moduleName' ++ sep ++ "externs.purs"
     externs <- readTextFile externsFile
     externsModule <- liftError (either (Left <<< show) Right (lex externs >>= runTokenParser parseModule))
     case externsModule of
