@@ -1,71 +1,26 @@
 module Control.Monad.Eff.FS where
 
 import Control.Monad.Eff
+import Data.Date
+import Data.Either
 import Global
+import Node.Encoding
 import Node.FS
+import Node.FS.Stats
+import Node.FS.Sync (readTextFile, writeTextFile, stat)
+import Node.Path
 
-foreign import readFile
-  "function readFile(filename) {\
-  \  return function(k) {\
-  \    return function(fail) {\
-  \      return function() {\
-  \        try {\
-  \          return k(require('fs').readFileSync(filename, 'utf8'));\
-  \        } catch(err) {\
-  \          return fail(err);\
-  \        }\
-  \      };\
-  \    };\
-  \  };\
-  \}" :: forall eff r. String -> (String -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+readFile :: forall eff r. FilePath -> (String -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+readFile path f g = either g f <$> readTextFile UTF8 path
 
-foreign import writeFile
-  "function writeFile(filename) {\
-  \  return function(data) {\
-  \    return function(k) {\
-  \      return function(fail) {\
-  \        return function() {\
-  \          try {\
-  \            return k(require('fs').writeFileSync(filename, data, 'utf8'));\
-  \          } catch(err) {\
-  \            return fail(err);\
-  \          }\
-  \        };\
-  \      };\
-  \    };\
-  \  };\
-  \}" :: forall eff r. String -> String -> (Unit -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+writeFile :: forall eff r. FilePath -> String -> (Unit -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+writeFile path content f g = either g f <$> writeTextFile UTF8 path content
 
-foreign import doesFileExist
-  "function doesFileExist(filename) {\
-  \  return function(k) {\
-  \    return function(fail) {\
-  \      return function() {\
-  \        try {\
-  \          return k(require('fs').existsSync(filename));\
-  \        } catch(err) {\
-  \          return fail(err);\
-  \        }\
-  \      };\
-  \    };\
-  \  };\
-  \}" :: forall eff r. String -> (Boolean -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+doesFileExist :: forall eff r. FilePath -> (Boolean -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+doesFileExist path f g = either (f <<< const false) (f <<< const true) <$> stat path
 
-foreign import getModificationTime
-  "function getModificationTime(filename) {\
-  \  return function(k) {\
-  \    return function(fail) {\
-  \      return function() {\
-  \        try {\
-  \          var stat = require('fs').statSync(filename);\
-  \          return k(stat.mtime.getTime());\
-  \        } catch(err) {\
-  \          return fail(err);\
-  \        }\
-  \      };\
-  \    };\
-  \  };\
-  \}" :: forall eff r. String -> (Number -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+getModificationTime :: forall eff r. FilePath -> (Number -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+getModificationTime path f g = either g (f <<< toEpochMilliseconds <<< modifiedTime) <$> stat path
 
 foreign import mkdirp
   "function mkdirp(filename) {\
@@ -80,4 +35,4 @@ foreign import mkdirp
   \      };\
   \    };\
   \  };\
-  \}" :: forall eff r. String -> (Unit -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
+  \}" :: forall eff r. FilePath -> (Unit -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
