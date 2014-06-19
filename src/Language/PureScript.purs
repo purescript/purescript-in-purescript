@@ -16,7 +16,6 @@
 module Language.PureScript (
     compile,
     compile',
-    FilePath(..),
     MonadMake,
     make,
 
@@ -83,6 +82,8 @@ import Language.PureScript.Parser.Common
 import Language.PureScript.Parser.Declarations (parseModule)
 
 import Language.PureScript.Pretty.JS
+
+import Node.Path
 
 import qualified Language.PureScript.Constants as C
 
@@ -175,8 +176,6 @@ generateMain env@(Environment envo) opts@(Options optso) js =
         Left $ show mmi ++ "." ++ C.main ++ " is undefined"
       return $ js ++ [JSApp (JSAccessor C.main (JSAccessor (moduleNameToJs mmi) (JSVar (Unsafe.fromJust optso.browserNamespace)))) []]
     _ -> return js
-
-type FilePath = String
 
 -- |
 -- A type class which collects the IO actions we need to be able to run in "make" mode

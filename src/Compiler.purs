@@ -40,6 +40,7 @@ import Control.Monad.Cont.Trans
 
 import Node.Args
 import Node.FS
+import Node.Path
 
 import Language.PureScript
 import Language.PureScript.Declarations

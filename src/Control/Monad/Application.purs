@@ -13,6 +13,7 @@ import Control.Monad.Eff.Process
 import Global
 import Language.PureScript
 import Node.FS
+import Node.Path
 
 data Application a = Application (forall eff. ErrorT String (Eff (fs :: FS, trace :: Trace, process :: Process | eff)) a)
 

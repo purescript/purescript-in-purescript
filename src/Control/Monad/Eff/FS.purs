@@ -81,8 +81,3 @@ foreign import mkdirp
   \    };\
   \  };\
   \}" :: forall eff r. String -> (Unit -> r) -> (Error -> r) -> Eff (fs :: FS | eff) r
-
-foreign import dirname
-  "function dirname(filename) {\
-  \  return require('path').dirname(filename);\
-  \}" :: forall eff. String -> String
