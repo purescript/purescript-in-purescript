@@ -43,17 +43,17 @@ type EnvironmentObj = {
   --
   , typeClasses :: M.Map (Qualified ProperName) (Tuple3 [String] [Tuple Ident Type] [Tuple (Qualified ProperName) [Type]])
   }
-  
+
 envObj :: Environment -> EnvironmentObj
 envObj (Environment o) = o
-  
+
 instance showEnv :: Show Environment where
-  show (Environment o) = "Environment {" ++ 
-    "names: " ++ show o.names ++ ", " ++ 
-    "types: " ++ show o.types ++ ", " ++ 
-    "dataConstructors: " ++ show o.dataConstructors ++ ", " ++ 
-    "typeSynonyms: " ++ show o.typeSynonyms ++ ", " ++ 
-    "typeClassDictionaries: " ++ show o.typeClassDictionaries ++ ", " ++ 
+  show (Environment o) = "Environment {" ++
+    "names: " ++ show o.names ++ ", " ++
+    "types: " ++ show o.types ++ ", " ++
+    "dataConstructors: " ++ show o.dataConstructors ++ ", " ++
+    "typeSynonyms: " ++ show o.typeSynonyms ++ ", " ++
+    "typeClassDictionaries: " ++ show o.typeClassDictionaries ++ ", " ++
     "typeClasses: " ++ show o.typeClasses ++ " " ++
     "}"
 
@@ -81,11 +81,11 @@ data ForeignImportType
   -- A foreign import which contains inline Javascript as a string literal
   --
   | InlineJavascript
-  
+
 instance showForeignImport :: Show ForeignImportType where
   show ForeignImport = "ForeignImport"
   show InlineJavascript = "InlineJavascript"
-  
+
 instance eqForeignImport :: Eq ForeignImportType where
   (==) ForeignImport           ForeignImport           = true
   (==) InlineJavascript        InlineJavascript        = true
@@ -124,16 +124,16 @@ data NameKind
   -- A type class dictionary member accessor import, generated during desugaring of type class declarations
   --
   | TypeClassAccessorImport
-  
+
 instance showNameKind :: Show NameKind where
   show Value = "Value"
-  show (Extern fit) = "Extern (" ++ show fit ++ ")" 
+  show (Extern fit) = "Extern (" ++ show fit ++ ")"
   show LocalVariable = "LocalVariable"
   show DataConstructor = "DataConstructor"
   show TypeInstanceDictionaryValue = "TypeInstanceDictionaryValue"
   show TypeInstanceMember = "TypeInstanceMember"
   show TypeClassAccessorImport = "TypeClassAccessorImport"
-  
+
 instance eqNameKind :: Eq NameKind where
   (==) Value                       Value                       = true
   (==) (Extern t1)                 (Extern t2)                 = t1 == t2
@@ -165,13 +165,13 @@ data TypeKind
   -- A local type variable
   --
   | LocalTypeVariable
-  
+
 instance showTypeKind :: Show TypeKind where
   show (DataType args dctors) = "DataType (" ++ show args ++ ") (" ++ show dctors ++ ")"
   show TypeSynonym = "TypeSynonym"
   show ExternData = "ExternData"
   show LocalTypeVariable = "LocalTypeVariable"
-  
+
 instance eqTypeKind :: Eq TypeKind where
   (==) (DataType args1 tys1) (DataType args2 tys2) = args1 == args2 && tys1 == tys2
   (==) TypeSynonym           TypeSynonym           = true

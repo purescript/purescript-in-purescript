@@ -19,7 +19,6 @@ module Language.PureScript.ModuleDependencies (
 
 import Data.Graph
 import Data.Tuple
-import Data.Tuple3
 import Data.Either
 import Data.Array (concatMap, map, nub, mapMaybe)
 import Data.Maybe

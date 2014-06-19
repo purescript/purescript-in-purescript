@@ -61,9 +61,9 @@ desugarTypeDeclarations (TypeDeclaration name ty : d : rest) = do
   fromValueDeclaration _ = throwError $ mkErrorStack ("Orphan type declaration for " ++ show name) Nothing
 desugarTypeDeclarations (TypeDeclaration name _ : []) = throwError $ mkErrorStack ("Orphan type declaration for " ++ show name) Nothing
 desugarTypeDeclarations (ValueDeclaration name nameKind bs g val : rest) = do
-  case everywhereOnValuesTopDownM return go return of
-    Tuple3 _ f _ -> (:) <$> (ValueDeclaration name nameKind bs g <$> f val) <*> desugarTypeDeclarations rest
+  (:) <$> (ValueDeclaration name nameKind bs g <$> f val) <*> desugarTypeDeclarations rest
   where
+  f = (everywhereOnValuesTopDownM return go return).values
   go (Let ds val') = Let <$> desugarTypeDeclarations ds <*> pure val'
   go other = return other
 desugarTypeDeclarations (d:ds) = (:) d <$> desugarTypeDeclarations ds

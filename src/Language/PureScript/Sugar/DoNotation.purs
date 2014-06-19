@@ -19,7 +19,6 @@ module Language.PureScript.Sugar.DoNotation (
   ) where
 
 import Data.Maybe
-import Data.Tuple3
 import Data.Either
 
 import Data.Traversable (traverse)
@@ -43,9 +42,7 @@ desugarDoModule (Module mn ds exts) = Module mn <$> traverse desugarDo ds <*> pu
 
 desugarDo :: Declaration -> SupplyT (Either ErrorStack) Declaration
 desugarDo (PositionedDeclaration pos d) = (PositionedDeclaration pos) <$> (rethrowWithPosition pos $ desugarDo d)
-desugarDo d =
-  case everywhereOnValuesM return replace return of
-    Tuple3 f _ _ -> f d
+desugarDo d = (everywhereOnValuesM return replace return).decls d
   where
   prelude :: ModuleName
   prelude = ModuleName [ProperName C.prelude]

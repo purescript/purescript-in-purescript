@@ -500,8 +500,10 @@ binderNames = go []
 everywhereOnValues :: (Declaration -> Declaration) ->
                       (Value -> Value) ->
                       (Binder -> Binder) ->
-                      (Tuple3 (Declaration -> Declaration) (Value -> Value) (Binder -> Binder))
-everywhereOnValues f g h = Tuple3 f' g' h'
+                      { decls :: Declaration -> Declaration
+                      , values :: Value -> Value
+                      , binders :: Binder -> Binder }
+everywhereOnValues f g h = { decls: f', values: g', binders: h' }
   where
   f' :: Declaration -> Declaration
   f' (DataBindingGroupDeclaration ds) = f (DataBindingGroupDeclaration (map f' ds))
@@ -555,8 +557,10 @@ everywhereOnValuesTopDownM :: forall m. (Monad m) =>
   (Declaration -> m Declaration) ->
   (Value -> m Value) ->
   (Binder -> m Binder) ->
-  (Tuple3 (Declaration -> m Declaration) (Value -> m Value) (Binder -> m Binder))
-everywhereOnValuesTopDownM f g h = Tuple3 (f' <=< f) (g' <=< g) (h' <=< h)
+  { decls :: Declaration -> m Declaration
+  , values :: Value -> m Value
+  , binders :: Binder -> m Binder }
+everywhereOnValuesTopDownM f g h = { decls: f' <=< f, values: g' <=< g, binders: h' <=< h }
   where
   f' (DataBindingGroupDeclaration ds) = DataBindingGroupDeclaration <$> traverse (f' <=< f) ds
   f' (ValueDeclaration name nameKind bs grd val) = ValueDeclaration name nameKind <$> traverse (h' <=< h) bs <*> maybeM (g' <=< g) grd <*> (g val >>= g')
@@ -605,8 +609,10 @@ everywhereOnValuesM :: forall m. (Monad m) =>
   (Declaration -> m Declaration) ->
   (Value -> m Value) ->
   (Binder -> m Binder) ->
-  (Tuple3 (Declaration -> m Declaration) (Value -> m Value) (Binder -> m Binder))
-everywhereOnValuesM f g h = Tuple3 (f' <=< f) (g' <=< g) (h' <=< h)
+  { decls :: Declaration -> m Declaration
+  , values :: Value -> m Value
+  , binders :: Binder -> m Binder }
+everywhereOnValuesM f g h = { decls: f' <=< f, values: g' <=< g, binders: h' <=< h }
   where
   f' (DataBindingGroupDeclaration ds) = (DataBindingGroupDeclaration <$> traverse f' ds) >>= f
   f' (ValueDeclaration name nameKind bs grd val) = (ValueDeclaration name nameKind <$> traverse h' bs <*> maybeM g' grd <*> g' val) >>= f

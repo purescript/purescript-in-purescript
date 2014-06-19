@@ -28,7 +28,6 @@ import Data.Foldable (all, foldr)
 import Data.Traversable (for, traverse)
 
 import Data.Tuple
-import Data.Tuple3
 
 import Control.Apply
 import Control.Bind ((<=<), join)
@@ -52,9 +51,7 @@ desugarCasesModule ms = for ms $ \(Module name ds exps) ->
     Module name <$> (desugarCases <=< desugarAbs $ ds) <*> pure exps
 
 desugarAbs :: [Declaration] -> SupplyT (Either ErrorStack) [Declaration]
-desugarAbs = 
-  case everywhereOnValuesM return replace return of
-    Tuple3 f _ _ -> traverse f
+desugarAbs = traverse (everywhereOnValuesM return replace return).decls
   where
   replace :: Value -> SupplyT (Either ErrorStack) Value
   replace (Abs (Right binder) val) = do
@@ -74,9 +71,9 @@ desugarCases ds = do
     desugarRest (TypeInstanceDeclaration name constraints className tys ds : rest) =
       (:) <$> (TypeInstanceDeclaration name constraints className tys <$> desugarCases ds) <*> desugarRest rest
     desugarRest (ValueDeclaration name nameKind bs g val : rest) =
-      case everywhereOnValuesTopDownM return go return of
-        Tuple3 _ f _ -> (:) <$> (ValueDeclaration name nameKind bs g <$> f val) <*> desugarRest rest
+      (:) <$> (ValueDeclaration name nameKind bs g <$> f val) <*> desugarRest rest
       where
+      f = (everywhereOnValuesTopDownM return go return).values
       go (Let ds val') = Let <$> desugarCases ds <*> pure val'
       go other = return other
     desugarRest (PositionedDeclaration pos d : ds) = do

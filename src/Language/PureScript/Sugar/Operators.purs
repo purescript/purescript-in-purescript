@@ -59,10 +59,9 @@ rebracket ms = do
   traverse (rebracketModule opTable) ms
 
 removeSignedLiterals :: Module -> Module
-removeSignedLiterals (Module mn ds exts) = 
-  case everywhereOnValues id go id of 
-    Tuple3 f' _ _ -> Module mn (map f' ds) exts
+removeSignedLiterals (Module mn ds exts) = Module mn (map f ds) exts
   where
+  f = (everywhereOnValues id go id).decls
   go (UnaryMinus (NumericLiteral n)) = NumericLiteral (negate n)
   go (UnaryMinus val) = App (Var (Qualified (Just (ModuleName [ProperName C.prelude])) (Ident C.negate))) val
   go other = other
@@ -70,12 +69,10 @@ removeSignedLiterals (Module mn ds exts) =
 rebracketModule :: [[Tuple3 (Qualified Ident) (Value -> Value -> Value) Associativity]] -> Module -> Either ErrorStack Module
 rebracketModule opTable (Module mn ds exts) =
   case everywhereOnValuesTopDownM return (matchOperators opTable) return of
-    Tuple3 f _ _ -> Module mn <$> (map removeParens <$> traverse f ds) <*> pure exts
+    { decls = f } -> Module mn <$> (map removeParens <$> traverse f ds) <*> pure exts
 
 removeParens :: Declaration -> Declaration
-removeParens =
-  case everywhereOnValues id go id of
-    Tuple3 f _ _ -> f
+removeParens = (everywhereOnValues id go id).decls
   where
   go (Parens val) = val
   go val = val
@@ -119,39 +116,39 @@ matchOperators ops = parseChains
   parseChains :: Value -> Either ErrorStack Value
   parseChains b@(BinaryNoParens _ _ _) = bracketChain (extendChain b)
   parseChains other = return other
-  
+
   extendChain :: Value -> Chain
   extendChain (BinaryNoParens name l r) = Left l : Right name : extendChain r
   extendChain other = [Left other]
-  
+
   bracketChain :: Chain -> Either ErrorStack Value
-  bracketChain c = either (\(P.ParseError o) -> Left (o.message `mkErrorStack` Nothing)) Right 
+  bracketChain c = either (\(P.ParseError o) -> Left (o.message `mkErrorStack` Nothing)) Right
                           (P.runParser c ((P.buildExprParser opTable parseValue <* eof) P.<?> "operator expression"))
-  
+
   opTable = [P.Infix (P.try (mkParser <$> parseTicks)) P.AssocLeft]
             : map (map (\(Tuple3 name f a) -> P.Infix (P.try (matchOp name) *> return f) (toAssoc a))) ops
             ++ [[ P.Infix (P.try (mkParser <$> parseOp)) P.AssocLeft ]]
-  
+
   mkParser :: Qualified Ident -> Value -> Value -> Value
-  mkParser ident t1 t2 = App (App (Var ident) t1) t2 
+  mkParser ident t1 t2 = App (App (Var ident) t1) t2
 
 toAssoc :: Associativity -> P.Assoc
 toAssoc Infixl = P.AssocLeft
 toAssoc Infixr = P.AssocRight
 toAssoc Infix  = P.AssocNone
-  
+
 eof :: forall t. P.Parser Chain Unit
 eof = do
   ts <- get
   case ts :: Chain of
     [] -> return unit
     _ -> P.fail "Expected EOF"
-    
+
 token :: forall a. String -> (Link -> Maybe a) -> P.Parser Chain a
 token exp p = do
   ts <- get
   case ts of
-    (t : rest) -> 
+    (t : rest) ->
       case p t of
         Just a -> do
           P.consume
@@ -185,6 +182,6 @@ parseTicks = token "infix function" match
 matchOp :: Qualified Ident -> P.Parser Chain Unit
 matchOp op = do
   ident <- parseOp
-  if (ident == op) 
-    then return unit 
+  if (ident == op)
+    then return unit
     else P.fail "Expected operator"

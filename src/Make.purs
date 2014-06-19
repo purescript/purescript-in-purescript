@@ -18,7 +18,6 @@ import Debug.Trace
 
 import Data.Maybe
 import Data.Tuple
-import Data.Tuple3
 import Data.Array (concat, map)
 import Data.Either
 

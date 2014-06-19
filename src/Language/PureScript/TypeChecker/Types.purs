@@ -264,7 +264,7 @@ isTyped (Tuple name value) = Tuple name (Tuple value Nothing)
 -- Map a function over type annotations appearing inside a value
 --
 overTypes :: (Type -> Type) -> Value -> Value
-overTypes f = case everywhereOnValues id g id of Tuple3 _ f' _ -> f'
+overTypes f = (everywhereOnValues id g id).values
   where
   g :: Value -> Value
   g (TypedValue checkTy val t) = TypedValue checkTy val (f t)
@@ -275,7 +275,7 @@ overTypes f = case everywhereOnValues id g id of Tuple3 _ f' _ -> f'
 -- Replace type class dictionary placeholders with inferred type class dictionaries
 --
 replaceTypeClassDictionaries :: ModuleName -> Value -> Check Value
-replaceTypeClassDictionaries mn = case everywhereOnValuesTopDownM return go return of Tuple3 _ f _ -> f
+replaceTypeClassDictionaries mn = (everywhereOnValuesTopDownM return go return).values
   where
   go (TypeClassDictionary trySuperclasses constraint dicts) = do
     env <- getEnv
@@ -864,8 +864,7 @@ skolemize ident sko scope = replaceTypeVars ident (Skolem ident sko scope)
 -- only example of scoped type variables.
 --
 skolemizeTypesInValue :: String -> Number -> SkolemScope -> Value -> Value
-skolemizeTypesInValue ident sko scope = case everywhereOnValues id go id of
-    Tuple3 _ f _ -> f
+skolemizeTypesInValue ident sko scope = (everywhereOnValues id go id).values
   where
   go (SuperClassDictionary c ts) = SuperClassDictionary c (map (skolemize ident sko scope) ts)
   go other = other

@@ -85,9 +85,7 @@ createBindingGroups moduleName ds = do
            bindingGroupDecls
 
 createBindingGroupsForValue :: ModuleName -> Declaration -> Either ErrorStack Declaration
-createBindingGroupsForValue moduleName =
-  case everywhereOnValuesTopDownM return go return of
-    Tuple3 f _ _ -> f
+createBindingGroupsForValue moduleName = (everywhereOnValuesTopDownM return go return).decls
   where
   go (Let ds val) = Let <$> createBindingGroups moduleName ds <*> pure val
   go other = return other
@@ -96,10 +94,9 @@ createBindingGroupsForValue moduleName =
 -- Collapse all binding groups to individual declarations
 --
 collapseBindingGroups :: [Declaration] -> [Declaration]
-collapseBindingGroups ds =
-  case everywhereOnValues id collapseBindingGroupsForValue id of
-    Tuple3 f _ _ -> map f (concatMap go ds)
+collapseBindingGroups ds = map f (concatMap go ds)
   where
+  f = (everywhereOnValues id collapseBindingGroupsForValue id).decls
   go (DataBindingGroupDeclaration ds) = ds
   go (BindingGroupDeclaration ds) = map (\(Tuple3 ident nameKind val) -> ValueDeclaration ident nameKind [] Nothing val) ds
   go (PositionedDeclaration pos d) = map (PositionedDeclaration pos) $ go d
