@@ -31,7 +31,6 @@ import Data.Graph
 
 import Data.Tuple
 import Data.Tuple3
-import Data.Tuple5
 
 import Control.Apply
 
@@ -60,7 +59,7 @@ createBindingGroups :: ModuleName -> [Declaration] -> Either ErrorStack [Declara
 createBindingGroups moduleName ds = do
   values <- traverse (createBindingGroupsForValue moduleName) $ filter isValueDecl ds
   let dataDecls = filter isDataDecl ds
-      declNamed pn = 
+      declNamed pn =
         case find (\d -> getProperName d == pn) dataDecls of
           Just d -> d
       dataVerts = map getProperName dataDecls
@@ -69,7 +68,7 @@ createBindingGroups moduleName ds = do
                      return $ Edge (getProperName d1) d2
   dataBindingGroupDecls <- traverse toDataBindingGroup $ scc' getProperName declNamed $ Graph dataDecls dataEdges
   let valueVerts = map getIdent values
-      valueNamed ident = 
+      valueNamed ident =
         case find (\v -> getIdent v == ident) values of
           Just v -> v
       valueEdges = do val1 <- values
@@ -97,7 +96,7 @@ createBindingGroupsForValue moduleName =
 -- Collapse all binding groups to individual declarations
 --
 collapseBindingGroups :: [Declaration] -> [Declaration]
-collapseBindingGroups ds = 
+collapseBindingGroups ds =
   case everywhereOnValues id collapseBindingGroupsForValue id of
     Tuple3 f _ _ -> map f (concatMap go ds)
   where
@@ -112,8 +111,7 @@ collapseBindingGroupsForValue other = other
 
 usedIdents :: ModuleName -> Declaration -> [Ident]
 usedIdents moduleName =
-  case everythingOnValues (++) (const []) usedNames (const []) (const []) (const []) of
-    Tuple5 f _ _ _ _ -> nub <<< f
+  nub <<< (everythingOnValues (++) (const []) usedNames (const []) (const []) (const [])).decls
   where
   usedNames :: Value -> [Ident]
   usedNames (Var (Qualified Nothing name)) = [name]
@@ -122,8 +120,7 @@ usedIdents moduleName =
 
 usedProperNames :: ModuleName -> Declaration -> [ProperName]
 usedProperNames moduleName =
-  case accumTypes (everythingOnTypes (++) usedNames) of
-    Tuple5 f _ _ _ _ -> nub <<< f
+  nub <<< (accumTypes (everythingOnTypes (++) usedNames)).decls
   where
   usedNames :: Type -> [ProperName]
   usedNames (ConstrainedType constraints _) = flip mapMaybe constraints $ \qual ->
@@ -151,7 +148,7 @@ toBindingGroup (CyclicSCC ds') = BindingGroupDeclaration $ map fromValueDecl ds'
 
 toDataBindingGroup :: SCC Declaration -> Either ErrorStack Declaration
 toDataBindingGroup (AcyclicSCC d) = return d
-toDataBindingGroup (CyclicSCC [d]) = 
+toDataBindingGroup (CyclicSCC [d]) =
   case isTypeSynonym d of
     Just pn -> Left $ mkErrorStack ("Cycle in type synonym " ++ show pn) Nothing
     _ -> return d

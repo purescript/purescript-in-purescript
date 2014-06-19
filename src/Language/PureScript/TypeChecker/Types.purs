@@ -32,7 +32,6 @@ import Data.Monoid
 import Data.Monoid.First
 import Data.Tuple
 import Data.Tuple3
-import Data.Tuple5
 import Data.String (joinWith)
 
 import qualified Data.Maybe.Unsafe as Unsafe
@@ -136,7 +135,7 @@ unifyTypes t1 t2 = rethrow (\x -> mkErrorStack ("Error unifying type " ++ pretty
 unifyRows :: Type -> Type -> UnifyT Type Check Unit
 unifyRows r1 r2 =
   case Tuple (rowToList r1) (rowToList r2) of
-    Tuple (Tuple s1 r1') (Tuple s2 r2') -> 
+    Tuple (Tuple s1 r1') (Tuple s2 r2') ->
       let int = flip mapMaybe s1 $ \(Tuple name t1) -> (Tuple t1 <<< snd) <$> (flip find s2 $ \(Tuple name' t2) -> name == name')
           sd1 = flip filter s1 $ \(Tuple name _) -> name `notElem` map fst s2
           sd2 = flip filter s2 $ \(Tuple name _) -> name `notElem` map fst s1
@@ -156,8 +155,8 @@ unifyRows r1 r2 =
   unifyRows' [] REmpty [] REmpty = return unit
   unifyRows' [] (TypeVar v1) [] (TypeVar v2) | v1 == v2 = return unit
   unifyRows' [] (Skolem _ s1 _) [] (Skolem _ s2 _) | s1 == s2 = return unit
-  unifyRows' sd3 r3 sd4 r4 = throwError $ withErrorType unifyError $ strMsg $ 
-    "Cannot unify (" ++ prettyPrintRow (rowFromList $ Tuple sd3 r3) ++ 
+  unifyRows' sd3 r3 sd4 r4 = throwError $ withErrorType unifyError $ strMsg $
+    "Cannot unify (" ++ prettyPrintRow (rowFromList $ Tuple sd3 r3) ++
     ") with (" ++ prettyPrintRow (rowFromList $ Tuple sd4 r4) ++ ")"
 
 -- |
@@ -192,8 +191,8 @@ typesOf mainModuleName moduleName vals = do
   -- Apply the substitution that was returned from runUnify to both types and (type-annotated) values
   tidyUp (Tuple ts sub) = map (\(Tuple i (Tuple val ty)) -> (Tuple i (Tuple (overTypes (($?) sub) val) (sub $? ty)))) ts
 
-typeDictionaryForBindingGroup :: ModuleName 
-                              -> [Tuple Ident Value] 
+typeDictionaryForBindingGroup :: ModuleName
+                              -> [Tuple Ident Value]
                               -> UnifyT Type Check (Tuple3 [Tuple Ident (Tuple Value (Maybe (Tuple Type Boolean)))]
                                                            (M.Map (Tuple ModuleName Ident) (Tuple Type NameKind))
                                                            [Tuple Ident Type])
@@ -217,10 +216,10 @@ typeDictionaryForBindingGroup moduleName vals = do
     dict = M.fromList (map (\(Tuple ident ty) -> (Tuple (Tuple moduleName ident) (Tuple ty LocalVariable))) $ typedDict ++ untypedDict)
   return $ Tuple3 es dict untypedDict
 
-typeForBindingGroupElement :: ModuleName 
+typeForBindingGroupElement :: ModuleName
                            -> (Tuple Ident (Tuple Value (Maybe (Tuple Type Boolean))))
-                           -> M.Map (Tuple ModuleName Ident) (Tuple Type NameKind) 
-                           -> [Tuple Ident Type] 
+                           -> M.Map (Tuple ModuleName Ident) (Tuple Type NameKind)
+                           -> [Tuple Ident Type]
                            -> UnifyT Type Check (Tuple Ident (Tuple Value Type))
 typeForBindingGroupElement moduleName (Tuple ident (Tuple val t)) dict untypedDict =
   -- If the declaration is a function, it has access to other values in the binding group.
@@ -304,7 +303,7 @@ data DictionaryValue
   -- A subclass dictionary
   --
   | SubclassDictionaryValue DictionaryValue (Qualified ProperName) Number
-  
+
 instance eqDictionaryValue :: Eq DictionaryValue where
   (==) (LocalDictionaryValue q1) (LocalDictionaryValue q2) = q1 == q2
   (==) (GlobalDictionaryValue q1) (GlobalDictionaryValue q2) = q1 == q2
@@ -312,7 +311,7 @@ instance eqDictionaryValue :: Eq DictionaryValue where
   (==) (SubclassDictionaryValue d1 q1 n1) (SubclassDictionaryValue d2 q2 n2) = d1 == d2 && q1 == q2 && n1 == n2
   (==) _ _ = false
   (/=) x y = not (x == y)
-  
+
 instance ordDictionaryValue :: Ord DictionaryValue where
   compare (LocalDictionaryValue q1) (LocalDictionaryValue q2) = compare q1 q2
   compare (LocalDictionaryValue _) _ = LT
@@ -331,7 +330,7 @@ instance ordDictionaryValue :: Ord DictionaryValue where
       other' -> other'
     other -> other
   compare (SubclassDictionaryValue _ _ _) _ = GT
-  
+
 instance showDictionaryValue :: Show DictionaryValue where
   show (LocalDictionaryValue q) = "LocalDictionaryValue (" ++ show q ++ ")"
   show (GlobalDictionaryValue q) = "GlobalDictionaryValue (" ++ show q ++ ")"
@@ -342,11 +341,11 @@ instance showDictionaryValue :: Show DictionaryValue where
 -- Check that the current set of type class dictionaries entail the specified type class goal, and, if so,
 -- return a type class dictionary reference.
 --
-entails :: Environment 
-        -> ModuleName 
-        -> [TypeClassDictionaryInScope] 
+entails :: Environment
+        -> ModuleName
+        -> [TypeClassDictionaryInScope]
         -> Tuple (Qualified ProperName) [Type]
-        -> Boolean 
+        -> Boolean
         -> Check Value
 entails env@(Environment envo) moduleName context = solve (sortedNubBy canonicalizeDictionary (filter filterModule context))
   where
@@ -358,7 +357,7 @@ entails env@(Environment envo) moduleName context = solve (sortedNubBy canonical
   filterModule (TypeClassDictionaryInScope { name = Qualified (Just mn) _ }) | mn == moduleName = true
   filterModule (TypeClassDictionaryInScope { name = Qualified Nothing _ }) = true
   filterModule _ = false
-	
+
   go :: [TypeClassDictionaryInScope] -> Boolean -> Qualified ProperName -> [Type] -> [DictionaryValue]
   go context' trySuperclasses' className' tys' = regularInstances ++ superclassInstances
     where
@@ -374,7 +373,7 @@ entails env@(Environment envo) moduleName context = solve (sortedNubBy canonical
       -- Solve any necessary subgoals
       args <- solveSubgoals context' subst tcdo.dependencies
       return (mkDictionary (canonicalizeDictionary tcd) args)
-  
+
     -- Look for implementations via superclasses
     superclassInstances | trySuperclasses' = do
       (Tuple subclassName (Tuple3 args _ implies)) <- M.toList envo.typeClasses
@@ -391,28 +390,28 @@ entails env@(Environment envo) moduleName context = solve (sortedNubBy canonical
       suDict <- go context' true subclassName args'
       return (SubclassDictionaryValue suDict superclass index)
     superclassInstances = []
-  
+
     -- Ensure that a substitution is valid
     verifySubstitution :: [Tuple String Type] -> Maybe [Tuple String Type]
     verifySubstitution subst = do
       let grps = groupBy ((==) `on` fst) subst
-      if all (pairwise (unifiesWith env) <<< map snd) grps 
+      if all (pairwise (unifiesWith env) <<< map snd) grps
         then Just (map Unsafe.head grps)
         else Nothing
-  
+
   solveSubgoals :: [TypeClassDictionaryInScope] -> [Tuple String Type] -> Maybe [Tuple (Qualified ProperName) [Type]] -> [Maybe [DictionaryValue]]
   solveSubgoals _ _ Nothing = return Nothing
   solveSubgoals context' subst (Just subgoals) = do
     dict <- traverse (\(Tuple className ts) -> go context' true className (map (replaceAllTypeVars subst) ts)) subgoals
     return $ Just dict
-  
+
   solve :: [TypeClassDictionaryInScope] -> Tuple (Qualified ProperName) [Type] -> Boolean -> Check Value
   solve context' (Tuple className tys) trySuperclasses =
     case sortedNubBy dictTrace (chooseSimplestDictionaries (go context' trySuperclasses className tys)) of
       [] -> throwError $ withErrorType unifyError $ strMsg $ "No instance found for " ++ show className ++ " " ++ joinWith " " (map prettyPrintTypeAtom tys)
       [dict] -> return $ dictionaryValueToValue dict
       _ -> throwError $ withErrorType unifyError $ strMsg $ "Overlapping instances found for " ++ show className ++ " " ++ joinWith " " (map prettyPrintTypeAtom tys)
-    
+
 guardArray :: Boolean -> [Unit]
 guardArray true = [unit]
 guardArray false = []
@@ -512,10 +511,9 @@ skolemEscapeCheck root@(TypedValue _ _ _) =
   -- We traverse the tree top-down, and collect any SkolemScopes introduced by ForAlls.
   -- If a Skolem is encountered whose SkolemScope is not in the current list, we have found
   -- an escaped skolem variable.
-  case everythingWithContextOnValues [] [] (++) def go def def def of
-    Tuple5 _ f _ _ _ -> case f root of
-       [] -> return unit
-       ((Tuple binding val) : _) -> throwError $ mkErrorStack ("Rigid/skolem type variable " ++ maybe "" (\x -> "bound by " ++ prettyPrintValue x) binding ++ " has escaped.") (Just (ValueError val))
+  case (everythingWithContextOnValues [] [] (++) def go def def def).values root of
+   [] -> return unit
+   ((Tuple binding val) : _) -> throwError $ mkErrorStack ("Rigid/skolem type variable " ++ maybe "" (\x -> "bound by " ++ prettyPrintValue x) binding ++ " has escaped.") (Just (ValueError val))
   where
   def :: forall a. [Tuple SkolemScope Value] -> a -> Tuple [Tuple SkolemScope Value] [Tuple (Maybe Value) Value]
   def s _ = Tuple s []
@@ -532,10 +530,9 @@ skolemEscapeCheck root@(TypedValue _ _ _) =
       collect (Skolem _ _ scope) = [scope]
       collect _ = []
   go scos _ = Tuple scos []
-  
+
   findBindingScope :: SkolemScope -> Maybe Value
-  findBindingScope sco = case everythingOnValues (<>) (const mempty) go' (const mempty) (const mempty) (const mempty) of
-    Tuple5 _ f _ _ _ -> runFirst $ f root
+  findBindingScope sco = runFirst $ (everythingOnValues (<>) (const mempty) go' (const mempty) (const mempty) (const mempty)).values root
     where
     go' val@(TypedValue _ _ (ForAll _ _ (Just sco'))) | sco == sco' = First (Just val)
     go' _ = mempty
@@ -629,7 +626,7 @@ expandTypeSynonym :: forall e m. (Error e, Monad m, MonadState CheckState m, Mon
 expandTypeSynonym errorType name args = do
   env <- getEnv
   either (throwError <<< withErrorType errorType <<< strMsg) return $ expandTypeSynonym' env name args
-  
+
 expandAllTypeSynonyms :: forall e m. (Error e, Monad m, MonadState CheckState m, MonadError e m) => WithErrorType e -> Type -> m Type
 expandAllTypeSynonyms errorType = everywhereOnTypesTopDownM go
   where
@@ -640,8 +637,8 @@ expandAllTypeSynonyms errorType = everywhereOnTypesTopDownM go
 -- Ensure a set of property names and value does not contain duplicate labels
 --
 ensureNoDuplicateProperties :: forall e m. (Error e, Monad m, MonadError e m) => WithErrorType e -> [Tuple String Value] -> m Unit
-ensureNoDuplicateProperties errorType ps = 
-  guardWith (withErrorType errorType $ strMsg "Duplicate property names") $ 
+ensureNoDuplicateProperties errorType ps =
+  guardWith (withErrorType errorType $ strMsg "Duplicate property names") $
     length (nub <<< map fst $ ps) == length ps
 
 -- |
@@ -746,9 +743,9 @@ inferLetBinding seen (ValueDeclaration ident nameKind [] Nothing (tv@(TypedValue
   Just moduleName <- getCurrentModule
   kind <- liftCheck $ kindOf moduleName ty
   guardWith (withErrorType unifyError $ strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
-  let 
+  let
     dict :: M.Map (Tuple ModuleName Ident) (Tuple Type NameKind)
-    dict | isFunction val = M.singleton (Tuple moduleName ident) (Tuple ty nameKind) 
+    dict | isFunction val = M.singleton (Tuple moduleName ident) (Tuple ty nameKind)
     dict = M.empty
   ty' <- introduceSkolemScope <=< replaceAllTypeSynonyms unifyError $ ty
   TypedValue _ val' ty'' <- if checkType then bindNames dict (check val ty') else return tv
@@ -756,9 +753,9 @@ inferLetBinding seen (ValueDeclaration ident nameKind [] Nothing (tv@(TypedValue
 inferLetBinding seen (ValueDeclaration ident nameKind [] Nothing val : rest) ret j = do
   valTy <- fresh
   Just moduleName <- getCurrentModule
-  let 
+  let
     dict :: M.Map (Tuple ModuleName Ident) (Tuple Type NameKind)
-    dict | isFunction val = M.singleton (Tuple moduleName ident) (Tuple valTy nameKind) 
+    dict | isFunction val = M.singleton (Tuple moduleName ident) (Tuple valTy nameKind)
     dict = M.empty
   TypedValue _ val' valTy' <- bindNames dict $ infer val
   valTy =?= valTy'
@@ -991,7 +988,7 @@ check' (ObjectUpdate obj ps) t@(TypeApp o row) | o == tyObject = do
   ensureNoDuplicateProperties unifyError ps
   us <- zip (map fst ps) <$> replicateM (length ps) fresh
   case rowToList row of
-    Tuple propsToCheck rest -> 
+    Tuple propsToCheck rest ->
       do let propsToRemove = map fst ps
          let remainingProps = filter (\(Tuple p _) -> notElem p propsToRemove) propsToCheck
          obj' <- check obj (TypeApp tyObject (rowFromList (Tuple (us ++ remainingProps) rest)))
@@ -1022,7 +1019,7 @@ containsTypeSynonyms :: Type -> Boolean
 containsTypeSynonyms = everythingOnTypes (||) go where
   go (SaturatedTypeSynonym _ _) = true
   go _ = false
-  
+
 -- |
 -- Check the types of the return values in a set of binders in a case statement
 --
@@ -1053,8 +1050,8 @@ checkProperties ps row lax = case rowToList row of Tuple ts r' -> go ps ts r'
   go [] [] u@(TUnknown _) = do u =?= REmpty
                                return []
   go [] [] (Skolem _ _ _) | lax = return []
-  go [] ((Tuple p _): _) _ = 
-    if lax 
+  go [] ((Tuple p _): _) _ =
+    if lax
     then return []
     else throwError $ mkErrorStack ("Object does not have property " ++ p) (Just (ValueError (ObjectLiteral ps)))
   go ((Tuple p _):_) [] REmpty = throwError $ mkErrorStack ("Property " ++ p ++ " is not present in closed object type " ++ prettyPrintRow row) (Just (ValueError (ObjectLiteral ps)))
@@ -1179,7 +1176,7 @@ subsumes' val (TypeApp f1 r1) (TypeApp f2 r2) | f1 == tyObject && f2 == tyObject
         rest <- fresh
         r2' =?= RCons p1 ty1 rest
         go ts1 ((Tuple p2 ty2) : ts2) r1' rest
-      _ -> do 
+      _ -> do
         rest <- fresh
         r1' =?= RCons p2 ty2 rest
         go ((Tuple p1 ty1) : ts1) ts2 rest r2'

@@ -10,7 +10,6 @@ import Data.Monoid
 import Data.Traversable (traverse)
 import Data.Tuple
 import Data.Tuple3
-import Data.Tuple5
 
 import Language.PureScript.Pos
 import Language.PureScript.CodeGen.JS.AST
@@ -20,7 +19,7 @@ import Language.PureScript.Names
 import Language.PureScript.Traversals
 import Language.PureScript.Types
 import Language.PureScript.TypeClassDictionaries
-                        
+
 -- |
 -- A precedence level for an infix operator
 --
@@ -43,7 +42,7 @@ data Fixity = Fixity Associativity Precedence
 
 instance showFixity :: Show Fixity where
   show (Fixity assoc prec) = "Fixity (" ++ show assoc ++ ") (" ++ show prec ++ ")"
-  
+
 -- |
 -- A module declaration, consisting of a module name, a list of declarations, and a list of the
 -- declarations that are explicitly exported. If the export list is Nothing, everything is exported.
@@ -83,7 +82,7 @@ instance showDeclarationRef :: Show DeclarationRef where
   show (ValueRef nm) = "ValueRef (" ++ show nm ++ ")"
   show (TypeClassRef nm) = "TypeClassRef (" ++ show nm ++ ")"
   show (TypeInstanceRef nm) = "TypeInstanceRef (" ++ show nm ++ ")"
-  show (PositionedDeclarationRef pos ref) = "PositionedDeclarationRef (" ++ show pos ++ ") (" ++ show ref ++ ")" 
+  show (PositionedDeclarationRef pos ref) = "PositionedDeclarationRef (" ++ show pos ++ ") (" ++ show ref ++ ")"
 
 instance eqDeclarationRef :: Eq DeclarationRef where
   (==) (TypeRef name dctors)  (TypeRef name' dctors') = name == name' && dctors == dctors'
@@ -157,23 +156,23 @@ data Declaration
   -- A declaration with source position information
   --
   | PositionedDeclaration SourcePos Declaration
-  
+
 instance showDeclaration :: Show Declaration where
   show (DataDeclaration nm args dctors) =                   "DataDeclaration (" ++ show nm ++ ") (" ++ show args ++ ") (" ++ show dctors ++ ")"
   show (DataBindingGroupDeclaration ds) =                   "DataBindingGroupDeclaration (" ++ show ds ++ ")"
   show (TypeSynonymDeclaration nm args ty) =                "TypeSynonymDeclaration (" ++ show nm ++ ") (" ++ show args ++ ") (" ++ show ty ++ ")"
-  show (TypeDeclaration nm ty) =                            "TypeDeclaration (" ++ show nm ++ ") (" ++ show ty ++ ")" 
+  show (TypeDeclaration nm ty) =                            "TypeDeclaration (" ++ show nm ++ ") (" ++ show ty ++ ")"
   show (ValueDeclaration nm nameKind bs grd val) =          "ValueDeclaration (" ++ show nm ++ ") (" ++ show nameKind ++ ") (" ++ show bs ++ ") (" ++ show grd ++ ") (" ++ show val ++ ")"
   show (BindingGroupDeclaration ds) =                       "BindingGroupDeclaration (" ++ show ds ++ ")"
-  show (ExternDeclaration impTy nm js ty) =                 "ExternDeclaration (" ++ show impTy ++ ") (" ++ show nm ++ ") (" ++ show js ++ ") (" ++ show ty ++ ")" 
+  show (ExternDeclaration impTy nm js ty) =                 "ExternDeclaration (" ++ show impTy ++ ") (" ++ show nm ++ ") (" ++ show js ++ ") (" ++ show ty ++ ")"
   show (ExternDataDeclaration nm k) =                       "ExternDataDeclaration (" ++ show nm ++ ") (" ++ show k ++ ")"
-  show (ExternInstanceDeclaration nm cs className tys) =    "ExternInstanceDeclaration (" ++ show nm ++ ") (" ++ show cs ++ ") (" ++ show className ++ ") (" ++ show tys ++ ")" 
+  show (ExternInstanceDeclaration nm cs className tys) =    "ExternInstanceDeclaration (" ++ show nm ++ ") (" ++ show cs ++ ") (" ++ show className ++ ") (" ++ show tys ++ ")"
   show (FixityDeclaration f nm) =                           "FixityDeclaration (" ++ show f ++ ") (" ++ show nm ++ ")"
   show (ImportDeclaration mn imps qual) =                   "ImportDeclaration (" ++ show mn ++ ") (" ++ show imps ++ ") (" ++ show qual ++ ")"
   show (TypeClassDeclaration className args cs ds) =        "TypeClassDeclaration (" ++ show className ++ ") (" ++ show args ++ ") (" ++ show cs ++ ") (" ++ show ds ++ ")"
   show (TypeInstanceDeclaration nm cs className tys ds) =   "TypeInstanceDeclaration (" ++ show nm ++ ") (" ++ show cs ++ ") (" ++ show className ++ ") (" ++ show tys ++ ") (" ++ show ds ++ ")"
   show (PositionedDeclaration pos d) =                      "PositionedDeclaration (" ++ show pos ++ ") (" ++ show d ++ ")"
-  
+
 -- |
 -- Test if a declaration is a value declaration
 --
@@ -344,7 +343,7 @@ data Value
   -- A value with source position information
   --
   | PositionedValue SourcePos Value
-  
+
 instance showValue :: Show Value where
   show (NumericLiteral n) = "NumericLiteral (" ++ show n ++ ")"
   show (StringLiteral s) = "StringLiteral (" ++ show s ++ ")"
@@ -375,10 +374,10 @@ instance showValue :: Show Value where
 data CaseAlternative = CaseAlternative { binders :: [Binder]
                                        , guard :: Maybe Guard
                                        , result :: Value }
-                                       
+
 mkCaseAlternative :: [Binder] -> Maybe Guard -> Value -> CaseAlternative
 mkCaseAlternative bs g r = CaseAlternative { binders: bs, guard: g, result: r }
-  
+
 instance showCaseAlternative :: Show CaseAlternative where
   show (CaseAlternative o) = "CaseAlternative (" ++ show o.binders ++ ") (" ++ show o.guard ++ ") (" ++ show o.result ++ ")"
 
@@ -409,7 +408,7 @@ data DoNotationElement
   -- A do notation element with source position information
   --
   | PositionedDoNotationElement SourcePos DoNotationElement
-  
+
 instance showDoNotationElement :: Show DoNotationElement where
   show (DoNotationValue val) = "DoNotationValue (" ++ show val ++ ")"
   show (DoNotationBind b val) = "DoNotationBind (" ++ show b ++ ") (" ++ show val ++ ")"
@@ -464,7 +463,7 @@ data Binder
   -- A binder with source position information
   --
   | PositionedBinder SourcePos Binder
-  
+
 instance showBinder :: Show Binder where
   show NullBinder = "NullBinder"
   show (BooleanBinder b) = "BooleanBinder (" ++ show b ++ ")"
@@ -592,7 +591,7 @@ everywhereOnValuesTopDownM f g h = Tuple3 (f' <=< f) (g' <=< g) (h' <=< h)
   h' (PositionedBinder pos b) = PositionedBinder pos <$> (h b >>= h')
   h' other = h other
 
-  handleCaseAlternative (CaseAlternative ca) = 
+  handleCaseAlternative (CaseAlternative ca) =
     mkCaseAlternative <$> traverse (h' <=< h) ca.binders
                       <*> maybeM (g' <=< g) ca.guard
                       <*> (g' <=< g) ca.result
@@ -653,19 +652,23 @@ everywhereOnValuesM f g h = Tuple3 (f' <=< f) (g' <=< g) (h' <=< h)
   handleDoNotationElement (PositionedDoNotationElement pos e) = PositionedDoNotationElement pos <$> handleDoNotationElement e
 
 
-everythingOnValues :: forall r. 
+everythingOnValues :: forall r.
                       (r -> r -> r) ->
                       (Declaration -> r) ->
                       (Value -> r) ->
                       (Binder -> r) ->
                       (CaseAlternative -> r) ->
                       (DoNotationElement -> r) ->
-                      (Tuple5 (Declaration -> r) 
-                              (Value -> r) 
-                              (Binder -> r) 
-                              (CaseAlternative -> r) 
-                              (DoNotationElement -> r))
-everythingOnValues (<>) f g h i j = Tuple5 f' g' h' i' j'
+                      { decls :: Declaration -> r
+                      , values :: Value -> r
+                      , binders :: Binder -> r
+                      , cases :: CaseAlternative -> r
+                      , dos :: DoNotationElement -> r }
+everythingOnValues (<>) f g h i j = { decls: f'
+                                    , values: g'
+                                    , binders: h'
+                                    , cases: i'
+                                    , dos: j' }
   where
   f' d@(DataBindingGroupDeclaration ds) = foldl (<>) (f d) (map f' ds)
   f' d@(ValueDeclaration _ _ bs Nothing val) = foldl (<>) (f d) (map h' bs) <> g' val
@@ -709,7 +712,7 @@ everythingOnValues (<>) f g h i j = Tuple5 f' g' h' i' j'
   j' e@(DoNotationBind b v) = j e <> h' b <> g' v
   j' e@(DoNotationLet ds) = foldl (<>) (j e) (map f' ds)
   j' e@(PositionedDoNotationElement _ e1) = j e <> j' e1
-  
+
 everythingWithContextOnValues :: forall s r.
   s ->
   r ->
@@ -719,12 +722,17 @@ everythingWithContextOnValues :: forall s r.
   (s -> Binder            -> (Tuple s r)) ->
   (s -> CaseAlternative   -> (Tuple s r)) ->
   (s -> DoNotationElement -> (Tuple s r)) ->
-  (Tuple5 (Declaration -> r)
-          (Value -> r)
-          (Binder -> r)
-          (CaseAlternative -> r)
-          (DoNotationElement -> r))
-everythingWithContextOnValues s0 r0 (<>) f g h i j = Tuple5 (f'' s0) (g'' s0) (h'' s0) (i'' s0) (j'' s0)
+  { decls :: Declaration -> r
+  , values :: Value -> r
+  , binders :: Binder -> r
+  , cases :: CaseAlternative -> r
+  , dos :: DoNotationElement -> r }
+everythingWithContextOnValues s0 r0 (<>) f g h i j =
+  { decls: f'' s0
+  , values: g'' s0
+  , binders: h'' s0
+  , cases: i'' s0
+  , dos: j'' s0 }
   where
   f'' s d = case f s d of Tuple s' r -> r <> f' s' d
 
@@ -768,7 +776,7 @@ everythingWithContextOnValues s0 r0 (<>) f g h i j = Tuple5 (f'' s0) (g'' s0) (h
 
   i'' s ca = case i s ca of Tuple s' r -> r <> i' s' ca
 
-  i' s (CaseAlternative ca) = case ca.guard of 
+  i' s (CaseAlternative ca) = case ca.guard of
     Nothing -> foldl (<>) r0 (map (h'' s) ca.binders) <> (g'' s) ca.result
     Just grd -> foldl (<>) r0 (map (h'' s) ca.binders) <> (g'' s) grd <> (g'' s) ca.result
 
@@ -787,12 +795,17 @@ everywhereWithContextOnValuesM :: forall s m. (Monad m) =>
   (s -> Binder            -> m (Tuple s Binder)) ->
   (s -> CaseAlternative   -> m (Tuple s CaseAlternative)) ->
   (s -> DoNotationElement -> m (Tuple s DoNotationElement)) ->
-  (Tuple5 (Declaration -> m Declaration)
-          (Value -> m Value)
-          (Binder -> m Binder)
-          (CaseAlternative -> m CaseAlternative)
-          (DoNotationElement -> m DoNotationElement))
-everywhereWithContextOnValuesM s0 f g h i j = Tuple5 (f'' s0) (g'' s0) (h'' s0) (i'' s0) (j'' s0)
+  { decls :: Declaration -> m Declaration
+  , values :: Value -> m Value
+  , binders :: Binder -> m Binder
+  , cases :: CaseAlternative -> m CaseAlternative
+  , dos :: DoNotationElement -> m DoNotationElement }
+everywhereWithContextOnValuesM s0 f g h i j =
+  { decls: f'' s0
+  , values: g'' s0
+  , binders: h'' s0
+  , cases: i'' s0
+  , dos: j'' s0 }
   where
   f'' s = uncurry f' <=< f s
 
@@ -836,8 +849,8 @@ everywhereWithContextOnValuesM s0 f g h i j = Tuple5 (f'' s0) (g'' s0) (h'' s0) 
   i'' s = uncurry i' <=< i s
 
   i' s (CaseAlternative ca) =
-    mkCaseAlternative <$> traverse (h'' s) ca.binders 
-                      <*> maybeM (g'' s) ca.guard 
+    mkCaseAlternative <$> traverse (h'' s) ca.binders
+                      <*> maybeM (g'' s) ca.guard
                       <*> g'' s ca.result
 
   j'' s = uncurry j' <=< j s
@@ -847,7 +860,12 @@ everywhereWithContextOnValuesM s0 f g h i j = Tuple5 (f'' s0) (g'' s0) (h'' s0) 
   j' s (DoNotationLet ds) = DoNotationLet <$> traverse (f'' s) ds
   j' s (PositionedDoNotationElement pos e1) = PositionedDoNotationElement pos <$> j'' s e1
 
-accumTypes :: forall r. (Monoid r) => (Type -> r) -> Tuple5 (Declaration -> r) (Value -> r) (Binder -> r) (CaseAlternative -> r) (DoNotationElement -> r)
+accumTypes :: forall r. (Monoid r) => (Type -> r) ->
+                                      { decls :: Declaration -> r
+                                      , values :: Value -> r
+                                      , binders :: Binder -> r
+                                      , cases :: CaseAlternative -> r
+                                      , dos :: DoNotationElement -> r }
 accumTypes f = everythingOnValues (<>) forDecls forValues (const mempty) (const mempty) (const mempty)
   where
   forDecls (DataDeclaration _ _ dctors) = mconcat (concatMap (map f <<< snd) dctors)

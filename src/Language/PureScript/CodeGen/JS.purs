@@ -14,7 +14,6 @@ import Data.Maybe
 import Data.Maybe.Unsafe (fromJust)
 import Data.Tuple
 import Data.Tuple3
-import Data.Tuple5
 import Data.Traversable (for, traverse)
 import qualified Data.Map as M
 
@@ -75,9 +74,7 @@ requireModule RequireLocal mn = runModuleName mn
 requireModule (RequireAbsolute f) mn = f (runModuleName mn)
 
 imports :: Declaration -> [ModuleName]
-imports =
-  case everythingOnValues (++) (const []) collect (const []) (const []) (const []) of
-    Tuple5 f _ _ _ _ -> f
+imports = (everythingOnValues (++) (const []) collect (const []) (const []) (const [])).decls
   where
   collect :: Value -> [ModuleName]
   collect (Var (Qualified (Just mn) _)) = [mn]

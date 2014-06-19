@@ -20,7 +20,6 @@ module Language.PureScript.ModuleDependencies (
 import Data.Graph
 import Data.Tuple
 import Data.Tuple3
-import Data.Tuple5
 import Data.Either
 import Data.Array (concatMap, map, nub, mapMaybe)
 import Data.Maybe
@@ -60,8 +59,7 @@ sortModules ms = do
 -- Calculate a list of used modules based on explicit imports and qualified names
 --
 usedModules :: Declaration -> [ModuleName]
-usedModules = case everythingOnValues (++) forDecls forValues (const []) (const []) (const []) of
-  Tuple5 f _ _ _ _ -> nub <<< f
+usedModules = nub <<< (everythingOnValues (++) forDecls forValues (const []) (const []) (const [])).decls
   where
   forDecls :: Declaration -> [ModuleName]
   forDecls (ImportDeclaration mn _ _) = [mn]

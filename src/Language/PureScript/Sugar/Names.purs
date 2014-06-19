@@ -24,7 +24,6 @@ import Data.Maybe.Unsafe
 import Data.Either
 import Data.Tuple
 import Data.Tuple3
-import Data.Tuple5
 import Data.Foldable (elem, notElem, lookup, foldl)
 import Data.Traversable (traverse)
 
@@ -68,19 +67,19 @@ data Exports = Exports
   , exportedValues :: [Ident]
   --
   }
-  
+
 mkExports :: [Tuple ProperName [ProperName]] ->
-             [ProperName] -> 
+             [ProperName] ->
              [Ident] ->
              Exports
-mkExports exportedTypes exportedTypeClasses exportedValues = 
+mkExports exportedTypes exportedTypeClasses exportedValues =
   Exports { exportedTypes: exportedTypes
           , exportedTypeClasses: exportedTypeClasses
           , exportedValues: exportedValues
           }
-                      
+
 instance showExports :: Show Exports where
-  show (Exports o) = "Exports " 
+  show (Exports o) = "Exports "
     ++ "{ exportedTypes: " ++ show o.exportedTypes
     ++ ", exportedTypeClasses: " ++ show o.exportedTypeClasses
     ++ ", exportedValues: " ++ show o.exportedValues
@@ -108,21 +107,21 @@ data ImportEnvironment = ImportEnvironment
   --
   , importedValues :: M.Map (Qualified Ident) (Qualified Ident)
   }
-  
+
 mkImportEnvironment :: M.Map (Qualified ProperName) (Qualified ProperName) ->
-                       M.Map (Qualified ProperName) (Qualified ProperName) -> 
+                       M.Map (Qualified ProperName) (Qualified ProperName) ->
                        M.Map (Qualified ProperName) (Qualified ProperName) ->
                        M.Map (Qualified Ident) (Qualified Ident) ->
                        ImportEnvironment
-mkImportEnvironment importedTypes importedDataConstructors importedTypeClasses importedValues = 
+mkImportEnvironment importedTypes importedDataConstructors importedTypeClasses importedValues =
   ImportEnvironment { importedTypes: importedTypes
                     , importedDataConstructors: importedDataConstructors
                     , importedTypeClasses: importedTypeClasses
                     , importedValues: importedValues
                     }
-                       
+
 instance showImportEnvironment :: Show ImportEnvironment where
-  show (ImportEnvironment o) = "ImportEnvironment " 
+  show (ImportEnvironment o) = "ImportEnvironment "
     ++ "{ importedTypes: " ++ show o.importedTypes
     ++ ", importedDataConstructors: " ++ show o.importedDataConstructors
     ++ ", importedTypeClasses: " ++ show o.importedTypeClasses
@@ -225,12 +224,11 @@ elaborateExports exps@(Exports o) (Module mn decls _) = Module mn decls (Just $
 --
 renameInModule :: ImportEnvironment -> ExportEnvironment -> Module -> Either ErrorStack Module
 renameInModule imports exports (Module mn decls exps) =
-  case everywhereWithContextOnValuesM (Tuple Nothing []) updateDecl updateValue updateBinder updateCase defS of
-    (Tuple5 go _ _ _ _) -> Module mn <$> traverse go decls <*> pure exps
-  
+  Module mn <$> traverse go decls <*> pure exps
   where
+  go = (everywhereWithContextOnValuesM (Tuple Nothing []) updateDecl updateValue updateBinder updateCase defS).decls
   updateDecl :: (Tuple (Maybe SourcePos) [Ident]) -> Declaration -> Either ErrorStack (Tuple (Tuple (Maybe SourcePos) [Ident]) Declaration)
-  updateDecl (Tuple _ bound) d@(PositionedDeclaration pos _) = 
+  updateDecl (Tuple _ bound) d@(PositionedDeclaration pos _) =
     return (Tuple (Tuple (Just pos) bound) d)
   updateDecl (Tuple pos bound) (DataDeclaration name args dctors) =
     Tuple (Tuple pos bound) <$> (DataDeclaration name args <$> traverse (sndM (traverse (updateTypesEverywhere pos))) dctors)
@@ -249,9 +247,9 @@ renameInModule imports exports (Module mn decls exps) =
   updateDecl s d = return (Tuple s d)
 
   updateValue :: (Tuple (Maybe SourcePos) [Ident]) -> Value -> Either ErrorStack (Tuple (Tuple (Maybe SourcePos) [Ident]) Value)
-  updateValue (Tuple _ bound) v@(PositionedValue pos' _) = 
+  updateValue (Tuple _ bound) v@(PositionedValue pos' _) =
     return (Tuple (Tuple (Just pos') bound) v)
-  updateValue (Tuple pos bound) (Abs (Left arg) val') = 
+  updateValue (Tuple pos bound) (Abs (Left arg) val') =
     return (Tuple (Tuple pos (arg : bound)) (Abs (Left arg) val'))
   updateValue (Tuple pos bound) (Let ds val') =
     let args = mapMaybe letBoundVariable ds
@@ -264,16 +262,16 @@ renameInModule imports exports (Module mn decls exps) =
     Tuple (Tuple pos bound) <$> (BinaryNoParens <$> updateValueName name' pos <*> pure v1 <*> pure v2)
   updateValue (Tuple pos bound) (BinaryNoParens name'@(Qualified (Just _) _) v1 v2) =
     Tuple (Tuple pos bound) <$> (BinaryNoParens <$> updateValueName name' pos <*> pure v1 <*> pure v2)
-  updateValue s@(Tuple pos _) (Constructor name) = 
+  updateValue s@(Tuple pos _) (Constructor name) =
     Tuple s <$> (Constructor <$> updateDataConstructorName name pos)
-  updateValue s@(Tuple pos _) (TypedValue check val ty) = 
+  updateValue s@(Tuple pos _) (TypedValue check val ty) =
     Tuple s <$> (TypedValue check val <$> updateTypesEverywhere pos ty)
   updateValue s v = return (Tuple s v)
 
   updateBinder :: (Tuple (Maybe SourcePos) [Ident]) -> Binder -> Either ErrorStack (Tuple (Tuple (Maybe SourcePos) [Ident]) Binder)
   updateBinder (Tuple _ bound) v@(PositionedBinder pos _) =
     return (Tuple (Tuple (Just pos) bound) v)
-  updateBinder s@(Tuple pos _) (ConstructorBinder name b) = 
+  updateBinder s@(Tuple pos _) (ConstructorBinder name b) =
     Tuple s <$> (ConstructorBinder <$> updateDataConstructorName name pos <*> pure b)
   updateBinder s v = return (Tuple s v)
 
@@ -303,7 +301,7 @@ renameInModule imports exports (Module mn decls exps) =
 
   -- Update names so unqualified references become qualified, and locally qualified references
   -- are replaced with their canoncial qualified names (e.g. M.Map -> Data.Map.Map)
-  update :: forall a. (Ord a, Show a) => 
+  update :: forall a. (Ord a, Show a) =>
                             String
                             -> (ImportEnvironment -> M.Map (Qualified a) (Qualified a))
                             -> (Exports -> a -> Boolean)
@@ -499,7 +497,7 @@ resolveImport currentModule importModule exps@(Exports expso) imps impQual = may
   updateImports m name = case M.lookup (Qualified impQual name) m of
     Nothing -> return $ M.insert (Qualified impQual name) (Qualified (Just importModule) name) m
     Just (Qualified Nothing _) -> theImpossibleHappened "Invalid state in updateImports"
-    Just x@(Qualified (Just mn) _) -> 
+    Just x@(Qualified (Just mn) _) ->
       let
         err = if mn == currentModule || importModule == currentModule
               then "Definition '" ++ show name ++ "' conflicts with import '" ++ show (Qualified (Just importModule) name) ++ "'"
