@@ -3,10 +3,11 @@ module Interactive where
 import Data.Tuple
 import Data.Maybe
 import Data.Either
-import Data.Array (map)
-import Data.Foldable (foldl)
-import Data.Traversable (for)
-import Data.String (joinWith, indexOf, drop)
+import Data.Array (map, nub, mapMaybe, filter, sort, last)
+import Data.Foldable (foldl, any)
+import Data.Traversable (for, traverse, sequence)
+import Data.String (joinWith, indexOf, drop, length)
+import Data.String.Regex (regex, match)
 
 import qualified Data.Map as M
 
@@ -100,12 +101,12 @@ parseCommand cmd = parse (parseLet <|> (Eval <$> P.parseValue unit)) cmd
 -- The let bindings are partial,
 -- because it makes more sense to apply the binding to the final evaluated expression.
 --
-type PSCIState = { loadedModules       :: [String]
+type PSCIState = { loadedModules       :: [Tuple String D.Module]
                  , importedModuleNames :: [ModuleName]
                  , letBindings         :: [D.Value -> D.Value]
                  }
 
-emptyPSCIState :: [String] -> PSCIState
+emptyPSCIState :: [Tuple String D.Module] -> PSCIState
 emptyPSCIState files = { loadedModules       : files
                        , importedModuleNames : [ModuleName [ProperName "Prelude"]]
                        , letBindings         : []
@@ -220,7 +221,7 @@ handleTypeOf :: forall eff. PSCIState -> D.Value -> Eff (fs :: FS, trace :: Trac
 handleTypeOf st value = do
   let m = createTemporaryModule false st value
   e <- runApplication' do
-    ms <- loadModules st.loadedModules
+    ms <- loadModules (map fst st.loadedModules)
     make requireMode modulesDir options (ms ++ [Tuple "Main.purs" m])
   case e of
     Left err -> trace err
@@ -251,7 +252,7 @@ handleEval :: forall eff. PSCIState -> D.Value -> Eff (fs :: FS, trace :: Trace,
 handleEval st value = do
   let m = createTemporaryModule true st value
   e <- runApplication' do
-    ms <- loadModules st.loadedModules
+    ms <- loadModules (map fst st.loadedModules)
     make requireMode modulesDir options (ms ++ [Tuple "Main.purs" m])
   case e of
     Left err -> trace err
@@ -275,8 +276,36 @@ prologueMessage =
   \Expressions are terminated using Ctrl+D"
 
 completion :: forall eff. RefVal PSCIState -> Completer (ref :: Ref | eff)
-completion state s = return $ Tuple [] s
-
+completion state s = do
+  st <- readRef state
+  let ms = map snd st.loadedModules
+  let suffix = fromMaybe "" $ lastIdent s 
+  return $ Tuple (sort (filter (isPrefixOf suffix) (names ms))) suffix
+    where
+    names :: [D.Module] -> [String]
+    names ms = nub do
+      D.Module moduleName ds exts <- ms
+      ident <- mapMaybe (getDeclName exts) ds
+      qual <- [ Qualified Nothing ident, Qualified (Just moduleName) ident ]
+      return (show qual)
+    
+    getDeclName :: Maybe [D.DeclarationRef] -> D.Declaration -> Maybe Ident
+    getDeclName Nothing (D.ValueDeclaration ident _ _ _ _) = Just ident
+    getDeclName (Just exts) (D.ValueDeclaration ident _ _ _ _) | any (exports ident) exts = Just ident
+    getDeclName exts (D.PositionedDeclaration _ d) = getDeclName exts d
+    getDeclName _ _ = Nothing
+    
+    exports :: Ident -> D.DeclarationRef -> Boolean
+    exports ident (D.ValueRef ident') = ident == ident'
+    exports ident (D.PositionedDeclarationRef _ r) = exports ident r
+    exports _ _ = false
+    
+    isPrefixOf :: String -> String -> Boolean
+    isPrefixOf s1 s2 = indexOf s1 s2 == 0
+    
+    lastIdent :: String -> Maybe String
+    lastIdent = last <<< filter (\s -> length s > 0) <<< match (regex "[A-Za-z0-9.]*" "g")
+    
 handleCommand :: [String] -> RefVal PSCIState -> Command -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) Unit
 handleCommand _ _ Help = trace help
 handleCommand _ _ Quit = trace "See ya!" *> exit 0
@@ -287,11 +316,17 @@ handleCommand _ state (Eval v) = do
   st <- readRef state
   handleEval st v
 handleCommand _ state (LoadFile filename) = do
-  modifyRef state (\st -> st { loadedModules = st.loadedModules ++ [filename] })
-  -- TODO: parse the module and store it
+  e <- loadModule filename
+  case e of
+    Left err -> trace err
+    Right m -> modifyRef state (\st -> st { loadedModules = st.loadedModules ++ [Tuple filename m] })
 handleCommand _ state (Import mn) =
   modifyRef state (\st -> st { importedModuleNames = st.importedModuleNames ++ [mn] })
-handleCommand initialFiles state Reset = writeRef state (emptyPSCIState initialFiles)
+handleCommand initialFiles state Reset = do
+  e <- sequence <$> traverse loadModule initialFiles
+  case e of
+    Left err -> trace err
+    Right ms -> writeRef state (emptyPSCIState (zip initialFiles ms))
 handleCommand _ state (Let f) =
   modifyRef state (\st -> st { letBindings = st.letBindings ++ [f] })
 
@@ -303,13 +338,19 @@ lineHandler initialFiles state input =
 
 loop :: [String] -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) Unit
 loop inputFiles = do
-  let allModules = preludeFiles ++ [replModule] ++ inputFiles
-  state <- newRef (emptyPSCIState allModules)
-  interface <- createInterface process.stdin process.stdout (completion state)
-  setPrompt "> " 2 interface
-  prompt interface
-  setLineHandler (\s -> lineHandler allModules state s <* prompt interface) interface
-  return unit
+  let allFiles = preludeFiles ++ [replModule] ++ inputFiles
+  e <- sequence <$> traverse loadModule allFiles
+  case e of
+    Left err -> do
+      trace err
+      exit 1
+    Right allModules -> do
+      state <- newRef (emptyPSCIState (zip allFiles allModules))
+      interface <- createInterface process.stdin process.stdout (completion state)
+      setPrompt "> " 2 interface
+      prompt interface
+      setLineHandler (\s -> lineHandler allFiles state s <* prompt interface) interface
+      return unit
 
 inputFiles :: Args [String]
 inputFiles = many argOnly
