@@ -211,6 +211,6 @@ typeCheckAll mainModuleName moduleName ((d@(ExternInstanceDeclaration dictName d
   ds <- typeCheckAll mainModuleName moduleName rest
   return $ d : ds
 typeCheckAll mainModuleName moduleName (PositionedDeclaration pos d : rest) =
-  rethrowWithPosition pos $ do
+  rethrowExceptionWithPosition pos $ do
     (d' : rest') <- typeCheckAll mainModuleName moduleName (d : rest)
     return (PositionedDeclaration pos d' : rest')

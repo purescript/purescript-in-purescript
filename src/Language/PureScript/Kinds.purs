@@ -1,7 +1,5 @@
 module Language.PureScript.Kinds where
 
-import Control.Monad.Unify (Unknown())
-
 -- |
 -- The data type of kinds
 --
@@ -9,7 +7,7 @@ data Kind
   -- |
   -- Unification variable of type Kind
   --
-  = KUnknown Unknown
+  = KUnknown Number
   -- |
   -- The kind of types
   --

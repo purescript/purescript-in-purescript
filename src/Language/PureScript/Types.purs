@@ -24,7 +24,6 @@ import Data.Traversable
 import Data.Foldable
 
 import Control.Bind
-import Control.Monad.Unify
 
 import Control.Arrow (second)
 
@@ -53,7 +52,7 @@ data Type
   -- |
   -- A unification variable of type Type
   --
-  = TUnknown Unknown
+  = TUnknown Number
   -- |
   -- A named type variable
   --

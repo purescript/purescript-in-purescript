@@ -64,7 +64,7 @@ import Language.PureScript.ModuleDependencies
 import Language.PureScript.Environment
 import Language.PureScript.Errors
 {- import Language.PureScript.DeadCodeElimination -}
-import Language.PureScript.Supply
+import Language.PureScript.Supply (SupplyT(), runSupplyT, evalSupply, evalSupplyT)
 
 import Language.PureScript.CodeGen.Common
 import Language.PureScript.CodeGen.JS
@@ -143,7 +143,7 @@ typeCheckModule mainModuleName (Module mn decls exps) = do
   -- have also been exported from the module
   checkTypesAreExported :: DeclarationRef -> Check Unit
   checkTypesAreExported (ValueRef name) = do
-    ty <- lookupVariable unifyError mn (Qualified (Just mn) name)
+    ty <- lookupVariable mn (Qualified (Just mn) name)
     case find isTconHidden (findTcons ty) of
       Just hiddenType -> throwError (strMsg ("Error in module '" ++ show mn ++
                                              "':\nExporting declaration '" ++ show name ++
