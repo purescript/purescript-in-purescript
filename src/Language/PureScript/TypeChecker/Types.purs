@@ -85,45 +85,45 @@ instance unifiableCheckType :: Unifiable Type where
 -- |
 -- Unify two types, updating the current substitution
 --
-unifyTypes :: Type -> Type -> Check Unit
-unifyTypes t1 t2 = rethrow (\x -> mkErrorStack ("Error unifying type " ++ prettyPrintType t1 ++ " with type " ++ prettyPrintType t2) Nothing <> x) $
+unifyTypes :: RefVal (UnifyState Type) -> Type -> Type -> Check Unit
+unifyTypes stRef t1 t2 = rethrowException (\x -> mkErrorStack ("Error unifying type " ++ prettyPrintType t1 ++ " with type " ++ prettyPrintType t2) Nothing <> x) $
   unifyTypes' t1 t2
   where
   unifyTypes' (TUnknown u1) (TUnknown u2) | u1 == u2 = return unit
-  unifyTypes' (TUnknown u) t = substitute u t
-  unifyTypes' t (TUnknown u) = substitute u t
+  unifyTypes' (TUnknown u) t = substitute stRef u t
+  unifyTypes' t (TUnknown u) = substitute stRef u t
   unifyTypes' (SaturatedTypeSynonym name args) ty = do
-    ty1 <- introduceSkolemScope <=< expandTypeSynonym name $ args
+    ty1 <- introduceSkolemScope stRef <=< expandTypeSynonym chSt name $ args
     ty1 `unifyTypes` ty
-  unifyTypes' ty s@(SaturatedTypeSynonym _ _) = s `unifyTypes` ty
+  unifyTypes' ty s@(SaturatedTypeSynonym _ _) = unifyTypes stRef s ty
   unifyTypes' (ForAll ident1 ty1 sc1) (ForAll ident2 ty2 sc2) =
     case Tuple sc1 sc2 of
       Tuple (Just sc1') (Just sc2') -> do
         sko <- newSkolemConstant
         let sk1 = skolemize ident1 sko sc1' ty1
         let sk2 = skolemize ident2 sko sc2' ty2
-        sk1 `unifyTypes` sk2
+        unifyTypes stRef sk1 sk2
       _ -> theImpossibleHappened "Skolemized type variable was not given a scope"
   unifyTypes' (ForAll ident ty1 (Just sc)) ty2 = do
     sko <- newSkolemConstant
     let sk = skolemize ident sko sc ty1
     sk `unifyTypes` ty2
   unifyTypes' (ForAll _ _ _) _ = throwException $ withErrorType $ strMsg $ "Skolem variable scope is unspecified"
-  unifyTypes' ty f@(ForAll _ _ _) = f `unifyTypes` ty
+  unifyTypes' ty f@(ForAll _ _ _) = unifyTypes stRef f ty
   unifyTypes' (TypeVar v1) (TypeVar v2) | v1 == v2 = return unit
   unifyTypes' (TypeConstructor c1) (TypeConstructor c2) =
     guardWith (withErrorType $ strMsg ("Cannot unify " ++ show c1 ++ " with " ++ show c2 ++ ".")) (c1 == c2)
   unifyTypes' (TypeApp t3 t4) (TypeApp t5 t6) = do
-    t3 `unifyTypes` t5
-    t4 `unifyTypes` t6
+    unifyTypes stRef t3 t5
+    unifyTypes stRef t4 t6
   unifyTypes' (Skolem _ s1 _) (Skolem _ s2 _) | s1 == s2 = return unit
-  unifyTypes' r1@(RCons _ _ _) r2 = unifyRows r1 r2
-  unifyTypes' r1 r2@(RCons _ _ _) = unifyRows r1 r2
-  unifyTypes' REmpty r2 = unifyRows REmpty r2
-  unifyTypes' r1 REmpty = unifyRows r1 REmpty
-  unifyTypes' t@(ConstrainedType _ _) _ = throwException $ withErrorType $ strMsg $ "Attempted to unify a constrained type " ++ prettyPrintType t ++ " with another type."
+  unifyTypes' r1@(RCons _ _ _) r2 = unifyRows stRef r1 r2
+  unifyTypes' r1 r2@(RCons _ _ _) = unifyRows stRef r1 r2
+  unifyTypes' REmpty r2 = unifyRows stRef REmpty r2
+  unifyTypes' r1 REmpty = unifyRows stRef r1 REmpty
+  unifyTypes' t@(ConstrainedType _ _) _ = throwException $ strMsg $ "Attempted to unify a constrained type " ++ prettyPrintType t ++ " with another type."
   unifyTypes' t3 t4@(ConstrainedType _ _) = unifyTypes' t4 t3
-  unifyTypes' t3 t4 = throwException $ withErrorType $ strMsg $ "Cannot unify " ++ prettyPrintType t3 ++ " with " ++ prettyPrintType t4 ++ "."
+  unifyTypes' t3 t4 = throwException $ strMsg $ "Cannot unify " ++ prettyPrintType t3 ++ " with " ++ prettyPrintType t4 ++ "."
 
 -- |
 -- Unify two rows, updating the current substitution
@@ -132,30 +132,30 @@ unifyTypes t1 t2 = rethrow (\x -> mkErrorStack ("Error unifying type " ++ pretty
 -- trailing row unification variable, if appropriate, otherwise leftover labels result in a unification
 -- error.
 --
-unifyRows :: Type -> Type -> Check Unit
-unifyRows r1 r2 =
+unifyRows :: RefVal (UnifyState Type) -> Type -> Type -> Check Unit
+unifyRows stRef r1 r2 =
   case Tuple (rowToList r1) (rowToList r2) of
     Tuple (Tuple s1 r1') (Tuple s2 r2') ->
       let int = flip mapMaybe s1 $ \(Tuple name t1) -> (Tuple t1 <<< snd) <$> (flip find s2 $ \(Tuple name' t2) -> name == name')
           sd1 = flip filter s1 $ \(Tuple name _) -> name `notElem` map fst s2
           sd2 = flip filter s2 $ \(Tuple name _) -> name `notElem` map fst s1
       in do
-        for_ int (uncurry unify)
+        for_ int (uncurry (unify stRef))
         unifyRows' sd1 r1' sd2 r2'
   where
   unifyRows' :: [Tuple String Type] -> Type -> [Tuple String Type] -> Type -> Check Unit
-  unifyRows' [] (TUnknown u) sd r = substitute u (rowFromList $ Tuple sd r)
-  unifyRows' sd r [] (TUnknown u) = substitute u (rowFromList $ Tuple sd r)
+  unifyRows' [] (TUnknown u) sd r = substitute stRef u (rowFromList $ Tuple sd r)
+  unifyRows' sd r [] (TUnknown u) = substitute stRef u (rowFromList $ Tuple sd r)
   unifyRows' ((Tuple name ty):row) r others u@(TUnknown un) = do
-    occursCheck un ty
-    for_ row $ \(Tuple _ t) -> occursCheck un t
-    u' <- fresh
-    unify u $ RCons name ty u'
+    occursCheck stRef un ty
+    for_ row $ \(Tuple _ t) -> occursCheck stRef un t
+    u' <- fresh stRef
+    unify stRef u $ RCons name ty u'
     unifyRows' row r others u'
   unifyRows' [] REmpty [] REmpty = return unit
   unifyRows' [] (TypeVar v1) [] (TypeVar v2) | v1 == v2 = return unit
   unifyRows' [] (Skolem _ s1 _) [] (Skolem _ s2 _) | s1 == s2 = return unit
-  unifyRows' sd3 r3 sd4 r4 = throwException $ withErrorType $ strMsg $
+  unifyRows' sd3 r3 sd4 r4 = throwException $ strMsg $
     "Cannot unify (" ++ prettyPrintRow (rowFromList $ Tuple sd3 r3) ++
     ") with (" ++ prettyPrintRow (rowFromList $ Tuple sd4 r4) ++ ")"
 
@@ -165,8 +165,8 @@ unifyRows r1 r2 =
 --
 typesOf :: Maybe ModuleName -> ModuleName -> [Tuple Ident Value] -> Check [Tuple Ident (Tuple Value Type)]
 typesOf mainModuleName moduleName vals = do
-  tys <- (<$>) tidyUp <<< withSubstitution $ do
-    Tuple3 es dict untypedDict <- typeDictionaryForBindingGroup moduleName vals
+  tys <- tidyUp <$> withSubstitution (\stRef -> do
+    Tuple3 es dict untypedDict <- typeDictionaryForBindingGroup stRef moduleName vals
     for es $ \e -> do
       triple@(Tuple _ (Tuple _ ty)) <- typeForBindingGroupElement moduleName e dict untypedDict
       -- If --main is enabled, need to check that `main` has type Eff eff a for some eff, a
@@ -175,7 +175,7 @@ typesOf mainModuleName moduleName vals = do
           [eff, a] <- replicateM 2 fresh
           unify ty $ TypeApp (TypeApp (TypeConstructor (Qualified (Just (ModuleName [ProperName "Control", ProperName "Monad", ProperName "Eff"])) (ProperName "Eff"))) eff) a
           return triple
-        else return triple
+        else return triple)
 
   for tys $ \(Tuple ident (Tuple val ty)) -> do
     -- Replace type class dictionary placeholders with actual dictionaries
@@ -191,12 +191,13 @@ typesOf mainModuleName moduleName vals = do
   -- Apply the substitution that was returned from withSubstitution to both types and (type-annotated) values
   tidyUp (Tuple ts sub) = map (\(Tuple i (Tuple val ty)) -> (Tuple i (Tuple (overTypes (($?) sub) val) (sub $? ty)))) ts
 
-typeDictionaryForBindingGroup :: ModuleName
+typeDictionaryForBindingGroup :: RefVal (UnifyState Type)
+                              -> ModuleName
                               -> [Tuple Ident Value]
                               -> Check (Tuple3 [Tuple Ident (Tuple Value (Maybe (Tuple Type Boolean)))]
                                                (M.Map (Tuple ModuleName Ident) (Tuple Type NameKind))
                                                [Tuple Ident Type])
-typeDictionaryForBindingGroup moduleName vals = do
+typeDictionaryForBindingGroup stRef moduleName vals = do
   let
     -- Map each declaration to a name/value pair, with an optional type, if the declaration is typed
     es = map isTyped vals
@@ -207,7 +208,7 @@ typeDictionaryForBindingGroup moduleName vals = do
     typedDict = map (\(Tuple ident (Tuple _ (Just (Tuple ty _)))) -> Tuple ident ty) typed
 
   -- Create fresh unification variables for the types of untyped declarations
-  untypedNames <- replicateM (length untyped) fresh
+  untypedNames <- replicateM (length untyped) (fresh stRef)
 
   let
     -- Make a map of names to the unification variables of untyped declarations
@@ -570,22 +571,22 @@ varIfUnknown ty =
 -- This is necessary during type checking to avoid unifying a polymorphic type with a
 -- unification variable.
 --
-instantiatePolyTypeWithUnknowns :: Value -> Type -> Check (Tuple Value Type)
-instantiatePolyTypeWithUnknowns val (ForAll ident ty _) = do
-  ty' <- replaceVarWithUnknown ident ty
-  instantiatePolyTypeWithUnknowns val ty'
-instantiatePolyTypeWithUnknowns val (ConstrainedType constraints ty) = do
-   dicts <- getTypeClassDictionaries
-   Tuple _ ty' <- instantiatePolyTypeWithUnknowns (error "Types under a constraint cannot themselves be constrained") ty
+instantiatePolyTypeWithUnknowns :: RefVal CheckState -> RefVal (UnifyState Type) -> Value -> Type -> Check (Tuple Value Type)
+instantiatePolyTypeWithUnknowns chSt stRef val (ForAll ident ty _) = do
+  ty' <- replaceVarWithUnknown stRef ident ty
+  instantiatePolyTypeWithUnknowns chSt stRef val ty'
+instantiatePolyTypeWithUnknowns chSt stRef val (ConstrainedType constraints ty) = do
+   dicts <- getTypeClassDictionaries chSt
+   Tuple _ ty' <- instantiatePolyTypeWithUnknowns chSt stRef (error "Types under a constraint cannot themselves be constrained") ty
    return $ Tuple (foldl App val (map (flip (TypeClassDictionary true) dicts) constraints)) ty'
-instantiatePolyTypeWithUnknowns val ty = return $ Tuple val ty
+instantiatePolyTypeWithUnknowns _ _ val ty = return $ Tuple val ty
 
 -- |
 -- Replace a single type variable with a new unification variable
 --
-replaceVarWithUnknown :: String -> Type -> Check Type
-replaceVarWithUnknown ident ty = do
-  tu <- fresh
+replaceVarWithUnknown :: RefVal (UnifyState Type) -> String -> Type -> Check Type
+replaceVarWithUnknown stRef ident ty = do
+  tu <- fresh stRef
   return $ replaceTypeVars ident tu ty
 
 -- |
@@ -597,9 +598,9 @@ replaceAllTypeSynonyms' (Environment e) d =
   let syns = map (\(Tuple name (Tuple args _)) -> (Tuple name (length args))) $ M.toList e.typeSynonyms
   in saturateAllTypeSynonyms syns d
 
-replaceAllTypeSynonyms :: Type -> Check Type
-replaceAllTypeSynonyms d = do
-  env <- getEnv
+replaceAllTypeSynonyms :: RefVal CheckState -> Type -> Check Type
+replaceAllTypeSynonyms chSt d = do
+  env <- getEnv chSt
   either (throwException <<< strMsg) return $ replaceAllTypeSynonyms' env d
 
 -- |
@@ -622,9 +623,9 @@ expandTypeSynonym' env@(Environment e) name args =
       replaceAllTypeSynonyms' env repl
     Nothing -> theImpossibleHappened "Type synonym was not defined"
 
-expandTypeSynonym :: Qualified ProperName -> [Type] -> Check Type
-expandTypeSynonym name args = do
-  env <- getEnv
+expandTypeSynonym :: RefVal CheckState -> Qualified ProperName -> [Type] -> Check Type
+expandTypeSynonym chSt name args = do
+  env <- getEnv chSt
   either (throwException <<< strMsg) return $ expandTypeSynonym' env name args
 
 expandAllTypeSynonyms :: Type -> Check Type
@@ -645,7 +646,7 @@ ensureNoDuplicateProperties ps =
 -- Infer a type for a value, rethrowing any error to provide a more useful error message
 --
 infer :: Value -> Check Value
-infer val = rethrow (\x -> mkErrorStack "Error inferring type of value" (Just (ValueError val)) <> x) $ infer' val
+infer val = rethrowException (\x -> mkErrorStack "Error inferring type of value" (Just (ValueError val)) <> x) $ infer' val
 
 -- |
 -- Infer a type for a value
@@ -775,82 +776,82 @@ inferLetBinding _ _ _ _ = theImpossibleHappened "Invalid argument to inferLetBin
 -- |
 -- Infer the type of a property inside a record with a given type
 --
-inferProperty :: Type -> String -> Check (Maybe Type)
-inferProperty (TypeApp obj row) prop | obj == tyObject = case rowToList row of
+inferProperty :: RefVal CheckState -> RefVal (UnifyState Type) -> Type -> String -> Check (Maybe Type)
+inferProperty chSt stRef (TypeApp obj row) prop | obj == tyObject = case rowToList row of
   Tuple props _ -> return $ lookup prop props
-inferProperty (SaturatedTypeSynonym name args) prop = do
-  replaced <- introduceSkolemScope <=< expandTypeSynonym name $ args
-  inferProperty replaced prop
-inferProperty (ForAll ident ty _) prop = do
-  replaced <- replaceVarWithUnknown ident ty
-  inferProperty replaced prop
-inferProperty _ _ = return Nothing
+inferProperty chSt stRef (SaturatedTypeSynonym name args) prop = do
+  replaced <- introduceSkolemScope stRef <=< expandTypeSynonym chSt name $ args
+  inferProperty chSt stRef replaced prop
+inferProperty chSt stRef (ForAll ident ty _) prop = do
+  replaced <- replaceVarWithUnknown stRef ident ty
+  inferProperty chSt stRef replaced prop
+inferProperty _ _ _ _ = return Nothing
 
 -- |
 -- Infer the types of variables brought into scope by a binder
 --
-inferBinder :: Type -> Binder -> Check (M.Map Ident Type)
-inferBinder _ NullBinder = return M.empty
-inferBinder val (StringBinder _) = unify val tyString *> return M.empty
-inferBinder val (NumberBinder _) = unify val tyNumber *> return M.empty
-inferBinder val (BooleanBinder _) = unify val tyBoolean *> return M.empty
-inferBinder val (VarBinder name) = return $ M.singleton name val
-inferBinder val (ConstructorBinder ctor binders) = getEnv >>= \(Environment e) ->
+inferBinder :: RefVal CheckState -> RefVal (UnifyState Type) -> Type -> Binder -> Check (M.Map Ident Type)
+inferBinder _ _ _ NullBinder = return M.empty
+inferBinder chSt stRef val (StringBinder _) = unify stRef val tyString *> return M.empty
+inferBinder chSt stRef val (NumberBinder _) = unify stRef val tyNumber *> return M.empty
+inferBinder chSt stRef val (BooleanBinder _) = unify stRef val tyBoolean *> return M.empty
+inferBinder chSt stRef val (VarBinder name) = return $ M.singleton name val
+inferBinder chSt stRef val (ConstructorBinder ctor binders) = getEnv chSt >>= \(Environment e) ->
   case M.lookup ctor e.dataConstructors of
-    Nothing -> throwException $ withErrorType $ strMsg $ "Constructor " ++ show ctor ++ " is not defined"
+    Nothing -> throwException $ strMsg $ "Constructor " ++ show ctor ++ " is not defined"
     Just (Tuple _ ty) -> do
-      Tuple _ fn <- instantiatePolyTypeWithUnknowns (error "Data constructor types cannot contain constraints") ty
-      fn' <- replaceAllTypeSynonyms fn
+      Tuple _ fn <- instantiatePolyTypeWithUnknowns chSt stRef (error "Data constructor types cannot contain constraints") ty
+      fn' <- replaceAllTypeSynonyms chSt fn
       go binders fn'
         where
         go [] ty' = do
-          _ <- subsumes Nothing val ty'
+          _ <- subsumes chSt stRef Nothing val ty'
           return M.empty
         go (binder : binders') (TypeApp (TypeApp t obj) ret) | t == tyFunction =
-          M.union <$> inferBinder obj binder <*> go binders' ret
-        go _ _ = throwException $ withErrorType $ strMsg $ "Wrong number of arguments to constructor " ++ show ctor
-inferBinder val (ObjectBinder props) = do
-  row <- fresh
-  rest <- fresh
+          M.union <$> inferBinder chSt stRef obj binder <*> go binders' ret
+        go _ _ = throwException $ strMsg $ "Wrong number of arguments to constructor " ++ show ctor
+inferBinder chSt stRef val (ObjectBinder props) = do
+  row <- fresh stRef
+  rest <- fresh stRef
   m1 <- inferRowProperties row rest props
-  unify val $ TypeApp tyObject row
+  unify stRef val $ TypeApp tyObject row
   return m1
   where
   inferRowProperties :: Type -> Type -> [Tuple String Binder] -> Check (M.Map Ident Type)
-  inferRowProperties nrow row [] = (unify nrow row) *> return M.empty
+  inferRowProperties nrow row [] = (unify stRef nrow row) *> return M.empty
   inferRowProperties nrow row ((Tuple name binder):binders) = do
-    propTy <- fresh
-    m1 <- inferBinder propTy binder
+    propTy <- fresh stRef
+    m1 <- inferBinder chSt stRef propTy binder
     m2 <- inferRowProperties nrow (RCons name propTy row) binders
     return $ m1 `M.union` m2
-inferBinder val (ArrayBinder binders) = do
-  el <- fresh
-  m1 <- M.unions <$> traverse (inferBinder el) binders
-  unify val TypeApp tyArray el
+inferBinder chSt stRef val (ArrayBinder binders) = do
+  el <- fresh stRef
+  m1 <- M.unions <$> traverse (inferBinder chSt stRef el) binders
+  unify stRef val $ TypeApp tyArray el
   return m1
-inferBinder val (ConsBinder headBinder tailBinder) = do
-  el <- fresh
-  m1 <- inferBinder el headBinder
-  m2 <- inferBinder val tailBinder
-  unify val TypeApp tyArray el
+inferBinder chSt stRef val (ConsBinder headBinder tailBinder) = do
+  el <- fresh stRef
+  m1 <- inferBinder chSt stRef el headBinder
+  m2 <- inferBinder chSt stRef val tailBinder
+  unify stRef val $ TypeApp tyArray el
   return $ m1 `M.union` m2
-inferBinder val (NamedBinder name binder) = do
-  m <- inferBinder val binder
+inferBinder chSt stRef val (NamedBinder name binder) = do
+  m <- inferBinder chSt stRef val binder
   return $ M.insert name val m
-inferBinder val (PositionedBinder pos binder) =
-  rethrowExceptionWithPosition pos $ inferBinder val binder
+inferBinder chSt stRef val (PositionedBinder pos binder) =
+  rethrowExceptionWithPosition pos $ inferBinder chSt stRef val binder
 
 -- |
 -- Generate a new skolem constant
 --
-newSkolemConstant :: Check Number
+newSkolemConstant :: RefVal (UnifyState Type) -> Check Number
 newSkolemConstant = fresh'
 
 -- |
 -- Generate a new skolem scope
 --
-newSkolemScope :: Check SkolemScope
-newSkolemScope = SkolemScope <$> fresh'
+newSkolemScope :: RefVal (UnifyState Type) -> Check SkolemScope
+newSkolemScope stRef = SkolemScope <$> fresh' stRef
 
 -- |
 -- Skolemize a type variable by replacing its instances with fresh skolem constants
@@ -872,17 +873,17 @@ skolemizeTypesInValue ident sko scope = (everywhereOnValues id go id).values
 -- |
 -- Introduce skolem scope at every occurence of a ForAll
 --
-introduceSkolemScope :: Type -> Check Type
-introduceSkolemScope = everywhereOnTypesM go
+introduceSkolemScope :: RefVal (UnifyState Type) -> Type -> Check Type
+introduceSkolemScope stRef = everywhereOnTypesM go
   where
-  go (ForAll ident ty Nothing) = ForAll ident ty <$> (Just <$> newSkolemScope)
+  go (ForAll ident ty Nothing) = ForAll ident ty <$> (Just <$> newSkolemScope stRef)
   go other = return other
 
 -- |
 -- Check the type of a value, rethrowing errors to provide a better error message
 --
 check :: Value -> Type -> Check Value
-check val ty = rethrow (\x -> mkErrorStack errorMessage (Just (ValueError val)) <> x) $ check' val ty
+check val ty = rethrowException (\x -> mkErrorStack errorMessage (Just (ValueError val)) <> x) $ check' val ty
   where
   errorMessage =
     "Error checking type of term " ++
@@ -1078,7 +1079,7 @@ checkProperties ps row lax = case rowToList row of Tuple ts r' -> go ps ts r'
 -- Check the type of a function application, rethrowing errors to provide a better error message
 --
 checkFunctionApplication :: Value -> Type -> Value -> Maybe Type -> Check (Tuple Type Value)
-checkFunctionApplication fn fnTy arg ret = rethrow (\x -> mkErrorStack errorMessage (Just (ValueError fn)) <> x) $ checkFunctionApplication' fn fnTy arg ret
+checkFunctionApplication fn fnTy arg ret = rethrowException (\x -> mkErrorStack errorMessage (Just (ValueError fn)) <> x) $ checkFunctionApplication' fn fnTy arg ret
   where
   errorMessage = "Error applying function of type "
     ++ prettyPrintType fnTy
@@ -1120,66 +1121,66 @@ checkFunctionApplication' _ _ fnTy arg _ = throwException $ withErrorType $ strM
 -- |
 -- Check whether one type subsumes another, rethrowing errors to provide a better error message
 --
-subsumes :: Maybe Value -> Type -> Type -> Check (Maybe Value)
-subsumes val ty1 ty2 = rethrow (\x -> mkErrorStack errorMessage (ValueError <$> val) <> x) $ subsumes' val ty1 ty2
+subsumes :: RefVal CheckState -> RefVal (UnifyState Type) -> Maybe Value -> Type -> Type -> Check (Maybe Value)
+subsumes chSt stRef val ty1 ty2 = rethrowException (\x -> mkErrorStack errorMessage (ValueError <$> val) <> x) $ subsumes' val ty1 ty2
   where
   errorMessage = "Error checking that type "
     ++ prettyPrintType ty1
     ++ " subsumes type "
     ++ prettyPrintType ty2
-
--- |
--- Check whether one type subsumes another
---
-subsumes' :: Maybe Value -> Type -> Type -> Check (Maybe Value)
-subsumes' val (ForAll ident ty1 _) ty2 = do
-  replaced <- replaceVarWithUnknown ident ty1
-  subsumes val replaced ty2
-subsumes' val ty1 (ForAll ident ty2 sco) =
-  case sco of
-    Just sco' -> do
-      sko <- newSkolemConstant
-      let sk = skolemize ident sko sco' ty2
-      subsumes val ty1 sk
-    Nothing -> throwException $ withErrorType $ strMsg $ "Skolem variable scope is unspecified"
-subsumes' val (TypeApp (TypeApp f1 arg1) ret1) (TypeApp (TypeApp f2 arg2) ret2) | f1 == tyFunction && f2 == tyFunction = do
-  _ <- subsumes Nothing arg2 arg1
-  _ <- subsumes Nothing ret1 ret2
-  return val
-subsumes' val (SaturatedTypeSynonym name tyArgs) ty2 = do
-  ty1 <- introduceSkolemScope <=< expandTypeSynonym name $ tyArgs
-  subsumes val ty1 ty2
-subsumes' val ty1 (SaturatedTypeSynonym name tyArgs) = do
-  ty2 <- introduceSkolemScope <=< expandTypeSynonym name $ tyArgs
-  subsumes val ty1 ty2
-subsumes' (Just val) (ConstrainedType constraints ty1) ty2 = do
-  dicts <- getTypeClassDictionaries
-  _ <- subsumes' Nothing ty1 ty2
-  return <<< Just $ foldl App val (map (flip (TypeClassDictionary true) dicts) constraints)
-subsumes' val (TypeApp f1 r1) (TypeApp f2 r2) | f1 == tyObject && f2 == tyObject =
-  case Tuple (rowToList r1) (rowToList r2) of
-    Tuple (Tuple ts1 r1') (Tuple ts2 r2') ->
-      let ts1' = sortBy (compare `on` fst) ts1
-          ts2' = sortBy (compare `on` fst) ts2
-      in do
-        go ts1' ts2' r1' r2'
-        return val
-  where
-  go [] ts2 r1' r2' = unify r1' $ rowFromList (Tuple ts2 r2')
-  go ts1 [] r1' r2' = unify r2' $ rowFromList (Tuple ts1 r1')
-  go ((Tuple p1 ty1) : ts1) ((Tuple p2 ty2) : ts2) r1' r2' = case unit of
-      _ | p1 == p2 -> do
-        _ <- subsumes Nothing ty1 ty2
-        go ts1 ts2 r1' r2'
-      _ | p1 < p2 -> do
-        rest <- fresh
-        unify r2' $ RCons p1 ty1 rest
-        go ts1 ((Tuple p2 ty2) : ts2) r1' rest
-      _ -> do
-        rest <- fresh
-        unify r1' $ RCons p2 ty2 rest
-        go ((Tuple p1 ty1) : ts1) ts2 rest r2'
-subsumes' val ty1 ty2@(TypeApp obj _) | obj == tyObject = subsumes val ty2 ty1
-subsumes' val ty1 ty2 = do
-  unify ty1 $ ty2
-  return val
+    
+  -- |
+  -- Check whether one type subsumes another
+  --
+  subsumes' :: Maybe Value -> Type -> Type -> Check (Maybe Value)
+  subsumes' val (ForAll ident ty1 _) ty2 = do
+    replaced <- replaceVarWithUnknown stRef ident ty1
+    subsumes chSt stRef val replaced ty2
+  subsumes' val ty1 (ForAll ident ty2 sco) =
+    case sco of
+      Just sco' -> do
+        sko <- newSkolemConstant stRef
+        let sk = skolemize ident sko sco' ty2
+        subsumes chSt stRef val ty1 sk
+      Nothing -> throwException $ strMsg $ "Skolem variable scope is unspecified"
+  subsumes' val (TypeApp (TypeApp f1 arg1) ret1) (TypeApp (TypeApp f2 arg2) ret2) | f1 == tyFunction && f2 == tyFunction = do
+    _ <- subsumes chSt stRef Nothing arg2 arg1
+    _ <- subsumes chSt stRef Nothing ret1 ret2
+    return val
+  subsumes' val (SaturatedTypeSynonym name tyArgs) ty2 = do
+    ty1 <- introduceSkolemScope stRef <=< expandTypeSynonym chSt name $ tyArgs
+    subsumes chSt stRef val ty1 ty2
+  subsumes' val ty1 (SaturatedTypeSynonym name tyArgs) = do
+    ty2 <- introduceSkolemScope stRef <=< expandTypeSynonym chSt name $ tyArgs
+    subsumes chSt stRef val ty1 ty2
+  subsumes' (Just val) (ConstrainedType constraints ty1) ty2 = do
+    dicts <- getTypeClassDictionaries chSt
+    _ <- subsumes' Nothing ty1 ty2
+    return <<< Just $ foldl App val (map (flip (TypeClassDictionary true) dicts) constraints)
+  subsumes' val (TypeApp f1 r1) (TypeApp f2 r2) | f1 == tyObject && f2 == tyObject =
+    case Tuple (rowToList r1) (rowToList r2) of
+      Tuple (Tuple ts1 r1') (Tuple ts2 r2') ->
+        let ts1' = sortBy (compare `on` fst) ts1
+            ts2' = sortBy (compare `on` fst) ts2
+        in do
+          go ts1' ts2' r1' r2'
+          return val
+    where
+    go [] ts2 r1' r2' = unify stRef r1' $ rowFromList (Tuple ts2 r2')
+    go ts1 [] r1' r2' = unify stRef r2' $ rowFromList (Tuple ts1 r1')
+    go ((Tuple p1 ty1) : ts1) ((Tuple p2 ty2) : ts2) r1' r2' = case unit of
+        _ | p1 == p2 -> do
+          _ <- subsumes chSt stRef Nothing ty1 ty2
+          go ts1 ts2 r1' r2'
+        _ | p1 < p2 -> do
+          rest <- fresh stRef
+          unify stRef r2' $ RCons p1 ty1 rest
+          go ts1 ((Tuple p2 ty2) : ts2) r1' rest
+        _ -> do
+          rest <- fresh stRef
+          unify stRef r1' $ RCons p2 ty2 rest
+          go ((Tuple p1 ty1) : ts1) ts2 rest r2'
+  subsumes' val ty1 ty2@(TypeApp obj _) | obj == tyObject = subsumes chSt stRef val ty2 ty1
+  subsumes' val ty1 ty2 = do
+    unify stRef ty1 $ ty2
+    return val
