@@ -684,7 +684,7 @@ infer chSt stRef val = rethrowException (\x -> mkErrorStack "Error inferring typ
       Nothing -> do
         field <- fresh stRef
         rest <- fresh stRef
-        _ <- subsumes chSt stRef Nothing objTy (TypeApp tyObject (RCons prop field rest))
+        subsumes chSt stRef Nothing objTy (TypeApp tyObject (RCons prop field rest))
         return $ TypedValue true (Accessor prop typed) field
       Just ty -> return $ TypedValue true (Accessor prop typed) ty
   infer' (Abs (Left arg) ret) = do
@@ -807,7 +807,7 @@ inferBinder chSt stRef val (ConstructorBinder ctor binders) = getEnv chSt >>= \(
       go binders fn'
         where
         go [] ty' = do
-          _ <- subsumes chSt stRef Nothing val ty'
+          subsumes chSt stRef Nothing val ty'
           return M.empty
         go (binder : binders') (TypeApp (TypeApp t obj) ret) | t == tyFunction =
           M.union <$> inferBinder chSt stRef obj binder <*> go binders' ret
@@ -1005,7 +1005,7 @@ check chSt stRef val ty = rethrowException (\x -> mkErrorStack errorMessage (Jus
       Nothing -> throwException $ strMsg $ "Constructor " ++ show c ++ " is undefined"
       Just (Tuple _ ty1) -> do
         repl <- introduceSkolemScope stRef <=< replaceAllTypeSynonyms chSt $ ty1
-        _ <- subsumes chSt stRef Nothing repl ty
+        subsumes chSt stRef Nothing repl ty
         return $ TypedValue true (Constructor c) ty
   check' (Let ds val) ty = do
     Tuple ds' val' <- inferLetBinding chSt stRef [] ds val (flip (check chSt stRef) ty)
@@ -1093,7 +1093,7 @@ checkFunctionApplication chSt stRef fn fnTy arg ret = rethrowException (\x -> mk
   checkFunctionApplication' :: Value -> Type -> Value -> Maybe Type -> Check (Tuple Type Value)
   checkFunctionApplication' fn (TypeApp (TypeApp tyFunction' argTy) retTy) arg ret = do
     unify chSt stRef tyFunction' tyFunction
-    _ <- maybe (return Nothing) (subsumes chSt stRef Nothing retTy) ret
+    maybe (return Nothing) (subsumes chSt stRef Nothing retTy) ret
     subst <- (\(UnifyState st) -> st.currentSubstitution) <$> readRef stRef
     arg' <- check chSt stRef arg (subst $? argTy)
     return $ Tuple retTy (App fn arg')
@@ -1146,8 +1146,8 @@ subsumes chSt stRef val ty1 ty2 = rethrowException (\x -> mkErrorStack errorMess
         subsumes chSt stRef val ty1 sk
       Nothing -> throwException $ strMsg $ "Skolem variable scope is unspecified"
   subsumes' val (TypeApp (TypeApp f1 arg1) ret1) (TypeApp (TypeApp f2 arg2) ret2) | f1 == tyFunction && f2 == tyFunction = do
-    _ <- subsumes chSt stRef Nothing arg2 arg1
-    _ <- subsumes chSt stRef Nothing ret1 ret2
+    subsumes chSt stRef Nothing arg2 arg1
+    subsumes chSt stRef Nothing ret1 ret2
     return val
   subsumes' val (SaturatedTypeSynonym name tyArgs) ty2 = do
     ty1 <- introduceSkolemScope stRef <=< expandTypeSynonym chSt name $ tyArgs
@@ -1157,7 +1157,7 @@ subsumes chSt stRef val ty1 ty2 = rethrowException (\x -> mkErrorStack errorMess
     subsumes chSt stRef val ty1 ty2
   subsumes' (Just val) (ConstrainedType constraints ty1) ty2 = do
     dicts <- getTypeClassDictionaries chSt
-    _ <- subsumes' Nothing ty1 ty2
+    subsumes' Nothing ty1 ty2
     return <<< Just $ foldl App val (map (flip (TypeClassDictionary true) dicts) constraints)
   subsumes' val (TypeApp f1 r1) (TypeApp f2 r2) | f1 == tyObject && f2 == tyObject =
     case Tuple (rowToList r1) (rowToList r2) of
@@ -1172,7 +1172,7 @@ subsumes chSt stRef val ty1 ty2 = rethrowException (\x -> mkErrorStack errorMess
     go ts1 [] r1' r2' = unify chSt stRef r2' $ rowFromList (Tuple ts1 r1')
     go ((Tuple p1 ty1) : ts1) ((Tuple p2 ty2) : ts2) r1' r2' = case unit of
         _ | p1 == p2 -> do
-          _ <- subsumes chSt stRef Nothing ty1 ty2
+          subsumes chSt stRef Nothing ty1 ty2
           go ts1 ts2 r1' r2'
         _ | p1 < p2 -> do
           rest <- fresh stRef
@@ -1184,5 +1184,5 @@ subsumes chSt stRef val ty1 ty2 = rethrowException (\x -> mkErrorStack errorMess
           go ((Tuple p1 ty1) : ts1) ts2 rest r2'
   subsumes' val ty1 ty2@(TypeApp obj _) | obj == tyObject = subsumes chSt stRef val ty2 ty1
   subsumes' val ty1 ty2 = do
-    unify chSt stRef ty1 $ ty2
+    unify chSt stRef ty1 ty2
     return val
