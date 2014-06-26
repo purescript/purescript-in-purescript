@@ -49,7 +49,7 @@ class Partial t where
 -- Identifies types which support unification
 --
 class (Partial t) <= Unifiable t where
-  unify :: RefVal (UnifyState t) -> t -> t -> Check Unit
+  unify :: RefVal CheckState -> RefVal (UnifyState t) -> t -> t -> Check Unit
 
 -- |
 -- A substitution maintains a mapping from unification variables to their values
@@ -111,8 +111,8 @@ substituteOne u t = Substitution $ Data.Map.singleton u t
 -- |
 -- Replace a unification variable with the specified value in the current substitution
 --
-substitute :: forall t. (Partial t, Unifiable t) => RefVal (UnifyState t) -> Unknown -> t -> Check Unit
-substitute stRef u t' = do
+substitute :: forall t. (Partial t, Unifiable t) => RefVal CheckState -> RefVal (UnifyState t) -> Unknown -> t -> Check Unit
+substitute chSt stRef u t' = do
   UnifyState st <- readRef stRef
   let sub = st.currentSubstitution
   let t = sub $? t'
@@ -120,7 +120,7 @@ substitute stRef u t' = do
   let current = sub $? unknown u
   case isUnknown current of
     Just u1 | u1 == u -> return unit
-    _ -> unify stRef current t
+    _ -> unify chSt stRef current t
   modifyRef stRef $ \(UnifyState s) -> UnifyState { nextVar: st.nextVar, currentSubstitution: substituteOne u t <> s.currentSubstitution }
 
 -- |

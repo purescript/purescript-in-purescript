@@ -51,6 +51,10 @@ import Control.Monad.Error.Class
 import Control.Monad.State
 import Control.Monad.State.Class
 
+import Control.Monad.Eff
+import Control.Monad.Eff.Ref
+import Control.Monad.Eff.Exception
+
 import Control.Apply
 
 import Math (min)
@@ -115,7 +119,7 @@ compile' :: Environment -> Options -> [Module] -> Either String (Tuple3 String S
 compile' env opts@(Options optso) ms = do
   Tuple sorted _ <- sortModules $ if optso.noPrelude then ms else (map importPrelude ms)
   Tuple desugared nextVar <- stringifyErrorStack true $ runSupplyT 0 $ desugar sorted
-  Tuple elaborated env' <- runCheck' opts env $ for desugared $ typeCheckModule mainModuleIdent
+  Tuple elaborated env' <- runCheck' opts env $ \chSt -> for desugared $ typeCheckModule chSt mainModuleIdent
   regrouped <- stringifyErrorStack true $ createBindingGroupsModule <<< collapseBindingGroupsModule $ elaborated
   let
     entryPoints = moduleNameFromString `map` optso.modules
@@ -129,10 +133,10 @@ compile' env opts@(Options optso) ms = do
   where
   mainModuleIdent = moduleNameFromString <$> optso.main
 
-typeCheckModule :: Maybe ModuleName -> Module -> Check Module
-typeCheckModule mainModuleName (Module mn decls exps) = do
-  modify (\(CheckState st) -> CheckState (st { currentModule = Just mn }))
-  decls' <- typeCheckAll mainModuleName mn decls
+typeCheckModule :: RefVal CheckState -> Maybe ModuleName -> Module -> Check Module
+typeCheckModule chSt mainModuleName (Module mn decls exps) = do
+  modifyRef chSt (\(CheckState st) -> CheckState (st { currentModule = Just mn }))
+  decls' <- typeCheckAll chSt mainModuleName mn decls
   traverse_ checkTypesAreExported exps'
   return $ Module mn decls' exps
   where
@@ -143,12 +147,12 @@ typeCheckModule mainModuleName (Module mn decls exps) = do
   -- have also been exported from the module
   checkTypesAreExported :: DeclarationRef -> Check Unit
   checkTypesAreExported (ValueRef name) = do
-    ty <- lookupVariable mn (Qualified (Just mn) name)
+    ty <- lookupVariable chSt mn (Qualified (Just mn) name)
     case find isTconHidden (findTcons ty) of
-      Just hiddenType -> throwError (strMsg ("Error in module '" ++ show mn ++
-                                             "':\nExporting declaration '" ++ show name ++
-                                             "' requires type '" ++ show hiddenType ++
-                                             "' to be exported as well") :: ErrorStack)
+      Just hiddenType -> throwException (strMsg ("Error in module '" ++ show mn ++
+                                                 "':\nExporting declaration '" ++ show name ++
+                                                 "' requires type '" ++ show hiddenType ++
+                                                 "' to be exported as well") :: ErrorStack)
       Nothing -> return unit
   checkTypesAreExported _ = return unit
 
@@ -242,7 +246,7 @@ make rpt outputDir opts@(Options optso) ms = do
   go :: forall m. (Functor m, Apply m, Applicative m, Bind m, Monad m, MonadMake m) => Environment -> [Tuple Boolean Module] -> SupplyT m Environment
   go env [] = return env
   go env (Tuple false m : ms') = do
-    Tuple _ env' <- lift (liftError (runCheck' opts env (typeCheckModule Nothing m)))
+    Tuple _ env' <- lift (liftError (runCheck' opts env (\chSt -> typeCheckModule chSt Nothing m)))
     go env' ms'
   go env (Tuple true (m@(Module moduleName' _ exps)) : ms') = do
     let filePath = runModuleName moduleName'
@@ -251,7 +255,7 @@ make rpt outputDir opts@(Options optso) ms = do
 
     lift (progress ("Compiling " ++ runModuleName moduleName'))
 
-    Tuple (Module _ elaborated _) env' <- lift (liftError (runCheck' opts env (typeCheckModule Nothing m)))
+    Tuple (Module _ elaborated _) env' <- lift (liftError (runCheck' opts env (\chSt -> typeCheckModule chSt Nothing m)))
 
     regrouped <- lift (liftError (stringifyErrorStack true (createBindingGroups moduleName' (collapseBindingGroups elaborated))))
 

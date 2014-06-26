@@ -46,16 +46,16 @@ instance partialKind :: Partial Kind where
     go other = other
 
 instance unifiableCheckKind :: Unifiable Kind where
-  unify _     (KUnknown u1) (KUnknown u2) | u1 == u2 = return unit
-  unify stRef (KUnknown u) k = substitute stRef u k
-  unify stRef k (KUnknown u) = substitute stRef u k
-  unify _     Star Star = return unit
-  unify _     Bang Bang = return unit
-  unify stRef (Row k1) (Row k2) = unify stRef k1 k2
-  unify stRef (FunKind k1 k2) (FunKind k3 k4) = do
-    unify stRef k1 k3
-    unify stRef k2 k4
-  unify _ k1 k2 = throwException $ strMsg $ "Cannot unify " ++ prettyPrintKind k1 ++ " with " ++ prettyPrintKind k2 ++ "."
+  unify _    _     (KUnknown u1) (KUnknown u2) | u1 == u2 = return unit
+  unify chSt stRef (KUnknown u)  k = substitute chSt stRef u k
+  unify chSt stRef k             (KUnknown u) = substitute chSt stRef u k
+  unify _    _     Star          Star = return unit
+  unify _    _     Bang          Bang = return unit
+  unify chSt stRef (Row k1)      (Row k2) = unify chSt stRef k1 k2
+  unify chSt stRef (FunKind k1 k2) (FunKind k3 k4) = do
+    unify chSt stRef k1 k3
+    unify chSt stRef k2 k4
+  unify _ _ k1 k2 = throwException $ strMsg $ "Cannot unify " ++ prettyPrintKind k1 ++ " with " ++ prettyPrintKind k2 ++ "."
 
 -- |
 -- Infer the kind of a single type
@@ -111,11 +111,11 @@ solveTypes :: RefVal CheckState -> RefVal (UnifyState Kind) -> Boolean -> [Type]
 solveTypes chSt stRef isData ts kargs tyCon = traverse (infer chSt stRef) ts >>= \ks ->
   if isData 
   then do
-    unify stRef tyCon (foldr FunKind Star kargs)
-    for_ ks $ \k -> unify stRef k Star
+    unify chSt stRef tyCon (foldr FunKind Star kargs)
+    for_ ks $ \k -> unify chSt stRef k Star
     return tyCon
   else do
-    unify stRef tyCon (foldr FunKind (head ks) kargs)
+    unify chSt stRef tyCon (foldr FunKind (head ks) kargs)
     return tyCon
 
 -- |
@@ -146,13 +146,13 @@ infer' chSt stRef (TypeApp t1 t2) = do
   k0 <- fresh stRef
   k1 <- infer chSt stRef t1
   k2 <- infer chSt stRef t2
-  unify stRef k1 $ FunKind k2 k0
+  unify chSt stRef k1 $ FunKind k2 k0
   return k0
 infer' chSt stRef (ForAll ident ty _) = do
   k1 <- fresh stRef
   Just moduleName <- getCurrentModule chSt
   k2 <- bindLocalTypeVariables chSt moduleName [Tuple (ProperName ident) k1] $ infer chSt stRef ty
-  unify stRef k2 Star
+  unify chSt stRef k2 Star
   return Star
 infer' chSt stRef REmpty = do
   k <- fresh stRef
@@ -160,13 +160,13 @@ infer' chSt stRef REmpty = do
 infer' chSt stRef (RCons _ ty row) = do
   k1 <- infer chSt stRef ty
   k2 <- infer chSt stRef row
-  unify stRef k2 (Row k1)
+  unify chSt stRef k2 (Row k1)
   return $ Row k1
 infer' chSt stRef (ConstrainedType deps ty) = do
   for_ deps $ \(Tuple className tys) -> do
     _ <- infer chSt stRef $ foldl TypeApp (TypeConstructor className) tys
     return unit
   k <- infer chSt stRef ty
-  unify stRef k Star
+  unify chSt stRef k Star
   return Star
 infer' _ _ _ = theImpossibleHappened "Invalid argument to infer"
