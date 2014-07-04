@@ -34,6 +34,8 @@ import Data.Tuple
 import Data.Tuple3
 import Data.String (joinWith)
 
+import qualified Data.List as L
+
 import qualified Data.Maybe.Unsafe as Unsafe
 import qualified Data.Array.Unsafe as Unsafe
 
@@ -298,7 +300,7 @@ data DictionaryValue
   -- |
   -- A dictionary which depends on other dictionaries
   --
-  | DependentDictionaryValue (Qualified Ident) [DictionaryValue]
+  | DependentDictionaryValue (Qualified Ident) (L.List DictionaryValue)
   -- |
   -- A subclass dictionary
   --
@@ -347,40 +349,39 @@ entails :: Environment
         -> Tuple (Qualified ProperName) [Type]
         -> Boolean
         -> Check Value
-entails env@(Environment envo) moduleName context = solve (sortedNubBy canonicalizeDictionary (filter filterModule context))
+entails env@(Environment envo) moduleName context = solve (L.nubBy ((==) `on` canonicalizeDictionary) (L.filter filterModule (L.fromArray context)))
   where
-  sortedNubBy :: forall k v. (Ord k) => (v -> k) -> [v] -> [v]
-  sortedNubBy f vs = M.values (M.fromList (map (\v -> Tuple (f v) v) vs))
-
   -- Filter out type dictionaries which are in scope in the current module
   filterModule :: TypeClassDictionaryInScope -> Boolean
   filterModule (TypeClassDictionaryInScope { name = Qualified (Just mn) _ }) | mn == moduleName = true
   filterModule (TypeClassDictionaryInScope { name = Qualified Nothing _ }) = true
   filterModule _ = false
 
-  go :: [TypeClassDictionaryInScope] -> Boolean -> Qualified ProperName -> [Type] -> [DictionaryValue]
+  go :: L.List TypeClassDictionaryInScope -> Boolean -> Qualified ProperName -> [Type] -> L.List DictionaryValue
   go context' trySuperclasses' className' tys' = regularInstances ++ superclassInstances
     where
     -- Look for regular type instances
+    regularInstances :: L.List DictionaryValue
     regularInstances = do
       tcd@(TypeClassDictionaryInScope tcdo) <- context'
       -- Make sure the type class name matches the one we are trying to satisfy
-      guardArray $ className' == tcdo.className
+      guardList $ className' == tcdo.className
       -- Make sure the type unifies with the type in the type instance definition
       subst <- maybeToList $ do
         substAll <- concat <$> zipWithA (typeHeadsAreEqual moduleName env) tys' tcdo.instanceTypes
         verifySubstitution substAll
       -- Solve any necessary subgoals
-      args <- solveSubgoals context' subst tcdo.dependencies
+      args <- solveSubgoals context' subst (L.fromArray <$> tcdo.dependencies)
       return (mkDictionary (canonicalizeDictionary tcd) args)
 
     -- Look for implementations via superclasses
+    superclassInstances :: L.List DictionaryValue
     superclassInstances | trySuperclasses' = do
-      (Tuple subclassName (Tuple3 args _ implies)) <- M.toList envo.typeClasses
+      (Tuple subclassName (Tuple3 args _ implies)) <- L.fromArray $ M.toList envo.typeClasses
       -- Try each superclass
-      (Tuple index (Tuple superclass suTyArgs)) <- zip (range 0 (length implies - 1)) implies
+      (Tuple index (Tuple superclass suTyArgs)) <- L.fromArray $ zip (range 0 (length implies - 1)) implies
       -- Make sure the type class name matches the superclass name
-      guardArray $ className' == superclass
+      guardList $ className' == superclass
       -- Make sure the types unify with the types in the superclass implication
       subst <- maybeToList $ do
         substAll <- concat <$> zipWithA (typeHeadsAreEqual moduleName env) tys' suTyArgs
@@ -389,7 +390,7 @@ entails env@(Environment envo) moduleName context = solve (sortedNubBy canonical
       args' <- maybeToList $ traverse (flip lookup subst) args
       suDict <- go context' true subclassName args'
       return (SubclassDictionaryValue suDict superclass index)
-    superclassInstances = []
+    superclassInstances = L.Nil
 
     -- Ensure that a substitution is valid
     verifySubstitution :: [Tuple String Type] -> Maybe [Tuple String Type]
@@ -399,38 +400,38 @@ entails env@(Environment envo) moduleName context = solve (sortedNubBy canonical
         then Just (map Unsafe.head grps)
         else Nothing
 
-  solveSubgoals :: [TypeClassDictionaryInScope] -> [Tuple String Type] -> Maybe [Tuple (Qualified ProperName) [Type]] -> [Maybe [DictionaryValue]]
+  solveSubgoals :: L.List TypeClassDictionaryInScope -> [Tuple String Type] -> Maybe (L.List (Tuple (Qualified ProperName) [Type])) -> L.List (Maybe (L.List DictionaryValue))
   solveSubgoals _ _ Nothing = return Nothing
   solveSubgoals context' subst (Just subgoals) = do
     dict <- traverse (\(Tuple className ts) -> go context' true className (map (replaceAllTypeVars subst) ts)) subgoals
     return $ Just dict
 
-  solve :: [TypeClassDictionaryInScope] -> Tuple (Qualified ProperName) [Type] -> Boolean -> Check Value
+  solve :: L.List TypeClassDictionaryInScope -> Tuple (Qualified ProperName) [Type] -> Boolean -> Check Value
   solve context' (Tuple className tys) trySuperclasses =
-    case sortedNubBy dictTrace (chooseSimplestDictionaries (go context' trySuperclasses className tys)) of
-      [] -> throwError $ withErrorType unifyError $ strMsg $ "No instance found for " ++ show className ++ " " ++ joinWith " " (map prettyPrintTypeAtom tys)
-      [dict] -> return $ dictionaryValueToValue dict
+    case L.nubBy ((==) `on` dictTrace) (chooseSimplestDictionaries (go context' trySuperclasses className tys)) of
+      L.Nil -> throwError $ withErrorType unifyError $ strMsg $ "No instance found for " ++ show className ++ " " ++ joinWith " " (map prettyPrintTypeAtom tys)
+      L.Cons dict L.Nil -> return $ dictionaryValueToValue dict
       _ -> throwError $ withErrorType unifyError $ strMsg $ "Overlapping instances found for " ++ show className ++ " " ++ joinWith " " (map prettyPrintTypeAtom tys)
 
-guardArray :: Boolean -> [Unit]
-guardArray true = [unit]
-guardArray false = []
+guardList :: Boolean -> L.List Unit
+guardList true = L.Cons unit L.Nil
+guardList false = L.Nil
 
-maybeToList :: forall a. Maybe a -> [a]
-maybeToList Nothing = []
-maybeToList (Just a) = [a]
+maybeToList :: forall a. Maybe a -> L.List a
+maybeToList Nothing = L.Nil
+maybeToList (Just a) = L.Cons a L.Nil
 
 -- Make a dictionary from subgoal dictionaries by applying the correct function
-mkDictionary :: Qualified Ident -> Maybe [DictionaryValue] -> DictionaryValue
+mkDictionary :: Qualified Ident -> Maybe (L.List DictionaryValue) -> DictionaryValue
 mkDictionary fnName Nothing = LocalDictionaryValue fnName
-mkDictionary fnName (Just []) = GlobalDictionaryValue fnName
+mkDictionary fnName (Just L.Nil) = GlobalDictionaryValue fnName
 mkDictionary fnName (Just dicts) = DependentDictionaryValue fnName dicts
 
 -- Turn a DictionaryValue into a Value
 dictionaryValueToValue :: DictionaryValue -> Value
 dictionaryValueToValue (LocalDictionaryValue fnName) = Var fnName
 dictionaryValueToValue (GlobalDictionaryValue fnName) = App (Var fnName) (ObjectLiteral [])
-dictionaryValueToValue (DependentDictionaryValue fnName dicts) = foldl App (Var fnName) (map dictionaryValueToValue dicts)
+dictionaryValueToValue (DependentDictionaryValue fnName dicts) = foldl App (Var fnName) (dictionaryValueToValue <$> dicts)
 dictionaryValueToValue (SubclassDictionaryValue dict superclassName index) =
   App (Accessor (show superclassName ++ "_" ++ show index)
                 (Accessor C.__superclasses (dictionaryValueToValue dict)))
@@ -444,9 +445,9 @@ dictionaryValueToValue (SubclassDictionaryValue dict superclassName index) =
 -- is available directly, and that there is no way for a superclass instance to actually
 -- introduce an overlap that wouldn't have been there already, we simply remove dictionaries
 -- obtained as superclass instances if there are simpler instances available.
-chooseSimplestDictionaries :: [DictionaryValue] -> [DictionaryValue]
-chooseSimplestDictionaries ds = case filter isSimpleDictionaryValue ds of
-                                  [] -> ds
+chooseSimplestDictionaries :: L.List DictionaryValue -> L.List DictionaryValue
+chooseSimplestDictionaries ds = case L.filter isSimpleDictionaryValue ds of
+                                  L.Nil -> ds
                                   simple -> simple
 isSimpleDictionaryValue (SubclassDictionaryValue _ _ _) = false
 isSimpleDictionaryValue (DependentDictionaryValue _ ds) = all isSimpleDictionaryValue ds
@@ -457,7 +458,7 @@ isSimpleDictionaryValue _ = true
 -- data constructors
 --
 dictTrace :: DictionaryValue -> DictionaryValue
-dictTrace (DependentDictionaryValue fnName dicts) = DependentDictionaryValue fnName $ map dictTrace dicts
+dictTrace (DependentDictionaryValue fnName dicts) = DependentDictionaryValue fnName $ dictTrace <$> dicts
 dictTrace (SubclassDictionaryValue dict _ _) = dictTrace dict
 dictTrace other = other
 

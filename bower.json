@@ -2,6 +2,7 @@
   "name": "purescript-in-purescript",
   "version": "0.0.0",
   "dependencies": {
+    "purescript-lists": "*",
     "purescript-arrows": "*",
     "purescript-node-readline": "*",
     "purescript-refs": "*",
