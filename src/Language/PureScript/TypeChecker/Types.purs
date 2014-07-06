@@ -112,7 +112,7 @@ unifyTypes chSt stRef t1 t2 = rethrowException (\x -> mkErrorStack ("Error unify
   unifyTypes' ty f@(ForAll _ _ _) = unifyTypes chSt stRef f ty
   unifyTypes' (TypeVar v1) (TypeVar v2) | v1 == v2 = return unit
   unifyTypes' (TypeConstructor c1) (TypeConstructor c2) =
-    guardWith (strMsg ("Cannot unify " ++ show c1 ++ " with " ++ show c2 ++ ".")) (c1 == c2)
+    guardWith (\_ -> strMsg ("Cannot unify " ++ show c1 ++ " with " ++ show c2 ++ ".")) (c1 == c2)
   unifyTypes' (TypeApp t3 t4) (TypeApp t5 t6) = do
     unifyTypes chSt stRef t3 t5
     unifyTypes chSt stRef t4 t6
@@ -233,7 +233,7 @@ typeForBindingGroupElement chSt stRef moduleName (Tuple ident (Tuple val t)) dic
     Just (Tuple ty checkType) -> do
       -- Kind check
       kind <- kindOf chSt moduleName ty
-      guardWith (strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
+      guardWith (\_ -> strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
       -- Check the type with the new names in scope
       ty' <- introduceSkolemScope stRef <=< replaceAllTypeSynonyms chSt $ ty
       val' <- bindNames chSt dict' $ if checkType
@@ -641,7 +641,7 @@ expandAllTypeSynonyms chSt = everywhereOnTypesTopDownM go
 --
 ensureNoDuplicateProperties :: [Tuple String Value] -> Check Unit
 ensureNoDuplicateProperties ps =
-  guardWith (strMsg "Duplicate property names") $
+  guardWith (\_ -> strMsg "Duplicate property names") $
     length (nub <<< map fst $ ps) == length ps
 
 -- |
@@ -733,7 +733,7 @@ infer chSt stRef val = rethrowException (\x -> mkErrorStack "Error inferring typ
   infer' (TypedValue checkType val ty) = do
     Just moduleName <- getCurrentModule chSt
     kind <- kindOf chSt moduleName ty
-    guardWith (strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
+    guardWith (\_ -> strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
     ty' <- introduceSkolemScope stRef <=< replaceAllTypeSynonyms chSt $ ty
     val' <- if checkType then check chSt stRef val ty' else return val
     return $ TypedValue true val' ty'
@@ -745,7 +745,7 @@ inferLetBinding _ _ seen [] ret j = Tuple seen <$> j ret
 inferLetBinding chSt stRef seen (ValueDeclaration ident nameKind [] Nothing (tv@(TypedValue checkType val ty)) : rest) ret j = do
   Just moduleName <- getCurrentModule chSt
   kind <- kindOf chSt moduleName ty
-  guardWith (strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
+  guardWith (\_ -> strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
   let
     dict :: M.Map (Tuple ModuleName Ident) (Tuple Type NameKind)
     dict | isFunction val = M.singleton (Tuple moduleName ident) (Tuple ty nameKind)
@@ -964,7 +964,7 @@ check chSt stRef val ty = rethrowException (\x -> mkErrorStack errorMessage (Jus
   check' (TypedValue checkType val ty1) ty2 = do
     Just moduleName <- getCurrentModule chSt
     kind <- kindOf chSt moduleName ty1
-    guardWith (strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
+    guardWith (\_ -> strMsg $ "Expected type of kind *, was " ++ prettyPrintKind kind) $ kind == Star
     ty1' <- introduceSkolemScope stRef <=< replaceAllTypeSynonyms chSt $ ty1
     val' <- subsumes chSt stRef (Just val) ty1' ty2
     case val' of

@@ -174,7 +174,7 @@ typeCheckAll chSt mainModuleName moduleName ((d@(ExternDeclaration importTy name
   rethrowException (\e -> strMsg ("Error in foreign import declaration " ++ show name) <> (e :: ErrorStack)) $ do
     Environment env <- getEnv chSt
     kind <- kindOf chSt moduleName ty
-    guardWith (strMsg "Expected kind *" :: ErrorStack) $ kind == Star
+    guardWith (\_ -> strMsg "Expected kind *" :: ErrorStack) $ kind == Star
     case M.lookup (Tuple moduleName name) env.names of
       Just _ -> throwException (strMsg (show name ++ " is already defined") :: ErrorStack)
       Nothing -> putEnv chSt (Environment (env { names = M.insert (Tuple moduleName name) (Tuple ty (Extern importTy)) env.names }))
@@ -183,7 +183,7 @@ typeCheckAll chSt mainModuleName moduleName ((d@(ExternDeclaration importTy name
 typeCheckAll chSt mainModuleName moduleName ((d@(FixityDeclaration _ name)) : rest) = do
   ds <- typeCheckAll chSt mainModuleName moduleName rest
   Environment env <- getEnv chSt
-  guardWith (strMsg ("Fixity declaration with no binding: " ++ name) :: ErrorStack) $ M.member (Tuple moduleName (Op name)) env.names
+  guardWith (\_ -> strMsg ("Fixity declaration with no binding: " ++ name) :: ErrorStack) $ M.member (Tuple moduleName (Op name)) env.names
   return $ d : ds
 typeCheckAll chSt mainModuleName currentModule ((d@(ImportDeclaration moduleName _ _)) : rest) = do
   tcds <- getTypeClassDictionaries chSt

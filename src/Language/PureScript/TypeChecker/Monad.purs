@@ -302,9 +302,9 @@ runCheck' (Options o) env c = stringifyErrorStack o.verboseErrors $ unsafeRunEff
 -- |
 -- Make an assertion, failing with an error message
 --
-guardWith :: ErrorStack -> Boolean -> Check Unit
+guardWith :: (Unit -> ErrorStack) -> Boolean -> Check Unit
 guardWith _ true = return unit
-guardWith e false = throwException e
+guardWith e false = throwException (e unit)
 
 -- |
 -- Generate new type class dictionary name
