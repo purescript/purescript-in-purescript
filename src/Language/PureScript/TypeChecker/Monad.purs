@@ -26,6 +26,19 @@ import Control.Monad.Error
 
 import qualified Data.Map as M
 
+foreign import catchException' 
+  "function catchException$prime(c) {\
+  \  return function(t) {\
+  \    return function() {\
+  \      try {\
+  \        return t();\
+  \      } catch(e) {\
+  \        return c(e)();\
+  \      }\
+  \    };\
+  \  };\
+  \}" :: forall e r a. (e -> Eff (err :: Exception e | r) a) -> Eff (err :: Exception e | r) a -> Eff (err :: Exception e | r) a
+
 -- |
 -- The type checking monad, which provides the state of the type checker, and error reporting capabilities
 --
