@@ -7,7 +7,7 @@ import Data.Array (map, nub, mapMaybe, filter, sort, last)
 import Data.Foldable (foldl, any)
 import Data.Traversable (for, traverse, sequence)
 import Data.String (joinWith, indexOf, drop, length)
-import Data.String.Regex (regex, match)
+import Data.String.Regex (regex, match, parseFlags)
 
 import qualified Data.Map as M
 
@@ -279,7 +279,7 @@ completion :: forall eff. RefVal PSCIState -> Completer (ref :: Ref | eff)
 completion state s = do
   st <- readRef state
   let ms = map snd st.loadedModules
-  let suffix = fromMaybe "" $ lastIdent s 
+  let suffix = fromMaybe "" $ lastIdent s
   return $ Tuple (sort (filter (isPrefixOf suffix) (names ms))) suffix
     where
     names :: [D.Module] -> [String]
@@ -288,24 +288,24 @@ completion state s = do
       ident <- mapMaybe (getDeclName exts) ds
       qual <- [ Qualified Nothing ident, Qualified (Just moduleName) ident ]
       return (show qual)
-    
+
     getDeclName :: Maybe [D.DeclarationRef] -> D.Declaration -> Maybe Ident
     getDeclName Nothing (D.ValueDeclaration ident _ _ _ _) = Just ident
     getDeclName (Just exts) (D.ValueDeclaration ident _ _ _ _) | any (exports ident) exts = Just ident
     getDeclName exts (D.PositionedDeclaration _ d) = getDeclName exts d
     getDeclName _ _ = Nothing
-    
+
     exports :: Ident -> D.DeclarationRef -> Boolean
     exports ident (D.ValueRef ident') = ident == ident'
     exports ident (D.PositionedDeclarationRef _ r) = exports ident r
     exports _ _ = false
-    
+
     isPrefixOf :: String -> String -> Boolean
     isPrefixOf s1 s2 = indexOf s1 s2 == 0
-    
+
     lastIdent :: String -> Maybe String
-    lastIdent = last <<< filter (\s -> length s > 0) <<< match (regex "[A-Za-z0-9.]*" "g")
-    
+    lastIdent = last <<< filter (\s -> length s > 0) <<< match (regex "[A-Za-z0-9.]*" (parseFlags "g"))
+
 handleCommand :: [String] -> RefVal PSCIState -> Command -> Eff (fs :: FS, trace :: Trace, process :: Process, console :: Console, ref :: Ref, eval :: Eval) Unit
 handleCommand _ _ Help = trace help
 handleCommand _ _ Quit = trace "See ya!" *> exit 0

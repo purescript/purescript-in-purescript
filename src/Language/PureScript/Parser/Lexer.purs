@@ -226,7 +226,7 @@ lex input = do
       Right tok -> go line (col + tok.count) tok.next [] (mkPositionedToken line col cs (StringLiteral tok.str) : ts)
     where
     handleMultiline :: String -> String
-    handleMultiline = Rx.replace (Rx.regex "\\\\(\\s*)\\n(\\s*)\\\\" "g") ""
+    handleMultiline = Rx.replace (Rx.regex "\\\\(\\s*)\\n(\\s*)\\\\" (Rx.parseFlags "g")) ""
 
   go line col _ _ _ = Left $ "Lexer error at line " ++ show line ++ ", column " ++ show col
 
