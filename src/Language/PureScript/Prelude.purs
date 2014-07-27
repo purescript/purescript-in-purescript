@@ -4,7 +4,7 @@ import Language.PureScript (procFilePath)
 import Node.Path
 
 preludeBaseDir :: String
-preludeBaseDir = join (dirname procFilePath) "../prelude/"
+preludeBaseDir = join [dirname procFilePath, "../prelude/"]
 
 preludeFiles :: [String]
 preludeFiles =

@@ -206,7 +206,7 @@ modulesDir = homeDirectory ++ "/.purescript/psci/cache"
 -- The REPL support module
 --
 replModule :: String
-replModule = join (dirname procFilePath) "../runtime/REPL.purs"
+replModule = join [dirname procFilePath, "../runtime/REPL.purs"]
 
 -- |
 -- Compilation options
