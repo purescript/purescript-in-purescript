@@ -4,7 +4,7 @@ import Data.Array (concatMap, map)
 import Data.Foldable (all, elem, foldMap)
 import Data.Monoid ()
 import Data.String (charCodeAt, joinWith, split)
-import Data.String.Regex (Regex(..), regex, test)
+import Data.String.Regex (Regex(..), regex, test, parseFlags)
 import Language.PureScript.Names
 
 -- |
@@ -128,7 +128,7 @@ moduleNameToJs :: ModuleName -> String
 moduleNameToJs (ModuleName pns) = joinWith "_" (runProperName `map` pns)
 
 rxAlphaNum :: Regex
-rxAlphaNum = regex "[a-z0-9]" "i"
+rxAlphaNum = regex "[a-z0-9]" (parseFlags "i")
 
 rxIdent :: Regex
-rxIdent = regex "^[a-z][a-z0-9]*$" "i"
+rxIdent = regex "^[a-z][a-z0-9]*$" (parseFlags "i")
