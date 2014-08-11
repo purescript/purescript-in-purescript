@@ -18,7 +18,10 @@ module Language.PureScript.Parser.Types (
     parseTypeAtom
   ) where
 
+import Control.Alt
+import Control.Alternative
 import Control.Apply
+import Control.Lazy
 import Control.Monad (when, unless)
 
 import Data.Maybe
@@ -43,7 +46,7 @@ parseTypeAtom :: Parser TokenStream Type
 parseTypeAtom = fst parseType_
 
 parseType_ :: Tuple (Parser TokenStream Type) (Parser TokenStream Type)
-parseType_ = fix2 $ \(Tuple atom p) -> 
+parseType_ = fix $ \(Tuple atom p) ->
   let
     -- |
     -- Parse a type as it appears in e.g. a data constructor
@@ -62,7 +65,7 @@ parseType_ = fix2 $ \(Tuple atom p) ->
         , parseForAll
         , parens (parseRow true)
         , parens p ])
-        
+
     parseNumber :: Parser TokenStream Type
     parseNumber = const tyNumber <$> uname' "Number"
 
@@ -94,7 +97,7 @@ parseType_ = fix2 $ \(Tuple atom p) ->
     parseTypeConstructor = TypeConstructor <$> parseQualified properName
 
     parseForAll :: Parser TokenStream Type
-    parseForAll = mkForAll <$> (try (reserved "forall") *> many1 lname <* dot)
+    parseForAll = mkForAll <$> (try (reserved "forall") *> some lname <* dot)
                            <*> parseConstrainedType
 
     parseConstrainedType :: Parser TokenStream Type
@@ -108,7 +111,7 @@ parseType_ = fix2 $ \(Tuple atom p) ->
         return constraints
       ty <- p
       return $ maybe ty (flip ConstrainedType ty) constraints
-        
+
     parseNameAndType :: forall t. Parser TokenStream t -> Parser TokenStream (Tuple String t)
     parseNameAndType p = Tuple <$> ((lname <|> stringLiteral) <* doubleColon) <*> p
 
@@ -117,8 +120,8 @@ parseType_ = fix2 $ \(Tuple atom p) ->
 
     parseRow :: Boolean -> Parser TokenStream Type
     parseRow nonEmpty = (curry rowFromList <$> many' (parseNameAndType p) <*> parseRowEnding) <?> "row"
-      where many' = if nonEmpty then commaSep1 else commaSep    
-        
+      where many' = if nonEmpty then commaSep1 else commaSep
+
   in Tuple atom' (buildExprParser operators atom' <?> "type")
   where
   operators = [ [ Infix (return TypeApp) AssocLeft ]

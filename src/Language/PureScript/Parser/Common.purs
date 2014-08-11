@@ -14,19 +14,21 @@
 -----------------------------------------------------------------------------
 
 module Language.PureScript.Parser.Common where
-  
+
 import Prelude.Unsafe (unsafeIndex)
-  
+
 import Data.Maybe
 import Data.Either
 import Data.Array (map, null, length)
 import Data.Foldable (notElem, foldl)
 
+import Control.Alt
+import Control.Alternative
 import Control.Apply
 
 import Control.Monad.State.Class
 import Control.Monad.Error.Class
-  
+
 import Text.Parsing.Parser
 import Text.Parsing.Parser.Combinators
 
@@ -41,11 +43,11 @@ toTokenStream :: [PositionedToken] -> TokenStream
 toTokenStream ts = TokenStream { tokens: ts, position: 0 }
 
 unconsStream :: TokenStream -> Maybe { head :: PositionedToken, tail :: TokenStream }
-unconsStream (TokenStream o) | o.position < length o.tokens = 
+unconsStream (TokenStream o) | o.position < length o.tokens =
   Just { head: o.tokens `unsafeIndex` o.position
        , tail: TokenStream { tokens: o.tokens
-                           , position: o.position + 1 
-                           } 
+                           , position: o.position + 1
+                           }
        }
 unconsStream _ = Nothing
 
@@ -53,35 +55,35 @@ runTokenParser :: forall a. Parser TokenStream a -> [PositionedToken] -> Either 
 runTokenParser p ts = case runParser (toTokenStream ts) p of
   Left (ParseError o) -> Left o.message
   Right a -> Right a
-  
+
 eof :: Parser TokenStream Unit
 eof = do
   ts <- get
   case unconsStream ts of
     Nothing -> return unit
     Just cons -> fail $ "Expected EOF at line " ++ show cons.head.line ++ ", column " ++ show cons.head.column ++ ", found " ++ show cons.head.token
-    
+
 token :: forall a. String -> (Token -> String) -> (Token -> Maybe a) -> Parser TokenStream a
 token exp sh p = do
   ts <- get
   case unconsStream ts of
-    Just cons -> 
+    Just cons ->
       case p cons.head.token of
         Just a -> do
           consume
           put cons.tail
           return a
-        Nothing -> fail $ "Expected " ++ exp ++ ", found " ++ sh cons.head.token ++ " at line " ++ show cons.head.line ++ ", column " ++ show cons.head.column 
+        Nothing -> fail $ "Expected " ++ exp ++ ", found " ++ sh cons.head.token ++ " at line " ++ show cons.head.line ++ ", column " ++ show cons.head.column
     _ -> fail $ "Expected " ++ exp ++ ", found EOF"
-    
+
 token' :: forall a. String -> (Token -> Maybe a) -> Parser TokenStream a
 token' exp p = token exp show p
 
 match :: forall a. Token -> Parser TokenStream Unit
 match tok = token' (show tok) (\tok' -> if tok == tok' then Just unit else Nothing)
-    
+
 lparen :: Parser TokenStream Unit
-lparen = match LParen 
+lparen = match LParen
 
 rparen :: Parser TokenStream Unit
 rparen = match RParen
@@ -172,7 +174,7 @@ lname = token' "identifier" go
   where
   go (LName s) = Just s
   go _ = Nothing
-  
+
 reserved :: String -> Parser TokenStream Unit
 reserved s = token' (show s) go
   where
@@ -184,13 +186,13 @@ uname = token' "proper name" go
   where
   go (UName s) = Just s
   go _ = Nothing
-  
+
 uname' :: String -> Parser TokenStream Unit
 uname' s = token' (show s) go
   where
   go (UName s') | s == s' = Just unit
   go _ = Nothing
-  
+
 symbol :: Parser TokenStream String
 symbol = token' "symbol" go
   where
@@ -205,7 +207,7 @@ symbol = token' "symbol" go
   go Comma      = Just ","
   go At         = Just "@"
   go _ = Nothing
-  
+
 symbol' :: String -> Parser TokenStream Unit
 symbol' s = token' (show s) go
   where
@@ -312,16 +314,16 @@ parseQualified parser = part []
   part path = (do name <- try (properName <* delimiter)
                   part (updatePath path name))
               <|> (Qualified (qual path) <$> try parser)
-           
+
   delimiter :: Parser TokenStream Unit
   delimiter = dot <* notFollowedBy "dot" dot
-  
+
   updatePath :: [ProperName] -> ProperName -> [ProperName]
   updatePath path name = path ++ [name]
-  
+
   qual :: [ProperName] -> Maybe ModuleName
   qual path = if null path then Nothing else Just $ ModuleName path
-  
+
 -- |
 -- A parser which returns the current source position
 --
@@ -331,7 +333,7 @@ sourcePos = do
   case unconsStream ts of
     Nothing -> return $ mkSourcePos "" 0 0
     Just cons -> return $ mkSourcePos "" cons.head.line cons.head.column
-  
+
 -- |
 -- A parser which returns the comments for the next lexeme
 --

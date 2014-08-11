@@ -18,13 +18,14 @@ module Language.PureScript.Parser.Kinds (
   ) where
 
 import Control.Apply
+import Control.Lazy
 
 import Language.PureScript.Kinds
 import Language.PureScript.Parser.Lexer
 import Language.PureScript.Parser.Common
 
 import Text.Parsing.Parser
-import Text.Parsing.Parser.Combinators 
+import Text.Parsing.Parser.Combinators
 import Text.Parsing.Parser.Expr
 
 parseStar :: Parser TokenStream Kind
@@ -37,14 +38,14 @@ parseBang = const Bang <$> symbol' "!"
 -- Parse a kind
 --
 parseKind :: Parser TokenStream Kind
-parseKind = fix (\parseKind -> 
-  let 
+parseKind = fix1 (\parseKind ->
+  let
     parseKindAtom :: Parser TokenStream Kind
     parseKindAtom = choice
       [ parseStar
       , parseBang
       , parens parseKind ]
-    
+
   in buildExprParser operators parseKindAtom)
   where
   operators = [ [ Prefix (symbol' "#" *> return Row) ]

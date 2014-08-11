@@ -37,6 +37,8 @@ import qualified Language.PureScript.Parser.Declarations as Parser
 
 import Debug.Trace
 
+import Control.Alt
+import Control.Alternative
 import Control.Apply
 import Control.Monad
 import Control.Monad.Eff

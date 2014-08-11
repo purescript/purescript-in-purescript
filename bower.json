@@ -1,18 +1,18 @@
 {
   "name": "purescript-in-purescript",
-  "version": "0.0.0",
   "dependencies": {
-    "purescript-arrows": "*",
-    "purescript-node-readline": "*",
-    "purescript-refs": "*",
-    "purescript-node-args": "*",
-    "purescript-maps": "*",
-    "purescript-transformers": "*",
-    "purescript-pattern-arrows": "*",
-    "purescript-parsing": "*",
+    "purescript-arrows": ">=0.1.0",
+    "purescript-node-readline": ">=0.1.0",
+    "purescript-refs": ">=0.1.1",
+    "purescript-node-args": ">=0.2.0",
+    "purescript-maps": ">=0.0.4",
+    "purescript-transformers": ">=0.1.0",
+    "purescript-pattern-arrows": ">=0.1.0",
+    "purescript-parsing": ">=0.1.0",
     "purescript-globals": ">=0.1.3",
     "purescript-node-path": ">=0.1.0",
-    "purescript-node-fs": "*"
+    "purescript-node-fs": ">=0.1.0",
+    "purescript-control": ">=0.2.0"
   },
   "devDependencies": {
     "purescript-quickcheck": "*"

@@ -30,6 +30,8 @@ import Control.Monad.Eff.Process
 import Control.Monad.Eff.FS
 
 import Control.Apply
+import Control.Alt
+import Control.Alternative
 import Control.Monad.Application
 import Control.Monad.Trans
 import Control.Monad.Identity

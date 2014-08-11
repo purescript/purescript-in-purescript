@@ -13,6 +13,8 @@ import qualified Data.Map as M
 
 import Debug.Trace
 
+import Control.Alt
+import Control.Alternative
 import Control.Apply
 import Control.Monad
 import Control.Monad.Eff
@@ -83,7 +85,7 @@ parse :: forall a. P.Parser P.TokenStream a -> String -> Either String a
 parse p s = P.lex s >>= P.runTokenParser (p <* P.eof)
 
 parseLet :: P.Parser P.TokenStream Command
-parseLet = Let <$> (D.Let <$> (P.reserved "let" *> P.braces (P.many1 P.parseDeclaration)))
+parseLet = Let <$> (D.Let <$> (P.reserved "let" *> P.braces (some P.parseDeclaration)))
 
 parseCommand :: String -> Either String Command
 parseCommand ":?" = Right Help
