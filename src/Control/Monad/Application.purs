@@ -2,18 +2,22 @@ module Control.Monad.Application where
 
 import Data.Either
 import Data.Maybe
-import Debug.Trace
+
 import Control.Monad.Trans
 import Control.Monad.Error
 import Control.Monad.Error.Class
 import Control.Monad.Error.Trans
 import Control.Monad.Eff
+import Control.Monad.Eff.Exception
 import Control.Monad.Eff.FS
 import Control.Monad.Eff.Process
-import Global
-import Language.PureScript
+
 import Node.FS
 import Node.Path
+
+import Debug.Trace
+
+import Language.PureScript
 
 data Application a = Application (forall eff. ErrorT String (Eff (fs :: FS, trace :: Trace, process :: Process | eff)) a)
 
