@@ -7,7 +7,8 @@ import Data.Foldable (elem)
 import Data.Maybe
 import Data.Monoid
 import Data.Traversable (traverse)
-import Data.String (charAt, joinWith)
+import Data.String (joinWith)
+import Data.String.Unsafe (charAt)
 
 import Language.PureScript.Keywords
 
@@ -21,11 +22,11 @@ data PrinterState = PrinterState { indent :: Number }
 
 instance showPrinterState :: Show PrinterState where
   show (PrinterState { indent = i }) = "PrinterState { indent: " ++ show i ++ " }"
-  
+
 instance eqPrinterState :: Eq PrinterState where
   (==) (PrinterState { indent = i1 }) (PrinterState { indent = i2 }) = i1 == i2
   (/=) x y = not (x == y)
-  
+
 instance ordPrinterState :: Ord PrinterState where
   compare (PrinterState { indent = i1 }) (PrinterState { indent = i2 }) = compare i1 i2
 

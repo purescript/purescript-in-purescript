@@ -2,7 +2,8 @@ module Language.PureScript.Parser.Lexer where
 
 import Data.Array ()
 import Data.Either
-import Data.String
+import Data.String hiding (charAt)
+import qualified Data.String.Unsafe as U
 import qualified Data.String.Regex as Rx
 
 import Global (readInt, readFloat)
@@ -141,6 +142,9 @@ foreign import unEscape
   \    };\
   \  };\
   \}" :: forall r. String -> (String -> r) -> r -> r
+
+charAt :: Number -> String -> String
+charAt i s = fromChar $ U.charAt i s
 
 lex :: String -> Either String [PositionedToken]
 lex input = do
