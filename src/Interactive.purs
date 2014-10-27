@@ -282,7 +282,7 @@ completion state s = do
   st <- readRef state
   let ms = map snd st.loadedModules
   let suffix = fromMaybe "" $ lastIdent s
-  return $ Tuple (sort (filter (isPrefixOf suffix) (names ms))) suffix
+  return { matched: suffix, completions: sort (filter (isPrefixOf suffix) (names ms)) }
     where
     names :: [D.Module] -> [String]
     names ms = nub do

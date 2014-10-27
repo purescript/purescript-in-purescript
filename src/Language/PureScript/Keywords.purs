@@ -14,7 +14,8 @@
 
 module Language.PureScript.Keywords where
 
-import Data.String (split)
+import Data.Char
+import Data.String (toCharArray)
 
 -- |
 -- A list of purescript reserved identifiers
@@ -42,7 +43,7 @@ reservedPsNames =
   , "false"
   , "in"
   , "where" ]
-  
+
 -- |
 -- A list of additionally reserved identifiers for types
 --
@@ -50,15 +51,15 @@ reservedTypeNames :: [String]
 reservedTypeNames =
   [ "forall"
   , "where" ]
-  
+
 opCharsString :: String
 opCharsString = ":!#$%&*+./<=>?@\\^|-~"
-  
+
 -- |
 -- The characters allowed for use in operators
 --
-opChars :: [String]
-opChars = split "" opCharsString
+opChars :: [Char]
+opChars = toCharArray opCharsString
 
 -- |
 -- A list of reserved operators
